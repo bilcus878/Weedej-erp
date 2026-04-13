@@ -1,0 +1,114 @@
+════════════════════════════════════════════════════════════
+  ÚČETNÍ PROGRAM - PRVNÍ SPUŠTĚNÍ
+════════════════════════════════════════════════════════════
+
+Ahoj! Tohle je kompletní účetní program napojený na SumUp API.
+
+📚 ZAČNI TADY:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Otevři soubor: START_HERE.md
+   → Přehled projektu a co číst dál
+
+2. Pro instalaci:
+   → QUICK_START.md (rychlý) nebo
+   → INSTALACE_KROK_ZA_KROKEM.md (detailní)
+
+
+🚀 RYCHLÁ INSTALACE (5 minut):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Nainstaluj PostgreSQL:
+
+   Docker (doporučeno):
+   docker run --name ucetni-db -e POSTGRES_PASSWORD=heslo123 -p 5432:5432 -d postgres:14
+
+   Nebo stáhni z: https://www.postgresql.org/download/
+
+2. Uprav .env soubor:
+   DATABASE_URL="postgresql://postgres:TVOJEHESLO@localhost:5432/ucetni_db"
+   (Změň TVOJEHESLO)
+
+3. Spusť instalaci:
+   Klikni na: scripts\setup.bat
+
+4. Spusť aplikaci:
+   Klikni na: scripts\start.bat
+
+5. Otevři prohlížeč:
+   http://localhost:3000
+
+
+📁 PŘEHLED SLOŽEK:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+app/           → Stránky a API (Next.js)
+components/    → React komponenty
+lib/           → Knihovny (Prisma, SumUp API)
+prisma/        → Databázové schéma
+scripts/       → Pomocné .bat skripty
+
+
+📄 DOKUMENTACE:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+START_HERE.md                    → Začni tady!
+QUICK_START.md                   → 5minutová instalace
+INSTALACE_KROK_ZA_KROKEM.md     → Detailní průvodce
+README.md                        → Kompletní dokumentace
+TUTORIAL.md                      → Jak funguje Next.js/React
+FAQ.md                           → Často kladené otázky
+STRUKTURA_PROJEKTU.md           → Co je kde
+
+
+🔧 POMOCNÉ SKRIPTY (složka scripts/):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+setup.bat       → Instalace projektu
+start.bat       → Spuštění aplikace
+db-studio.bat   → Otevři databázové GUI
+seed.bat        → Naplň testovacími daty
+reset-db.bat    → Reset databáze (SMAŽE VŠE!)
+
+
+✨ CO PROGRAM UMÍ:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ Katalog zboží (sync ze SumUp)
+✅ Skladová evidence (naskladnění, přehled)
+✅ Transakce (import ze SumUp)
+✅ Dashboard (tržby, stav skladu)
+✅ Automatické vyskladnění při prodeji
+✅ Multi-item transakce pod jednu FA
+✅ Dodavatelé
+✅ FIFO metoda vyskladnění
+
+
+🛠️ TECHNOLOGIE:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Frontend:   Next.js 14 + React + TypeScript + Tailwind CSS
+Backend:    Next.js API Routes
+Databáze:   PostgreSQL + Prisma ORM
+API:        SumUp integrace
+
+
+❓ MÁTE PROBLÉM?
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Koukni do FAQ.md
+2. Hledej na Google (zkopíruj error message)
+3. Zeptej se ChatGPT/Claude
+
+
+📧 KONTAKT:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Máš otázky? Neváhej se zeptat!
+
+
+════════════════════════════════════════════════════════════
+  Užij si to! 🚀
+════════════════════════════════════════════════════════════
+
+Created with ❤️ by Claude Code

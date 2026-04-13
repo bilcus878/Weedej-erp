@@ -1,0 +1,55 @@
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# local env files
+.env*.local
+.env
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# uploads
+/public/uploads/
+
+# Eshop - má vlastní repo (DEK4DENCE/weedej-eshop)
+/weedej-eshop-master/
+
+# Dev soubory
+dev-output.log
+*.log
+tmpclaude-*
+prompt.txt
+test-dashboard.js
+
+# Pattern/doc soubory z vývoje (interní poznámky)
+COMPACT_TABLE_PATTERN.md
+DETAIL_SECTION_PATTERN.md
+FILTER_PATTERN.md
+HEADER_PATTERN.md
+ORDER_DETAIL_PATTERN.md
+PAGINATION_HIGHLIGHT_PATTERN.md

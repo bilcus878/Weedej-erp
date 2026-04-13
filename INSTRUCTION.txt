@@ -1,0 +1,13 @@
+Zmeny a soubory vytvarej rovnou ve slozce C:\Users\bilcu\Dropbox\Krámek\UcetniP
+Ucetni program napojený na sumup api klič : 
+
+1) Program bude mít katalog zboží prevzaný ze sumupu přes api klic : sup_sk_pXdK8RIux1haKPXeeKHEHFXkpp7rHmCvO
+2) Program bude mít skladovou evidenci ve které půjde naskladňovat zboží z katalogu zboží buď v gramech nebo v kusech ( přidej ještě tlačítko pro opravu kdyby člověk zadal špatný počet ks nebo g do nakladnění ) - samozrejme to musí vypadat to naskladneni aby tam byl datum dodavatel všechno..
+3) Program bude evidovat všechny karetní i hotovostní transakce přes api
+4) Transakce se evidují tak, že když je na jedné transakci více položek tak se musí rozepsat zvlášt pod jednou fakturou.. FA napíšeme u všech ale cenu cele transakce jen u té první položky z FA aby v tom nebyl zmatek 
+6) v transakci se eviduje počet ( bud ks nebo g ) a rovnou se to odecita ze skladu ten prodanej počet kusu nebo gramu od položky se stejnym nazvem z katalogu
+7) Poslední dva body jsou kvůli tomu, ze cenu potrebujeme znat za celou objednavku jen jednou ( protože uplatnuji slevy ) ale gramy a kusy musíme evidovat zvlast aby fungovala ta evidence skladu
+
+Zaroven evidence skladu si vytahne ceny z katalogu a chci aby tam byla hezka prehledna tabulka zboží a v tom i ceny, kusy,gramy a celkove ceny,kusy, gramy kolik je na sklade atd.. proste aby to bylo uplne mega luxusni kamo!
+
+Navrhni kompletni reseni a udelej kompletne cely kod.. Tesim se jak to bude slapat! dej si zalezet aby vse bylo eno nuno mame dost usage! :)
