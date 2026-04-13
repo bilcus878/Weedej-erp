@@ -1,6 +1,8 @@
 // API Endpoint pro přehled skladu (souhrn po produktech)
 // URL: http://localhost:3000/api/inventory/summary
 
+export const dynamic = 'force-dynamic'
+
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import {

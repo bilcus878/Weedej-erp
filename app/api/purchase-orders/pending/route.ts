@@ -1,6 +1,8 @@
 // API Endpoint pro seznam očekávaných objednávek (s remaining quantity)
 // URL: /api/purchase-orders/pending
 
+export const dynamic = 'force-dynamic'
+
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 

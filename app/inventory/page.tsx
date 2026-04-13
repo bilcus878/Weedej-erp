@@ -200,8 +200,8 @@ export default function InventoryPage() {
   async function fetchData() {
     try {
       const [summaryRes, productsRes, categoriesRes, settingsRes] = await Promise.all([
-        fetch('/api/inventory/summary'),
-        fetch('/api/products'),
+        fetch('/api/inventory/summary', { cache: 'no-store' }),
+        fetch('/api/products', { cache: 'no-store' }),
         fetch('/api/categories'),
         fetch('/api/settings'),
       ])

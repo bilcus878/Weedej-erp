@@ -269,7 +269,7 @@ export default function ReceiptsPage() {
         fetch('/api/receipts'),
         fetch('/api/suppliers'),
         fetch('/api/products'),
-        fetch('/api/purchase-orders/pending'), // NOVÝ endpoint pro očekávané objednávky
+        fetch('/api/purchase-orders/pending', { cache: 'no-store' }), // NOVÝ endpoint pro očekávané objednávky
         fetch('/api/settings')
       ])
 
@@ -620,8 +620,7 @@ export default function ReceiptsPage() {
       </div>
 
       {/* Očekávané příjemky (TAHOVÁ LOGIKA) */}
-      {(pendingOrders.length > 0 || pendingOrdersError) && (
-        <div ref={pendingSectionRef}>
+      <div ref={pendingSectionRef}>
         <Card className={`mb-6 border-2 ${pendingOrdersError ? 'border-red-300 bg-red-50' : 'border-orange-300 bg-orange-50'}`}>
           <CardHeader
             className={`cursor-pointer transition-colors ${pendingOrdersError ? 'hover:bg-red-100' : 'hover:bg-orange-100'}`}
@@ -940,6 +939,13 @@ export default function ReceiptsPage() {
                   </div>
                 )
               })}
+              {filteredPendingOrders.length === 0 && !pendingOrdersError && (
+                <div className="py-8 text-center text-gray-500 text-sm">
+                  {pendingOrders.length === 0
+                    ? 'Žádné objednávky čekající na příjem. Klikněte ↻ Obnovit pro aktualizaci.'
+                    : 'Žádné objednávky neodpovídají zadaným filtrům.'}
+                </div>
+              )}
             </div>
 
             {/* Stránkování a výběr počtu záznamů */}
@@ -1054,8 +1060,7 @@ export default function ReceiptsPage() {
           </CardContent>
           )}
         </Card>
-        </div>
-      )}
+      </div>
 
       {/* Filtry - přesně odpovídající sloupcům tabulky */}
       <div ref={receiptsSectionRef} className="mb-4">
