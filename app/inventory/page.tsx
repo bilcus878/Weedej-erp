@@ -10,7 +10,7 @@ import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import { formatPrice, formatQuantity, formatDate } from '@/lib/utils'
 import { isNonVatPayer } from '@/lib/vatCalculation'
-import { ArrowLeft, ChevronDown, ChevronUp, ChevronRight, Edit2, Eye } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronUp, ChevronRight, Edit2, Eye, RefreshCw } from 'lucide-react'
 
 interface InventorySummary {
   productId: string
@@ -752,13 +752,21 @@ export default function InventoryPage() {
     <div className="space-y-6">
       {/* Hlavička */}
       <div className="bg-gradient-to-r from-slate-50 to-purple-50 border-l-4 border-purple-500 rounded-lg shadow-sm py-4 px-6">
-        <div className="text-center">
+        <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-purple-700">
             Skladová evidence
             <span className="text-sm font-normal text-gray-600 ml-3">
               (Zobrazeno <span className="font-semibold text-purple-600">{filteredAndSortedSummary.length}</span> z <span className="font-semibold text-gray-700">{summary.length}</span>)
             </span>
           </h1>
+          <button
+            onClick={() => fetchData()}
+            className="flex items-center gap-2 px-4 py-2 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg text-sm font-medium transition-colors"
+            title="Obnovit data skladu"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Obnovit
+          </button>
         </div>
       </div>
 

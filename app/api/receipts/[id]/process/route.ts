@@ -265,13 +265,29 @@ export async function POST(
 
       // 7. PROPOJ s existující fakturou (pokud existuje objednávka)
       if (receipt.purchaseOrderId) {
-        // Najdi fakturu pro tuto objednávku (měla vzniknout při objednání)
-        const existingInvoice = await tx.receivedInvoice.findUnique({
+        // Najdi fakturu pro tuto objednávku
+        // Fallback: pokud neexistuje (starší objednávky), vytvoř ji teď
+        let existingInvoice = await tx.receivedInvoice.findUnique({
           where: { purchaseOrderId: receipt.purchaseOrderId }
         })
 
         if (!existingInvoice) {
-          throw new Error(`Faktura pro objednávku ${receipt.purchaseOrder?.orderNumber} nebyla nalezena. Měla vzniknout při vytvoření objednávky.`)
+          const invoiceNum = body.invoiceData?.invoiceNumber?.trim() || `FA-OBJ-${receipt.purchaseOrder?.orderNumber}`
+          existingInvoice = await tx.receivedInvoice.create({
+            data: {
+              invoiceNumber: invoiceNum,
+              isTemporary: !body.invoiceData?.invoiceNumber,
+              purchaseOrderId: receipt.purchaseOrderId,
+              invoiceDate: body.invoiceData?.invoiceDate ? new Date(body.invoiceData.invoiceDate) : new Date(),
+              dueDate: body.invoiceData?.dueDate ? new Date(body.invoiceData.dueDate) : null,
+              totalAmount: receipt.purchaseOrder?.totalAmount ?? 0,
+              totalAmountWithoutVat: receipt.purchaseOrder?.totalAmountWithoutVat ?? 0,
+              totalVatAmount: receipt.purchaseOrder?.totalVatAmount ?? 0,
+              paymentType: 'transfer',
+              note: body.invoiceData?.note || null,
+            }
+          })
+          console.log(`⚠️ Faktura nebyla nalezena pro objednávku ${receipt.purchaseOrder?.orderNumber} — vytvořena nová: ${invoiceNum}`)
         }
 
         // Propoj příjemku s fakturou

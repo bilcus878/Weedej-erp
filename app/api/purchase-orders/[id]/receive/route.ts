@@ -154,10 +154,14 @@ export async function POST(
 
       // 3. Naskladni každou položku a propoj s ReceiptItem
       for (const itemData of body.items) {
+        // Přeskoč manuální položky bez productId (nelze naskladnit do InventoryItem)
+        if (!itemData.productId) continue
+
         const orderItem = order.items.find(oi => oi.productId === itemData.productId)!
 
         // Najdi odpovídající ReceiptItem
-        const receiptItem = receipt.items.find(ri => ri.productId === itemData.productId)!
+        const receiptItem = receipt.items.find(ri => ri.productId === itemData.productId)
+        if (!receiptItem) continue
 
         // Vytvoř InventoryItem
         const inventoryItem = await tx.inventoryItem.create({
@@ -169,11 +173,11 @@ export async function POST(
             supplierId: order.supplierId,
             receiptId: receipt.id,
             date: actualReceiptDate,
-            note: null // Poznámka se nevyplňuje automaticky
+            note: null
           }
         })
 
-        // ✅ Propoj ReceiptItem s InventoryItem
+        // Propoj ReceiptItem s InventoryItem
         await tx.receiptItem.update({
           where: { id: receiptItem.id },
           data: {
@@ -220,28 +224,41 @@ export async function POST(
       })
 
       // 6. PROPOJ s existující fakturou (vytvořenou při objednání)
-      // Najdi fakturu pro tuto objednávku
-      const existingInvoice = await tx.receivedInvoice.findUnique({
+      // Pokud faktura neexistuje (starší objednávky), vytvoř ji teď
+      let existingInvoice = await tx.receivedInvoice.findUnique({
         where: { purchaseOrderId: order.id }
       })
 
       if (!existingInvoice) {
-        throw new Error(`Faktura pro objednávku ${order.orderNumber} nebyla nalezena. Měla vzniknout při vytvoření objednávky.`)
+        // Fallback: faktura nebyla vytvořena při objednání — vytvoř ji nyní
+        const invoiceNum = body.invoiceData?.invoiceNumber?.trim() || `FA-OBJ-${order.orderNumber}`
+        existingInvoice = await tx.receivedInvoice.create({
+          data: {
+            invoiceNumber: invoiceNum,
+            isTemporary: !body.invoiceData?.invoiceNumber,
+            purchaseOrderId: order.id,
+            invoiceDate: body.invoiceData?.invoiceDate ? new Date(body.invoiceData.invoiceDate) : actualReceiptDate,
+            dueDate: body.invoiceData?.dueDate ? new Date(body.invoiceData.dueDate) : null,
+            totalAmount: order.totalAmount ?? 0,
+            totalAmountWithoutVat: order.totalAmountWithoutVat ?? 0,
+            totalVatAmount: order.totalVatAmount ?? 0,
+            paymentType: 'transfer',
+            note: body.invoiceData?.note || null,
+          }
+        })
+        console.log(`⚠️ Faktura nebyla nalezena pro objednávku ${order.orderNumber} — vytvořena nová: ${invoiceNum}`)
       }
 
-      // Propoj příjemku s fakturou (nová relace: Receipt.receivedInvoiceId)
+      // Propoj příjemku s fakturou
       await tx.receipt.update({
         where: { id: receipt.id },
-        data: {
-          receivedInvoiceId: existingInvoice.id
-        }
+        data: { receivedInvoiceId: existingInvoice.id }
       })
 
-      // Aktualizuj fakturu - POUZE číslo a datum, ČÁSTKA ZŮSTÁVÁ (celá objednávka)!
+      // Aktualizuj fakturu — POUZE číslo a datum, ČÁSTKA ZŮSTÁVÁ
       let invoiceNumber = existingInvoice.invoiceNumber
       let isTemporary = existingInvoice.isTemporary
 
-      // Pokud uživatel zadal skutečné číslo faktury, přepiš ho
       if (body.invoiceData?.invoiceNumber && body.invoiceData.invoiceNumber.trim() !== '') {
         invoiceNumber = body.invoiceData.invoiceNumber
         isTemporary = false
@@ -250,9 +267,8 @@ export async function POST(
       await tx.receivedInvoice.update({
         where: { id: existingInvoice.id },
         data: {
-          invoiceNumber, // Přepiš číslo (pokud zadáno)
+          invoiceNumber,
           isTemporary,
-          // totalAmount NEMĚNÍM - zůstává celá částka objednávky!
           invoiceDate: body.invoiceData?.invoiceDate
             ? new Date(body.invoiceData.invoiceDate)
             : existingInvoice.invoiceDate,
@@ -265,7 +281,7 @@ export async function POST(
 
       console.log(`✅ ATOMICKÁ OPERACE ÚSPĚŠNÁ:`)
       console.log(`   - Příjemka: ${receiptNumber}`)
-      console.log(`   - Faktura: ${invoiceNumber} ${isTemporary ? '(DOČASNÁ)' : '(SKUTEČNÁ)'} - propojeno s příjemkou`)
+      console.log(`   - Faktura: ${invoiceNumber} ${isTemporary ? '(DOČASNÁ)' : '(SKUTEČNÁ)'}`)
       console.log(`   - Sklad: ${body.items.length} položek naskladněno`)
       console.log(`   - Objednávka: ${order.orderNumber} → ${newStatus}`)
 
