@@ -9,7 +9,7 @@ import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import { formatPrice, formatQuantity } from '@/lib/utils'
 import { VAT_RATE_LABELS, calculateVatFromNet, isNonVatPayer, CZECH_VAT_RATES } from '@/lib/vatCalculation'
-import { Plus, X, Edit2, Trash2, ChevronUp, ChevronDown, ChevronRight, FolderOpen, Package, Tag } from 'lucide-react'
+import { Plus, X, Edit2, Trash2, ChevronUp, ChevronDown, ChevronRight, FolderOpen, Package, Tag, ShoppingBag } from 'lucide-react'
 
 interface Product {
   id: string
@@ -34,6 +34,24 @@ interface Category {
   }
 }
 
+interface EshopVariant {
+  id: string
+  productId: string
+  name: string
+  price: number | string
+  weightGrams?: number | null
+  isDefault: boolean
+  isActive: boolean
+}
+
+interface EshopVariantForm {
+  name: string
+  price: string
+  weightGrams: string
+  isDefault: boolean
+  isActive: boolean
+}
+
 type SortField = 'name' | 'category' | 'price' | 'purchasePrice'
 type SortDirection = 'asc' | 'desc'
 
@@ -49,6 +67,12 @@ export default function ProductsPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>('')
   const [isVatPayer, setIsVatPayer] = useState<boolean>(true)
   const [expandedProducts, setExpandedProducts] = useState<Set<string>>(new Set())
+
+  // Eshop Variants state (per productId)
+  const [eshopVariants, setEshopVariants] = useState<Record<string, EshopVariant[]>>({})
+  const [variantForms, setVariantForms] = useState<Record<string, EshopVariantForm>>({})
+  const [editingVariant, setEditingVariant] = useState<Record<string, EshopVariant | null>>({})
+  const [variantLoading, setVariantLoading] = useState<Record<string, boolean>>({})
 
   // Category management state
   const [showCategoryManager, setShowCategoryManager] = useState(false)
@@ -469,6 +493,100 @@ export default function ProductsPage() {
     setEditingCategory(null)
     setCategoryFormData({ name: '' })
   }
+
+  // ─── Eshop Variants ────────────────────────────────────────────────────────
+
+  const emptyVariantForm = (): EshopVariantForm => ({
+    name: '', price: '', weightGrams: '', isDefault: false, isActive: true,
+  })
+
+  async function fetchEshopVariants(productId: string) {
+    try {
+      const res = await fetch(`/api/products/${productId}/eshop-variants`)
+      if (res.ok) {
+        const data = await res.json()
+        setEshopVariants((prev) => ({ ...prev, [productId]: data }))
+      }
+    } catch { /* ignore */ }
+  }
+
+  function handleToggleExpand(productId: string) {
+    toggleExpand(productId)
+    // Načti varianty při prvním rozbalení
+    if (!eshopVariants[productId]) {
+      fetchEshopVariants(productId)
+    }
+  }
+
+  async function handleVariantSubmit(productId: string) {
+    const form = variantForms[productId] || emptyVariantForm()
+    if (!form.name || !form.price) {
+      alert('Vyplň název a cenu varianty')
+      return
+    }
+    setVariantLoading((prev) => ({ ...prev, [productId]: true }))
+    try {
+      const editing = editingVariant[productId]
+      const url = editing
+        ? `/api/products/${productId}/eshop-variants/${editing.id}`
+        : `/api/products/${productId}/eshop-variants`
+      const method = editing ? 'PATCH' : 'POST'
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: form.name,
+          price: parseFloat(form.price),
+          weightGrams: form.weightGrams ? parseFloat(form.weightGrams) : null,
+          isDefault: form.isDefault,
+          isActive: form.isActive,
+        }),
+      })
+      if (!res.ok) throw new Error('Chyba při ukládání varianty')
+      await fetchEshopVariants(productId)
+      setVariantForms((prev) => ({ ...prev, [productId]: emptyVariantForm() }))
+      setEditingVariant((prev) => ({ ...prev, [productId]: null }))
+    } catch (err: any) {
+      alert(err.message)
+    } finally {
+      setVariantLoading((prev) => ({ ...prev, [productId]: false }))
+    }
+  }
+
+  function handleEditVariant(productId: string, variant: EshopVariant) {
+    setEditingVariant((prev) => ({ ...prev, [productId]: variant }))
+    setVariantForms((prev) => ({
+      ...prev,
+      [productId]: {
+        name: variant.name,
+        price: String(variant.price),
+        weightGrams: variant.weightGrams ? String(variant.weightGrams) : '',
+        isDefault: variant.isDefault,
+        isActive: variant.isActive,
+      },
+    }))
+  }
+
+  function handleCancelVariantEdit(productId: string) {
+    setEditingVariant((prev) => ({ ...prev, [productId]: null }))
+    setVariantForms((prev) => ({ ...prev, [productId]: emptyVariantForm() }))
+  }
+
+  async function handleDeleteVariant(productId: string, variantId: string, variantName: string) {
+    if (!confirm(`Smazat variantu "${variantName}"?`)) return
+    setVariantLoading((prev) => ({ ...prev, [productId]: true }))
+    try {
+      const res = await fetch(`/api/products/${productId}/eshop-variants/${variantId}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error('Chyba při mazání varianty')
+      await fetchEshopVariants(productId)
+    } catch (err: any) {
+      alert(err.message)
+    } finally {
+      setVariantLoading((prev) => ({ ...prev, [productId]: false }))
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
 
   const handlePageChange = (newPage: number) => {
     setCurrentPage(newPage)
@@ -996,7 +1114,7 @@ export default function ProductsPage() {
                   }`}>
                     {/* Rozbalit/sbalit */}
                     <button
-                      onClick={() => toggleExpand(product.id)}
+                      onClick={() => handleToggleExpand(product.id)}
                       className="flex items-center justify-center"
                     >
                       {isExpanded ? (
@@ -1019,7 +1137,7 @@ export default function ProductsPage() {
                     {/* Název */}
                     <div
                       className="cursor-pointer text-center overflow-hidden"
-                      onClick={() => toggleExpand(product.id)}
+                      onClick={() => handleToggleExpand(product.id)}
                     >
                       <p className="text-sm font-semibold text-gray-900 truncate">
                         {product.name}
@@ -1029,7 +1147,7 @@ export default function ProductsPage() {
                     {/* Kategorie */}
                     <div
                       className="cursor-pointer text-center overflow-hidden"
-                      onClick={() => toggleExpand(product.id)}
+                      onClick={() => handleToggleExpand(product.id)}
                     >
                       {product.category?.name ? (
                         <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 truncate inline-block max-w-full">
@@ -1043,7 +1161,7 @@ export default function ProductsPage() {
                     {/* Prodejní cena */}
                     <div
                       className="cursor-pointer text-center overflow-hidden"
-                      onClick={() => toggleExpand(product.id)}
+                      onClick={() => handleToggleExpand(product.id)}
                     >
                       <p className="text-sm font-medium text-gray-900 truncate">{formatPrice(product.price)}</p>
                     </div>
@@ -1052,7 +1170,7 @@ export default function ProductsPage() {
                     {isVatPayer && (
                       <div
                         className="cursor-pointer text-center overflow-hidden"
-                        onClick={() => toggleExpand(product.id)}
+                        onClick={() => handleToggleExpand(product.id)}
                       >
                         <p className="text-xs text-gray-500 truncate">
                           {isNonVatPayer(Number(product.vatRate))
@@ -1066,7 +1184,7 @@ export default function ProductsPage() {
                     {/* Nákupní cena */}
                     <div
                       className="cursor-pointer text-center overflow-hidden"
-                      onClick={() => toggleExpand(product.id)}
+                      onClick={() => handleToggleExpand(product.id)}
                     >
                       <p className="text-sm text-gray-600 truncate">
                         {product.purchasePrice ? formatPrice(product.purchasePrice) : '-'}
@@ -1076,7 +1194,7 @@ export default function ProductsPage() {
                     {/* Jednotka */}
                     <div
                       className="cursor-pointer text-center overflow-hidden"
-                      onClick={() => toggleExpand(product.id)}
+                      onClick={() => handleToggleExpand(product.id)}
                     >
                       <p className="text-xs text-gray-500 truncate">{product.unit}</p>
                     </div>
@@ -1133,6 +1251,155 @@ export default function ProductsPage() {
                               <div></div>
                             </div>
                           )}
+                        </div>
+                      </div>
+
+                      {/* Varianty produktu eshop */}
+                      <div className="mt-4 border border-emerald-200 rounded-lg overflow-hidden">
+                        <div className="flex items-center justify-between px-4 py-3 bg-emerald-50 border-b border-emerald-200">
+                          <h4 className="font-semibold text-sm text-emerald-900 flex items-center gap-2">
+                            <ShoppingBag className="h-4 w-4" />
+                            Varianty produktu (eshop)
+                          </h4>
+                          <span className="text-xs text-emerald-700">
+                            {(eshopVariants[product.id] || []).length} variant
+                          </span>
+                        </div>
+
+                        {/* Seznam variant */}
+                        <div className="bg-white">
+                          {(eshopVariants[product.id] || []).length === 0 ? (
+                            <p className="text-xs text-gray-500 text-center py-3">
+                              Žádné varianty — přidejte první variantu níže.
+                            </p>
+                          ) : (
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="bg-gray-50 text-gray-600">
+                                  <th className="px-3 py-2 text-left font-medium">Název</th>
+                                  <th className="px-3 py-2 text-right font-medium">Cena (Kč)</th>
+                                  <th className="px-3 py-2 text-right font-medium">Váha (g)</th>
+                                  <th className="px-3 py-2 text-center font-medium">Výchozí</th>
+                                  <th className="px-3 py-2 text-center font-medium">Aktivní</th>
+                                  <th className="px-3 py-2 text-center font-medium">Akce</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {(eshopVariants[product.id] || []).map((v) => (
+                                  <tr key={v.id} className="border-t border-gray-100 hover:bg-gray-50">
+                                    <td className="px-3 py-2 font-medium">{v.name}</td>
+                                    <td className="px-3 py-2 text-right">{Number(v.price).toFixed(2)}</td>
+                                    <td className="px-3 py-2 text-right">{v.weightGrams ?? '—'}</td>
+                                    <td className="px-3 py-2 text-center">
+                                      {v.isDefault ? <span className="text-emerald-600 font-semibold">✓</span> : <span className="text-gray-300">—</span>}
+                                    </td>
+                                    <td className="px-3 py-2 text-center">
+                                      {v.isActive ? <span className="text-emerald-600">✓</span> : <span className="text-red-400">✗</span>}
+                                    </td>
+                                    <td className="px-3 py-2 text-center">
+                                      <div className="flex items-center justify-center gap-1">
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); handleEditVariant(product.id, v) }}
+                                          className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                                          title="Upravit"
+                                        >
+                                          <Edit2 className="h-3.5 w-3.5" />
+                                        </button>
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); handleDeleteVariant(product.id, v.id, v.name) }}
+                                          className="p-1 text-red-500 hover:bg-red-50 rounded"
+                                          title="Smazat"
+                                        >
+                                          <Trash2 className="h-3.5 w-3.5" />
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          )}
+                        </div>
+
+                        {/* Formulář přidat / upravit variantu */}
+                        <div className="border-t border-emerald-100 bg-emerald-50 px-4 py-3 space-y-2">
+                          <p className="text-xs font-semibold text-emerald-800">
+                            {editingVariant[product.id] ? `Upravit: ${editingVariant[product.id]!.name}` : 'Přidat variantu'}
+                          </p>
+                          <div className="grid grid-cols-12 gap-2 items-end">
+                            <div className="col-span-3">
+                              <label className="block text-xs text-gray-600 mb-1">Název *</label>
+                              <input
+                                type="text"
+                                value={variantForms[product.id]?.name ?? ''}
+                                onChange={(e) => setVariantForms((prev) => ({ ...prev, [product.id]: { ...(prev[product.id] || emptyVariantForm()), name: e.target.value } }))}
+                                placeholder="např. 3,5g"
+                                className="w-full h-8 px-2 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-emerald-400 focus:border-emerald-400"
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            </div>
+                            <div className="col-span-2">
+                              <label className="block text-xs text-gray-600 mb-1">Cena (Kč) *</label>
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={variantForms[product.id]?.price ?? ''}
+                                onChange={(e) => setVariantForms((prev) => ({ ...prev, [product.id]: { ...(prev[product.id] || emptyVariantForm()), price: e.target.value } }))}
+                                placeholder="0"
+                                className="w-full h-8 px-2 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-emerald-400 focus:border-emerald-400"
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            </div>
+                            <div className="col-span-2">
+                              <label className="block text-xs text-gray-600 mb-1">Váha (g)</label>
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={variantForms[product.id]?.weightGrams ?? ''}
+                                onChange={(e) => setVariantForms((prev) => ({ ...prev, [product.id]: { ...(prev[product.id] || emptyVariantForm()), weightGrams: e.target.value } }))}
+                                placeholder="3.5"
+                                className="w-full h-8 px-2 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-emerald-400 focus:border-emerald-400"
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            </div>
+                            <div className="col-span-2 flex items-center gap-3 pb-1">
+                              <label className="flex items-center gap-1 text-xs cursor-pointer" onClick={(e) => e.stopPropagation()}>
+                                <input
+                                  type="checkbox"
+                                  checked={variantForms[product.id]?.isDefault ?? false}
+                                  onChange={(e) => setVariantForms((prev) => ({ ...prev, [product.id]: { ...(prev[product.id] || emptyVariantForm()), isDefault: e.target.checked } }))}
+                                  className="accent-emerald-600"
+                                />
+                                Výchozí
+                              </label>
+                              <label className="flex items-center gap-1 text-xs cursor-pointer" onClick={(e) => e.stopPropagation()}>
+                                <input
+                                  type="checkbox"
+                                  checked={variantForms[product.id]?.isActive ?? true}
+                                  onChange={(e) => setVariantForms((prev) => ({ ...prev, [product.id]: { ...(prev[product.id] || emptyVariantForm()), isActive: e.target.checked } }))}
+                                  className="accent-emerald-600"
+                                />
+                                Aktivní
+                              </label>
+                            </div>
+                            <div className="col-span-3 flex gap-1 pb-1">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleVariantSubmit(product.id) }}
+                                disabled={variantLoading[product.id]}
+                                className="flex-1 h-8 bg-emerald-600 text-white text-xs rounded hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                              >
+                                {variantLoading[product.id] ? '...' : editingVariant[product.id] ? 'Uložit' : 'Přidat'}
+                              </button>
+                              {editingVariant[product.id] && (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleCancelVariantEdit(product.id) }}
+                                  className="h-8 px-2 bg-gray-200 text-gray-700 text-xs rounded hover:bg-gray-300 transition-colors"
+                                >
+                                  Zrušit
+                                </button>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </div>
 

@@ -48,6 +48,7 @@ model Product {
   receiptItems       ReceiptItem[]
   reservations       Reservation[]
   transactionItems   TransactionItem[]
+  eshopVariants      EshopVariant[]
 
   @@index([name])
   @@index([categoryId])
@@ -822,6 +823,23 @@ model User {
 }
 
 // ========== API KLÍČE PRO EXTERNÍ PŘÍSTUP (E-SHOP) ==========
+// ========== VARIANTY PRODUKTŮ PRO ESHOP (spravováno z ERP) ==========
+model EshopVariant {
+  id          String   @id @default(uuid())
+  productId   String
+  name        String
+  price       Decimal  @db.Decimal(10, 2)
+  weightGrams Float?
+  isDefault   Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+}
+
 model ApiKey {
   id         String    @id @default(uuid())
   name       String    // Popis klíče (např. "Eshop Weedej na Vercelu")

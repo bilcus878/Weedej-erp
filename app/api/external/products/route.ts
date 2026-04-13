@@ -38,6 +38,19 @@ export async function GET(request: NextRequest) {
         category: {
           select: { id: true, name: true, slug: true },
         },
+        // Varianty spravované z ERP pro eshop
+        eshopVariants: {
+          where: { isActive: true },
+          select: {
+            id: true,
+            name: true,
+            price: true,
+            weightGrams: true,
+            isDefault: true,
+            isActive: true,
+          },
+          orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+        },
         // Pro výpočet skladu
         inventoryItems: {
           select: { quantity: true },
@@ -68,6 +81,14 @@ export async function GET(request: NextRequest) {
         inStock: stock > 0,
         isFeatured: product.isFeatured,
         category: product.category,
+        eshopVariants: product.eshopVariants.map((v) => ({
+          id: v.id,
+          name: v.name,
+          price: Number(v.price),
+          weightGrams: v.weightGrams,
+          isDefault: v.isDefault,
+          isActive: v.isActive,
+        })),
       }
     })
 
