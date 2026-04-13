@@ -141,6 +141,32 @@ export default function ReceiptsPage() {
 
   useEffect(() => {
     loadData()
+
+    // Auto-refresh každých 30 sekund
+    const interval = setInterval(() => {
+      fetch('/api/purchase-orders/pending', { cache: 'no-store' })
+        .then(res => res.json())
+        .then(data => {
+          if (Array.isArray(data)) {
+            setPendingOrders(data)
+            setPendingOrdersError(null)
+          } else {
+            setPendingOrdersError(data?.error || 'Chyba serveru')
+          }
+        })
+        .catch(() => {}) // tiché selhání při auto-refresh
+    }, 30000)
+
+    // Refresh při návratu na stránku (změna viditelnosti)
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') loadData()
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', handleVisibility)
+    }
   }, [])
 
   useEffect(() => {
@@ -620,6 +646,7 @@ export default function ReceiptsPage() {
       </div>
 
       {/* Očekávané příjemky (TAHOVÁ LOGIKA) */}
+      {(pendingOrders.length > 0 || pendingOrdersError) && (
       <div ref={pendingSectionRef}>
         <Card className={`mb-6 border-2 ${pendingOrdersError ? 'border-red-300 bg-red-50' : 'border-orange-300 bg-orange-50'}`}>
           <CardHeader
@@ -638,13 +665,6 @@ export default function ReceiptsPage() {
                   : `📦 Očekávané příjemky (čeká na příjem) — ${filteredPendingOrders.length} objednávek`
                 }
               </CardTitle>
-              <button
-                onClick={(e) => { e.stopPropagation(); loadData() }}
-                className="ml-auto text-xs px-2 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50"
-                title="Načíst znovu"
-              >
-                ↻ Obnovit
-              </button>
             </div>
             {pendingOrdersError && (
               <p className="text-red-700 text-sm mt-1 ml-8">{pendingOrdersError}</p>
@@ -939,13 +959,6 @@ export default function ReceiptsPage() {
                   </div>
                 )
               })}
-              {filteredPendingOrders.length === 0 && !pendingOrdersError && (
-                <div className="py-8 text-center text-gray-500 text-sm">
-                  {pendingOrders.length === 0
-                    ? 'Žádné objednávky čekající na příjem. Klikněte ↻ Obnovit pro aktualizaci.'
-                    : 'Žádné objednávky neodpovídají zadaným filtrům.'}
-                </div>
-              )}
             </div>
 
             {/* Stránkování a výběr počtu záznamů */}
@@ -1061,6 +1074,7 @@ export default function ReceiptsPage() {
           )}
         </Card>
       </div>
+      )}
 
       {/* Filtry - přesně odpovídající sloupcům tabulky */}
       <div ref={receiptsSectionRef} className="mb-4">
