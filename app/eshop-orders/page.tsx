@@ -1,30 +1,1061 @@
-// Eshop objednávky
-// URL: /eshop-orders
+// Stránka Eshop objednávky (/eshop-orders)
+// Zobrazení objednávek z e-shopu (source = 'eshop') s možností vystavení faktury, expedice a PDF
 
 'use client'
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
-import { Globe } from 'lucide-react'
+import { useEffect, useState, useRef } from 'react'
+import { useSearchParams } from 'next/navigation'
+import Link from 'next/link'
+import { Card, CardContent } from '@/components/ui/Card'
+import Button from '@/components/ui/Button'
+import { formatPrice, formatDate, formatDateTime } from '@/lib/utils'
+import { generateInvoicePDF } from '@/lib/generateInvoicePDF'
+import {
+  ChevronDown,
+  ChevronRight,
+  Globe,
+  FileText,
+  Truck,
+  CheckCircle,
+  Clock,
+  Package,
+  ExternalLink,
+  ShoppingBag,
+  CreditCard,
+  XCircle,
+  RefreshCw,
+} from 'lucide-react'
+
+// ─── Typy ────────────────────────────────────────────────────────────────────
+
+interface EshopOrderItem {
+  id: string
+  productId?: string | null
+  productName?: string | null
+  quantity: number
+  unit: string
+  price: number         // bez DPH
+  vatRate: number
+  vatAmount: number
+  priceWithVat: number  // s DPH
+  shippedQuantity?: number
+  product?: {
+    id: string
+    name: string
+    price: number
+    unit: string
+  } | null
+}
+
+interface IssuedInvoiceSummary {
+  id: string
+  invoiceNumber: string
+  paymentType: string
+  paymentStatus: string
+  status: string
+  invoiceDate: string
+}
+
+interface EshopUser {
+  id: string
+  email: string
+  name?: string | null
+  phone?: string | null
+}
+
+interface EshopOrder {
+  id: string
+  orderNumber: string
+  orderDate: string
+  status: string
+  totalAmount: number
+  totalAmountWithoutVat: number
+  totalVatAmount: number
+  paidAt?: string | null
+  shippedAt?: string | null
+  customerName?: string | null
+  customerEmail?: string | null
+  customerPhone?: string | null
+  customerAddress?: string | null
+  eshopOrderId?: string | null
+  eshopUserId?: string | null
+  stripeSessionId?: string | null
+  stripePaymentIntent?: string | null
+  note?: string | null
+  items: EshopOrderItem[]
+  issuedInvoice?: IssuedInvoiceSummary | null
+  EshopUser?: EshopUser | null
+}
+
+// ─── Pomocné funkce ──────────────────────────────────────────────────────────
+
+function getStatusBadge(status: string) {
+  switch (status) {
+    case 'paid':
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+          <Clock className="w-3 h-3" />
+          Zaplaceno
+        </span>
+      )
+    case 'shipped':
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+          <Truck className="w-3 h-3" />
+          Expedováno
+        </span>
+      )
+    case 'delivered':
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+          <CheckCircle className="w-3 h-3" />
+          Doručeno
+        </span>
+      )
+    case 'cancelled':
+    case 'storno':
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+          <XCircle className="w-3 h-3" />
+          Zrušeno
+        </span>
+      )
+    case 'new':
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+          <Package className="w-3 h-3" />
+          Nová
+        </span>
+      )
+    default:
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+          {status}
+        </span>
+      )
+  }
+}
+
+function getCustomerName(order: EshopOrder): string {
+  return order.customerName || order.EshopUser?.name || 'Zákazník'
+}
+
+function getCustomerEmail(order: EshopOrder): string {
+  return order.customerEmail || order.EshopUser?.email || ''
+}
+
+function getCustomerPhone(order: EshopOrder): string {
+  return order.customerPhone || order.EshopUser?.phone || ''
+}
+
+// ─── Hlavní komponenta ───────────────────────────────────────────────────────
 
 export default function EshopOrdersPage() {
+  const searchParams = useSearchParams()
+  const highlightId = searchParams.get('highlight')
+
+  const [orders, setOrders] = useState<EshopOrder[]>([])
+  const [filteredOrders, setFilteredOrders] = useState<EshopOrder[]>([])
+  const [loading, setLoading] = useState(true)
+  const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set())
+  const [isVatPayer, setIsVatPayer] = useState(true)
+
+  // Stavy zpracování
+  const [processingInvoice, setProcessingInvoice] = useState<string | null>(null)
+  const [processingStatus, setProcessingStatus] = useState<string | null>(null)
+
+  // Filtry
+  const [filterNumber, setFilterNumber] = useState('')
+  const [filterDate, setFilterDate] = useState('')
+  const [filterCustomer, setFilterCustomer] = useState('')
+  const [filterMinValue, setFilterMinValue] = useState('')
+  const [filterStatus, setFilterStatus] = useState('all')
+  const [filterStatusDropdownOpen, setFilterStatusDropdownOpen] = useState(false)
+  const filterStatusRef = useRef<HTMLDivElement>(null)
+
+  // Paginace
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 20
+  const sectionRef = useRef<HTMLDivElement>(null)
+
+  // ─── Načtení dat ────────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    fetchData()
+  }, [])
+
+  // Zavřít dropdown filtru při kliknutí mimo
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (filterStatusRef.current && !filterStatusRef.current.contains(event.target as Node)) {
+        setFilterStatusDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  // Filtrování
+  useEffect(() => {
+    let filtered = [...orders]
+
+    if (filterNumber) {
+      filtered = filtered.filter(o =>
+        o.orderNumber.toLowerCase().includes(filterNumber.toLowerCase())
+      )
+    }
+
+    if (filterDate) {
+      filtered = filtered.filter(o => {
+        const d = new Date(o.orderDate).toISOString().split('T')[0]
+        return d === filterDate
+      })
+    }
+
+    if (filterCustomer) {
+      const q = filterCustomer.toLowerCase()
+      filtered = filtered.filter(o =>
+        getCustomerName(o).toLowerCase().includes(q) ||
+        getCustomerEmail(o).toLowerCase().includes(q)
+      )
+    }
+
+    if (filterMinValue) {
+      const min = parseFloat(filterMinValue)
+      if (!isNaN(min)) {
+        filtered = filtered.filter(o => Number(o.totalAmount) >= min)
+      }
+    }
+
+    if (filterStatus !== 'all') {
+      filtered = filtered.filter(o => o.status === filterStatus)
+    }
+
+    setFilteredOrders(filtered)
+    setCurrentPage(1)
+  }, [orders, filterNumber, filterDate, filterCustomer, filterMinValue, filterStatus])
+
+  // Scroll k highlightnuté objednávce
+  useEffect(() => {
+    if (highlightId && filteredOrders.length > 0) {
+      const index = filteredOrders.findIndex(o => o.id === highlightId)
+      if (index !== -1) {
+        const page = Math.floor(index / itemsPerPage) + 1
+        setCurrentPage(page)
+        setExpandedOrders(new Set([highlightId]))
+        setTimeout(() => {
+          document.getElementById(`order-${highlightId}`)?.scrollIntoView({
+            behavior: 'smooth', block: 'center'
+          })
+        }, 100)
+      }
+    }
+  }, [highlightId, filteredOrders, itemsPerPage])
+
+  async function fetchData() {
+    try {
+      setLoading(true)
+      const [ordersRes, settingsRes] = await Promise.all([
+        fetch('/api/eshop-orders'),
+        fetch('/api/settings'),
+      ])
+      const ordersData = await ordersRes.json()
+      const settingsData = await settingsRes.json()
+      setOrders(Array.isArray(ordersData) ? ordersData : [])
+      setIsVatPayer(settingsData.isVatPayer ?? true)
+    } catch (error) {
+      console.error('Chyba při načítání dat:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // ─── Akce ────────────────────────────────────────────────────────────────────
+
+  function toggleExpand(orderId: string) {
+    const next = new Set(expandedOrders)
+    if (next.has(orderId)) {
+      next.delete(orderId)
+    } else {
+      next.add(orderId)
+    }
+    setExpandedOrders(next)
+  }
+
+  function clearFilters() {
+    setFilterNumber('')
+    setFilterDate('')
+    setFilterCustomer('')
+    setFilterMinValue('')
+    setFilterStatus('all')
+  }
+
+  async function handleCreateInvoice(orderId: string) {
+    setProcessingInvoice(orderId)
+    try {
+      const res = await fetch(`/api/eshop-orders/${orderId}/invoice`, {
+        method: 'POST',
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        alert(err.error || 'Nepodařilo se vytvořit fakturu')
+        return
+      }
+      await fetchData()
+    } catch {
+      alert('Chyba při vytváření faktury')
+    } finally {
+      setProcessingInvoice(null)
+    }
+  }
+
+  async function handleUpdateStatus(orderId: string, newStatus: string) {
+    setProcessingStatus(orderId)
+    try {
+      const res = await fetch(`/api/eshop-orders/${orderId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        alert(err.error || 'Nepodařilo se aktualizovat status')
+        return
+      }
+      await fetchData()
+    } catch {
+      alert('Chyba při aktualizaci statusu')
+    } finally {
+      setProcessingStatus(null)
+    }
+  }
+
+  async function handlePrintInvoice(order: EshopOrder) {
+    try {
+      const settingsRes = await fetch('/api/settings')
+      const settings = await settingsRes.json()
+
+      const invoiceForPDF = {
+        transactionCode: order.issuedInvoice?.invoiceNumber || order.orderNumber,
+        transactionDate: order.orderDate,
+        totalAmount: Number(order.totalAmount),
+        paymentType: 'card',
+        customerName: getCustomerName(order),
+        customerAddress: order.customerAddress || '',
+        customerPhone: getCustomerPhone(order),
+        customerEmail: getCustomerEmail(order),
+        items: order.items.map(item => ({
+          productName: item.productName || item.product?.name || 'Produkt',
+          product: item.product ? { name: item.product.name } : null,
+          quantity: Number(item.quantity),
+          unit: item.unit,
+          price: Number(item.price),
+          vatRate: Number(item.vatRate),
+          vatAmount: Number(item.vatAmount),
+          priceWithVat: Number(item.priceWithVat),
+        }))
+      }
+
+      generateInvoicePDF(invoiceForPDF as any, settings)
+    } catch (error) {
+      console.error('Chyba při generování PDF:', error)
+      alert('Nepodařilo se vygenerovat PDF')
+    }
+  }
+
+  // ─── Stats ───────────────────────────────────────────────────────────────────
+
+  const stats = {
+    total: orders.length,
+    paid: orders.filter(o => o.status === 'paid').length,
+    shipped: orders.filter(o => o.status === 'shipped').length,
+    delivered: orders.filter(o => o.status === 'delivered').length,
+    revenue: orders
+      .filter(o => !['cancelled', 'storno'].includes(o.status))
+      .reduce((sum, o) => sum + Number(o.totalAmount), 0),
+    withoutInvoice: orders.filter(o =>
+      !o.issuedInvoice && !['cancelled', 'storno'].includes(o.status)
+    ).length,
+  }
+
+  // ─── Loading ─────────────────────────────────────────────────────────────────
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center space-y-3">
+          <RefreshCw className="w-8 h-8 text-emerald-500 animate-spin mx-auto" />
+          <p className="text-gray-500">Načítání eshop objednávek...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // ─── Render ──────────────────────────────────────────────────────────────────
+
+  const paginated = filteredOrders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+  const totalPages = Math.ceil(filteredOrders.length / itemsPerPage)
+
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Eshop objednávky</h1>
-        <p className="text-gray-500 mt-1">Objednávky z e-shopu</p>
+    <div className="space-y-6">
+
+      {/* ── Hlavička ── */}
+      <div className="bg-gradient-to-r from-slate-50 to-emerald-50 border-l-4 border-emerald-500 rounded-lg shadow-sm py-4 px-6">
+        <div className="relative">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-emerald-600 flex items-center justify-center gap-2">
+              <Globe className="w-6 h-6" />
+              Eshop objednávky
+              <span className="text-sm font-normal text-gray-600 ml-1">
+                (Zobrazeno{' '}
+                <span className="font-semibold text-emerald-600">{filteredOrders.length}</span>
+                {' '}z{' '}
+                <span className="font-semibold text-gray-700">{orders.length}</span>)
+              </span>
+            </h1>
+          </div>
+
+          {/* Tlačítko Obnovit */}
+          <div className="absolute top-0 right-0">
+            <button
+              onClick={fetchData}
+              className="px-4 py-2 bg-white border border-gray-200 text-gray-600 font-medium rounded-lg shadow-sm hover:bg-gray-50 hover:border-gray-300 transition-all flex items-center gap-2 text-sm"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Obnovit
+            </button>
+          </div>
+        </div>
       </div>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-sm font-medium text-gray-600">
-            Připravujeme
-          </CardTitle>
-          <Globe className="h-4 w-4 text-green-600" />
-        </CardHeader>
-        <CardContent>
-          <p className="text-gray-500">Eshop objednávky budou brzy k dispozici. Číslování: ESHYYYYXXXX</p>
-        </CardContent>
-      </Card>
+      {/* ── Stats karty ── */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <Card className="bg-white border border-gray-200">
+          <CardContent className="p-4 text-center">
+            <p className="text-2xl font-bold text-gray-800">{stats.total}</p>
+            <p className="text-xs text-gray-500 mt-1">Celkem</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-yellow-50 border border-yellow-200">
+          <CardContent className="p-4 text-center">
+            <p className="text-2xl font-bold text-yellow-700">{stats.paid}</p>
+            <p className="text-xs text-yellow-600 mt-1">Zaplaceno</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-blue-50 border border-blue-200">
+          <CardContent className="p-4 text-center">
+            <p className="text-2xl font-bold text-blue-700">{stats.shipped}</p>
+            <p className="text-xs text-blue-600 mt-1">Expedováno</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-green-50 border border-green-200">
+          <CardContent className="p-4 text-center">
+            <p className="text-2xl font-bold text-green-700">{stats.delivered}</p>
+            <p className="text-xs text-green-600 mt-1">Doručeno</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-orange-50 border border-orange-200">
+          <CardContent className="p-4 text-center">
+            <p className="text-2xl font-bold text-orange-700">{stats.withoutInvoice}</p>
+            <p className="text-xs text-orange-600 mt-1">Bez faktury</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-emerald-50 border border-emerald-200">
+          <CardContent className="p-4 text-center">
+            <p className="text-lg font-bold text-emerald-700 truncate">{formatPrice(stats.revenue)}</p>
+            <p className="text-xs text-emerald-600 mt-1">Tržby celkem</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ── Filtry ── */}
+      <div className="mb-4">
+        <div className="grid grid-cols-[auto_1fr_1fr_2fr_1fr_1fr_1fr] items-center gap-3 px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg">
+
+          {/* Vymazat filtry */}
+          <button
+            onClick={clearFilters}
+            className="w-8 h-8 bg-gray-200 hover:bg-gray-300 text-gray-600 text-xs rounded transition-colors flex items-center justify-center flex-shrink-0"
+            title="Vymazat filtry"
+          >
+            ✕
+          </button>
+
+          {/* Číslo objednávky */}
+          <input
+            type="text"
+            value={filterNumber}
+            onChange={e => setFilterNumber(e.target.value)}
+            placeholder="ZAK..."
+            className="px-2 py-1.5 border border-gray-300 rounded text-xs text-center focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+          />
+
+          {/* Datum */}
+          <input
+            type="date"
+            value={filterDate}
+            onChange={e => setFilterDate(e.target.value)}
+            className="px-2 py-1.5 border border-gray-300 rounded text-xs text-center focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+          />
+
+          {/* Zákazník */}
+          <input
+            type="text"
+            value={filterCustomer}
+            onChange={e => setFilterCustomer(e.target.value)}
+            placeholder="Zákazník / email..."
+            className="px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+          />
+
+          {/* Položky – žádný filtr */}
+          <div />
+
+          {/* Min. částka */}
+          <input
+            type="number"
+            value={filterMinValue}
+            onChange={e => setFilterMinValue(e.target.value)}
+            placeholder="≥ Kč"
+            className="px-2 py-1.5 border border-gray-300 rounded text-xs text-center focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+          />
+
+          {/* Status dropdown */}
+          <div ref={filterStatusRef} className="relative">
+            <div
+              onClick={() => setFilterStatusDropdownOpen(v => !v)}
+              className="px-2 py-1.5 border border-gray-300 rounded text-xs text-center cursor-pointer bg-white hover:border-blue-500 flex items-center justify-center select-none"
+            >
+              {filterStatus === 'all' && <span>Vše</span>}
+              {filterStatus === 'paid' && <span className="text-yellow-700">Zaplaceno</span>}
+              {filterStatus === 'shipped' && <span className="text-blue-700">Expedováno</span>}
+              {filterStatus === 'delivered' && <span className="text-green-700">Doručeno</span>}
+              {filterStatus === 'cancelled' && <span className="text-red-700">Zrušeno</span>}
+            </div>
+
+            {filterStatusDropdownOpen && (
+              <div className="absolute z-50 mt-1 right-0 w-36 bg-white border border-gray-300 rounded shadow-lg">
+                {[
+                  { value: 'all', label: 'Vše', color: '' },
+                  { value: 'paid', label: 'Zaplaceno', color: 'text-yellow-700' },
+                  { value: 'shipped', label: 'Expedováno', color: 'text-blue-700' },
+                  { value: 'delivered', label: 'Doručeno', color: 'text-green-700' },
+                  { value: 'cancelled', label: 'Zrušeno', color: 'text-red-700' },
+                ].map(opt => (
+                  <div
+                    key={opt.value}
+                    onClick={() => { setFilterStatus(opt.value); setFilterStatusDropdownOpen(false) }}
+                    className={`px-3 py-2 hover:bg-blue-50 cursor-pointer text-xs text-center ${opt.color}`}
+                  >
+                    {opt.label}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Tabulka ── */}
+      <div ref={sectionRef} className="space-y-2">
+
+        {filteredOrders.length === 0 ? (
+          <Card>
+            <CardContent className="p-12 text-center">
+              <Globe className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500 mb-2">
+                {orders.length === 0
+                  ? 'Žádné eshop objednávky. Objednávky se zobrazí automaticky po platbě přes e-shop.'
+                  : 'Žádné objednávky neodpovídají zvoleným filtrům.'}
+              </p>
+              {orders.length > 0 && (
+                <Button onClick={clearFilters} variant="secondary" size="sm">
+                  Vymazat filtry
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        ) : (
+          <>
+            {/* Hlavička tabulky */}
+            <div className="grid grid-cols-[auto_1fr_1fr_2fr_1fr_1fr_1fr] items-center gap-4 px-4 py-3 bg-gray-100 border rounded-lg text-xs text-gray-700">
+              <div className="w-8" />
+              <div className="text-center font-bold">Číslo</div>
+              <div className="text-center font-semibold">Datum</div>
+              <div className="text-center font-semibold">Zákazník</div>
+              <div className="text-center font-semibold">Položek</div>
+              <div className="text-center font-semibold">Částka</div>
+              <div className="text-center font-semibold">Status</div>
+            </div>
+
+            {/* Řádky objednávek */}
+            {paginated.map(order => {
+              const isExpanded = expandedOrders.has(order.id)
+              const isCancelled = ['cancelled', 'storno'].includes(order.status)
+              const isProcessingThis = processingInvoice === order.id || processingStatus === order.id
+
+              return (
+                <div
+                  key={order.id}
+                  id={`order-${order.id}`}
+                  className={`border rounded-lg transition-all ${
+                    highlightId === order.id ? 'border-blue-500 bg-blue-50' :
+                    isExpanded ? 'ring-2 ring-blue-400' : ''
+                  } ${isCancelled ? 'opacity-60' : ''}`}
+                >
+                  {/* Hlavní řádek */}
+                  <div
+                    className={`p-4 grid grid-cols-[auto_1fr_1fr_2fr_1fr_1fr_1fr] items-center gap-4 cursor-pointer transition-colors ${
+                      isCancelled ? 'bg-red-50' : isExpanded ? 'bg-gray-50' : 'hover:bg-gray-50'
+                    }`}
+                    onClick={() => toggleExpand(order.id)}
+                  >
+                    {/* Chevron */}
+                    <div className="w-8 flex-shrink-0">
+                      {isExpanded
+                        ? <ChevronDown className="h-5 w-5 text-gray-400" />
+                        : <ChevronRight className="h-5 w-5 text-gray-400" />
+                      }
+                    </div>
+
+                    {/* Číslo objednávky */}
+                    <div className="text-center">
+                      <p className={`text-sm font-bold text-gray-700 ${isCancelled ? 'line-through' : ''}`}>
+                        {order.orderNumber}
+                      </p>
+                      {order.issuedInvoice && (
+                        <p className="text-xs text-emerald-600 font-medium mt-0.5">
+                          {order.issuedInvoice.invoiceNumber}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Datum */}
+                    <div className="text-center">
+                      <p className="text-sm text-gray-900">
+                        {formatDate(order.orderDate)}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        {new Date(order.orderDate).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+
+                    {/* Zákazník */}
+                    <div className="text-center min-w-0">
+                      <p className="text-sm font-medium text-gray-800 truncate">
+                        {getCustomerName(order)}
+                      </p>
+                      {getCustomerEmail(order) && (
+                        <p className="text-xs text-gray-400 truncate">
+                          {getCustomerEmail(order)}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Počet položek */}
+                    <div className="text-center">
+                      <p className="text-sm text-gray-700">
+                        {order.items.length}
+                      </p>
+                    </div>
+
+                    {/* Částka */}
+                    <div className="text-center">
+                      <p className="text-sm font-bold text-gray-900">
+                        {formatPrice(Number(order.totalAmount))}
+                      </p>
+                      {isVatPayer && Number(order.totalVatAmount) > 0 && (
+                        <p className="text-xs text-gray-400">
+                          DPH: {formatPrice(Number(order.totalVatAmount))}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Status */}
+                    <div className="text-center">
+                      {getStatusBadge(order.status)}
+                    </div>
+                  </div>
+
+                  {/* ── Rozbalený detail ── */}
+                  {isExpanded && (
+                    <div className="border-t p-5 bg-gray-50 space-y-5">
+
+                      {/* Horní info sekce: objednávka + zákazník ve 2 sloupcích */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                        {/* Informace o objednávce */}
+                        <div className="border border-gray-200 rounded-lg overflow-hidden">
+                          <h4 className="font-bold text-sm text-gray-900 px-4 py-2.5 bg-gray-100 border-b border-gray-200 flex items-center gap-2">
+                            <ShoppingBag className="w-4 h-4 text-emerald-600" />
+                            Objednávka
+                          </h4>
+                          <div className="text-sm divide-y divide-gray-100">
+                            <div className="flex justify-between px-4 py-2">
+                              <span className="text-gray-500">Číslo</span>
+                              <span className="font-medium">{order.orderNumber}</span>
+                            </div>
+                            <div className="flex justify-between px-4 py-2">
+                              <span className="text-gray-500">Datum</span>
+                              <span className="font-medium">{formatDateTime(order.orderDate)}</span>
+                            </div>
+                            <div className="flex justify-between px-4 py-2">
+                              <span className="text-gray-500">Zaplaceno</span>
+                              <span className="font-medium">
+                                {order.paidAt ? formatDateTime(order.paidAt) : '—'}
+                              </span>
+                            </div>
+                            {order.shippedAt && (
+                              <div className="flex justify-between px-4 py-2">
+                                <span className="text-gray-500">Expedováno</span>
+                                <span className="font-medium">{formatDateTime(order.shippedAt)}</span>
+                              </div>
+                            )}
+                            <div className="flex justify-between px-4 py-2">
+                              <span className="text-gray-500">Platba</span>
+                              <span className="font-medium flex items-center gap-1">
+                                <CreditCard className="w-3.5 h-3.5 text-violet-500" />
+                                Stripe (karta)
+                              </span>
+                            </div>
+                            {order.stripeSessionId && (
+                              <div className="flex justify-between px-4 py-2">
+                                <span className="text-gray-500">Stripe ID</span>
+                                <span className="font-mono text-xs text-gray-600 truncate max-w-[160px]">
+                                  {order.stripeSessionId}
+                                </span>
+                              </div>
+                            )}
+                            {order.eshopOrderId && (
+                              <div className="flex justify-between px-4 py-2">
+                                <span className="text-gray-500">Eshop ID</span>
+                                <span className="font-mono text-xs text-gray-600 truncate max-w-[160px]">
+                                  {order.eshopOrderId}
+                                </span>
+                              </div>
+                            )}
+                            {order.note && (
+                              <div className="px-4 py-2">
+                                <span className="text-gray-500 block mb-1">Poznámka</span>
+                                <span className="text-gray-700 text-xs">{order.note}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Zákazník + adresa */}
+                        <div className="border border-gray-200 rounded-lg overflow-hidden">
+                          <h4 className="font-bold text-sm text-gray-900 px-4 py-2.5 bg-gray-100 border-b border-gray-200 flex items-center gap-2">
+                            <Package className="w-4 h-4 text-blue-600" />
+                            Zákazník &amp; Doručení
+                          </h4>
+                          <div className="text-sm divide-y divide-gray-100">
+                            <div className="flex justify-between px-4 py-2">
+                              <span className="text-gray-500">Jméno</span>
+                              <span className="font-medium">{getCustomerName(order)}</span>
+                            </div>
+                            {getCustomerEmail(order) && (
+                              <div className="flex justify-between px-4 py-2">
+                                <span className="text-gray-500">Email</span>
+                                <a
+                                  href={`mailto:${getCustomerEmail(order)}`}
+                                  className="text-blue-600 hover:underline"
+                                  onClick={e => e.stopPropagation()}
+                                >
+                                  {getCustomerEmail(order)}
+                                </a>
+                              </div>
+                            )}
+                            {getCustomerPhone(order) && (
+                              <div className="flex justify-between px-4 py-2">
+                                <span className="text-gray-500">Telefon</span>
+                                <a
+                                  href={`tel:${getCustomerPhone(order)}`}
+                                  className="text-blue-600 hover:underline"
+                                  onClick={e => e.stopPropagation()}
+                                >
+                                  {getCustomerPhone(order)}
+                                </a>
+                              </div>
+                            )}
+                            {order.customerAddress && (
+                              <div className="px-4 py-2">
+                                <span className="text-gray-500 block mb-1">Adresa</span>
+                                <span className="text-gray-700 text-xs whitespace-pre-line">
+                                  {order.customerAddress}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* ── Položky objednávky ── */}
+                      <div className="border border-gray-200 rounded-lg overflow-hidden">
+                        <h4 className="font-bold text-sm text-gray-900 px-4 py-2.5 bg-gray-100 border-b border-gray-200">
+                          Položky ({order.items.length})
+                        </h4>
+
+                        {/* Hlavička položek */}
+                        {isVatPayer ? (
+                          <div className="grid grid-cols-[3fr_repeat(6,1fr)] gap-2 px-4 py-2 bg-gray-50 font-semibold text-gray-600 text-xs border-b">
+                            <div>Produkt</div>
+                            <div className="text-center">Množství</div>
+                            <div className="text-center">DPH</div>
+                            <div className="text-center">Cena/ks</div>
+                            <div className="text-center">DPH/ks</div>
+                            <div className="text-center">S DPH/ks</div>
+                            <div className="text-right">Celkem</div>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-[3fr_1fr_1fr_1fr] gap-2 px-4 py-2 bg-gray-50 font-semibold text-gray-600 text-xs border-b">
+                            <div>Produkt</div>
+                            <div className="text-center">Množství</div>
+                            <div className="text-center">Cena/ks</div>
+                            <div className="text-right">Celkem</div>
+                          </div>
+                        )}
+
+                        {/* Řádky položek */}
+                        {order.items.map((item, i) => {
+                          const productName = item.productName || item.product?.name || 'Produkt'
+                          const qty = Number(item.quantity)
+                          const unitPrice = Number(item.price)
+                          const vatRate = Number(item.vatRate)
+                          const vatPerUnit = Number(item.vatAmount)
+                          const priceWithVat = Number(item.priceWithVat)
+                          const rowTotal = priceWithVat * qty
+
+                          return (
+                            <div
+                              key={item.id}
+                              className={`px-4 py-2 text-sm ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}
+                            >
+                              {isVatPayer ? (
+                                <div className="grid grid-cols-[3fr_repeat(6,1fr)] gap-2 items-center">
+                                  <div className="font-medium text-gray-800">{productName}</div>
+                                  <div className="text-center text-gray-600">{qty} {item.unit}</div>
+                                  <div className="text-center text-gray-500">{vatRate}%</div>
+                                  <div className="text-center text-gray-600">{formatPrice(unitPrice)}</div>
+                                  <div className="text-center text-gray-500">{formatPrice(vatPerUnit)}</div>
+                                  <div className="text-center font-medium text-gray-700">{formatPrice(priceWithVat)}</div>
+                                  <div className="text-right font-bold text-gray-900">{formatPrice(rowTotal)}</div>
+                                </div>
+                              ) : (
+                                <div className="grid grid-cols-[3fr_1fr_1fr_1fr] gap-2 items-center">
+                                  <div className="font-medium text-gray-800">{productName}</div>
+                                  <div className="text-center text-gray-600">{qty} {item.unit}</div>
+                                  <div className="text-center font-medium text-gray-700">{formatPrice(priceWithVat)}</div>
+                                  <div className="text-right font-bold text-gray-900">{formatPrice(rowTotal)}</div>
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+
+                        {/* Souhrn DPH */}
+                        <div className="border-t border-gray-200 px-4 py-3 bg-gray-50">
+                          <div className="flex justify-end">
+                            <div className="text-sm space-y-1 min-w-[200px]">
+                              {isVatPayer && (
+                                <>
+                                  <div className="flex justify-between text-gray-500">
+                                    <span>Bez DPH:</span>
+                                    <span>{formatPrice(Number(order.totalAmountWithoutVat))}</span>
+                                  </div>
+                                  <div className="flex justify-between text-gray-500">
+                                    <span>DPH:</span>
+                                    <span>{formatPrice(Number(order.totalVatAmount))}</span>
+                                  </div>
+                                </>
+                              )}
+                              <div className="flex justify-between font-bold text-gray-900 border-t border-gray-200 pt-1">
+                                <span>Celkem:</span>
+                                <span>{formatPrice(Number(order.totalAmount))}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* ── Faktura a akce ── */}
+                      <div className="border border-gray-200 rounded-lg overflow-hidden">
+                        <h4 className="font-bold text-sm text-gray-900 px-4 py-2.5 bg-gray-100 border-b border-gray-200 flex items-center gap-2">
+                          <FileText className="w-4 h-4 text-rose-600" />
+                          Faktura &amp; Akce
+                        </h4>
+                        <div className="p-4">
+                          <div className="flex flex-wrap gap-3 items-center">
+
+                            {/* Faktura sekce */}
+                            {order.issuedInvoice ? (
+                              <div className="flex items-center gap-2 px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-lg">
+                                <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                                <span className="text-sm text-gray-600">Faktura:</span>
+                                <Link
+                                  href={`/invoices/issued?highlight=${order.issuedInvoice.id}`}
+                                  className="text-sm font-bold text-emerald-700 hover:text-emerald-800 hover:underline flex items-center gap-1"
+                                  onClick={e => e.stopPropagation()}
+                                >
+                                  {order.issuedInvoice.invoiceNumber}
+                                  <ExternalLink className="w-3 h-3" />
+                                </Link>
+                                <span className={`text-xs px-1.5 py-0.5 rounded ${
+                                  order.issuedInvoice.paymentStatus === 'paid'
+                                    ? 'bg-green-100 text-green-700'
+                                    : 'bg-yellow-100 text-yellow-700'
+                                }`}>
+                                  {order.issuedInvoice.paymentStatus === 'paid' ? 'Zaplaceno' : 'Nezaplaceno'}
+                                </span>
+                              </div>
+                            ) : (
+                              !isCancelled && (
+                                <div className="flex items-center gap-2 px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg">
+                                  <Clock className="w-4 h-4 text-orange-500 flex-shrink-0" />
+                                  <span className="text-sm text-orange-700">Faktura nebyla vystavena</span>
+                                </div>
+                              )
+                            )}
+
+                            {/* Akční tlačítka */}
+                            <div className="flex flex-wrap gap-2 ml-auto">
+
+                              {/* Vytvořit fakturu */}
+                              {!order.issuedInvoice && !isCancelled && (
+                                <button
+                                  onClick={e => { e.stopPropagation(); handleCreateInvoice(order.id) }}
+                                  disabled={processingInvoice === order.id}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  <FileText className="w-3.5 h-3.5" />
+                                  {processingInvoice === order.id ? 'Vytváří se...' : 'Vystavit fakturu'}
+                                </button>
+                              )}
+
+                              {/* PDF faktura */}
+                              <button
+                                onClick={e => { e.stopPropagation(); handlePrintInvoice(order) }}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-medium rounded-lg transition-colors border border-gray-300"
+                              >
+                                <FileText className="w-3.5 h-3.5" />
+                                PDF
+                              </button>
+
+                              {/* Expedovat */}
+                              {order.status === 'paid' && (
+                                <button
+                                  onClick={e => { e.stopPropagation(); handleUpdateStatus(order.id, 'shipped') }}
+                                  disabled={processingStatus === order.id}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  <Truck className="w-3.5 h-3.5" />
+                                  {processingStatus === order.id ? 'Zpracovává se...' : 'Expedovat'}
+                                </button>
+                              )}
+
+                              {/* Označit jako doručeno */}
+                              {order.status === 'shipped' && (
+                                <button
+                                  onClick={e => { e.stopPropagation(); handleUpdateStatus(order.id, 'delivered') }}
+                                  disabled={processingStatus === order.id}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  <CheckCircle className="w-3.5 h-3.5" />
+                                  {processingStatus === order.id ? 'Zpracovává se...' : 'Doručeno'}
+                                </button>
+                              )}
+
+                              {/* Zrušit objednávku */}
+                              {['paid', 'shipped'].includes(order.status) && (
+                                <button
+                                  onClick={e => {
+                                    e.stopPropagation()
+                                    if (confirm(`Opravdu zrušit objednávku ${order.orderNumber}?`)) {
+                                      handleUpdateStatus(order.id, 'cancelled')
+                                    }
+                                  }}
+                                  disabled={processingStatus === order.id}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-red-50 text-red-600 text-xs font-medium rounded-lg transition-colors border border-red-200 disabled:opacity-50"
+                                >
+                                  <XCircle className="w-3.5 h-3.5" />
+                                  Zrušit
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </>
+        )}
+      </div>
+
+      {/* ── Paginace ── */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between pt-4">
+          <p className="text-sm text-gray-500">
+            Stránka {currentPage} z {totalPages} ({filteredOrders.length} objednávek)
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                setCurrentPage(p => Math.max(1, p - 1))
+                sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              }}
+              disabled={currentPage === 1}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              ← Předchozí
+            </button>
+
+            {/* Čísla stránek */}
+            {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+              let page: number
+              if (totalPages <= 7) {
+                page = i + 1
+              } else if (currentPage <= 4) {
+                page = i + 1
+              } else if (currentPage >= totalPages - 3) {
+                page = totalPages - 6 + i
+              } else {
+                page = currentPage - 3 + i
+              }
+              return (
+                <button
+                  key={page}
+                  onClick={() => {
+                    setCurrentPage(page)
+                    sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                  }}
+                  className={`w-9 h-9 text-sm font-medium rounded-lg transition-colors ${
+                    currentPage === page
+                      ? 'bg-emerald-600 text-white'
+                      : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  {page}
+                </button>
+              )
+            })}
+
+            <button
+              onClick={() => {
+                setCurrentPage(p => Math.min(totalPages, p + 1))
+                sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              }}
+              disabled={currentPage === totalPages}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              Další →
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }

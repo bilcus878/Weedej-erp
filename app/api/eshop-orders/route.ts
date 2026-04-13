@@ -1,0 +1,45 @@
+// GET /api/eshop-orders
+// Vrátí všechny objednávky přijaté z e-shopu (source = 'eshop')
+
+import { NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
+
+export async function GET() {
+  try {
+    const orders = await prisma.customerOrder.findMany({
+      where: { source: 'eshop' },
+      include: {
+        items: {
+          include: {
+            product: {
+              select: { id: true, name: true, price: true, unit: true }
+            }
+          },
+          orderBy: { createdAt: 'asc' }
+        },
+        issuedInvoice: {
+          select: {
+            id: true,
+            invoiceNumber: true,
+            paymentType: true,
+            paymentStatus: true,
+            status: true,
+            invoiceDate: true,
+          }
+        },
+        EshopUser: {
+          select: { id: true, email: true, name: true, phone: true }
+        },
+      },
+      orderBy: { orderDate: 'desc' }
+    })
+
+    return NextResponse.json(orders)
+  } catch (error) {
+    console.error('[EshopOrders] Chyba při načítání objednávek:', error)
+    return NextResponse.json(
+      { error: 'Nepodařilo se načíst eshop objednávky' },
+      { status: 500 }
+    )
+  }
+}
