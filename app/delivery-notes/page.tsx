@@ -151,6 +151,27 @@ export default function DeliveryNotesPage() {
 
   useEffect(() => {
     loadData()
+
+    // Auto-refresh každých 30 sekund
+    const interval = setInterval(() => {
+      fetch('/api/customer-orders/pending-shipment', { cache: 'no-store' })
+        .then(res => res.json())
+        .then(data => {
+          if (Array.isArray(data)) setPendingOrders(data)
+        })
+        .catch(() => {})
+    }, 30000)
+
+    // Refresh při návratu na záložku
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') loadData()
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', handleVisibility)
+    }
   }, [])
 
   useEffect(() => {
@@ -565,29 +586,22 @@ export default function DeliveryNotesPage() {
       </div>
 
       {/* Očekávané výdejky (TAHOVÁ LOGIKA) */}
+      {pendingOrders.length > 0 && (
       <div ref={pendingSectionRef}>
         <Card className="mb-6 border-2 border-orange-300 bg-orange-50">
           <CardHeader
             className="cursor-pointer hover:bg-orange-100 transition-colors"
             onClick={() => setIsPendingSectionExpanded(!isPendingSectionExpanded)}
           >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                {isPendingSectionExpanded ? (
-                  <ChevronDown className="h-6 w-6 text-orange-600" />
-                ) : (
-                  <ChevronRight className="h-6 w-6 text-orange-600" />
-                )}
-                <CardTitle className="text-orange-900">
-                  📦 Očekávané výdejky (čeká na expedici) - {filteredPendingOrders.length} objednávek
-                </CardTitle>
-              </div>
-              <button
-                onClick={(e) => { e.stopPropagation(); loadData() }}
-                className="px-3 py-1 text-xs bg-orange-200 hover:bg-orange-300 text-orange-900 rounded transition-colors font-medium"
-              >
-                ↻ Obnovit
-              </button>
+            <div className="flex items-center gap-2">
+              {isPendingSectionExpanded ? (
+                <ChevronDown className="h-6 w-6 text-orange-600" />
+              ) : (
+                <ChevronRight className="h-6 w-6 text-orange-600" />
+              )}
+              <CardTitle className="text-orange-900">
+                📦 Očekávané výdejky (čeká na expedici) - {filteredPendingOrders.length} objednávek
+              </CardTitle>
             </div>
           </CardHeader>
           {isPendingSectionExpanded && (
@@ -676,13 +690,6 @@ export default function DeliveryNotesPage() {
 
             {/* Seznam objednávek */}
             <div className="space-y-2">
-              {filteredPendingOrders.length === 0 && (
-                <div className="py-8 text-center text-gray-500 text-sm">
-                  {pendingOrders.length === 0
-                    ? 'Žádné zaplacené objednávky čekající na expedici. Klikněte ↻ Obnovit pro aktualizaci.'
-                    : 'Žádné objednávky neodpovídají zadaným filtrům.'}
-                </div>
-              )}
               {filteredPendingOrders
                 .slice((pendingCurrentPage - 1) * pendingItemsPerPage, pendingCurrentPage * pendingItemsPerPage)
                 .map((order) => {
@@ -999,6 +1006,7 @@ export default function DeliveryNotesPage() {
           )}
         </Card>
       </div>
+      )}
 
       {/* Filtry - přesně odpovídající sloupcům tabulky */}
       <div ref={deliveryNotesSectionRef} className="mb-4">
