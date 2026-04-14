@@ -430,7 +430,7 @@ export default function EshopOrdersPage() {
             type="text"
             value={filterNumber}
             onChange={e => setFilterNumber(e.target.value)}
-            placeholder="ESHY..."
+            placeholder="ESH..."
             className="px-2 py-1.5 border border-gray-300 rounded text-xs text-center focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
           />
 
