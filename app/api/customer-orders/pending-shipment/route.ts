@@ -5,6 +5,8 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+export const dynamic = 'force-dynamic'
+
 // GET /api/customer-orders/pending-shipment - Získat objednávky čekající na vyskladnění
 export async function GET() {
   try {
