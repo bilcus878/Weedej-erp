@@ -1861,6 +1861,7 @@ export default function TransactionsPage() {
                       >
                         <option value="ks">ks</option>
                         <option value="g">g</option>
+                        <option value="ml">ml</option>
                         <option value="kg">kg</option>
                         <option value="l">l</option>
                         <option value="m">m</option>

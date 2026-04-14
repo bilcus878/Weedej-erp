@@ -39,12 +39,16 @@ export function formatDateTime(date: Date | string): string {
   }).format(d)
 }
 
-// Formátování množství (např. 1500g -> "1,5 kg" nebo 5ks -> "5 ks")
+// Formátování množství (např. 1500g -> "1.50 kg", 1500ml -> "1.50 l", 5ks -> "5 ks")
 export function formatQuantity(quantity: number | string, unit: string): string {
   const num = typeof quantity === 'string' ? parseFloat(quantity) : quantity
 
   if (unit === 'g' && num >= 1000) {
     return `${(num / 1000).toFixed(2)} kg`
+  }
+
+  if (unit === 'ml' && num >= 1000) {
+    return `${(num / 1000).toFixed(2)} l`
   }
 
   return `${num} ${unit}`
