@@ -825,17 +825,18 @@ model User {
 // ========== API KLÍČE PRO EXTERNÍ PŘÍSTUP (E-SHOP) ==========
 // ========== VARIANTY PRODUKTŮ PRO ESHOP (spravováno z ERP) ==========
 model EshopVariant {
-  id          String   @id @default(uuid())
-  productId   String
-  name        String
-  price       Decimal  @db.Decimal(10, 2)
-  weightGrams Float?
-  isDefault   Boolean  @default(false)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String   @id @default(uuid())
+  productId    String
+  name         String
+  price        Decimal  @db.Decimal(10, 2)
+  variantValue Float?   // Množství na variantu (100, 30, 3.5 …)
+  variantUnit  String?  // Jednotka varianty: "g" | "ml" | "ks" — null zdědí Product.unit
+  isDefault    Boolean  @default(false)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@index([productId])
 }

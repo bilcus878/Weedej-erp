@@ -15,7 +15,12 @@ export async function PATCH(
 
   const { id, variantId } = await params
   const body = await req.json()
-  const { name, price, weightGrams, isDefault, isActive } = body
+  const { name, price, variantValue, variantUnit, isDefault, isActive } = body
+
+  const ALLOWED_UNITS = ['g', 'ml', 'ks']
+  if (variantUnit !== undefined && variantUnit !== null && !ALLOWED_UNITS.includes(variantUnit)) {
+    return NextResponse.json({ error: 'Neplatná jednotka varianty (povoleno: g, ml, ks)' }, { status: 400 })
+  }
 
   // Pokud se nastavuje jako výchozí, odeber příznak ostatním
   if (isDefault) {
@@ -30,7 +35,8 @@ export async function PATCH(
     data: {
       ...(name !== undefined && { name }),
       ...(price !== undefined && { price: parseFloat(String(price)) }),
-      ...(weightGrams !== undefined && { weightGrams: weightGrams ? parseFloat(String(weightGrams)) : null }),
+      ...(variantValue !== undefined && { variantValue: variantValue ? parseFloat(String(variantValue)) : null }),
+      ...(variantUnit !== undefined && { variantUnit: variantUnit ?? null }),
       ...(isDefault !== undefined && { isDefault }),
       ...(isActive !== undefined && { isActive }),
     },

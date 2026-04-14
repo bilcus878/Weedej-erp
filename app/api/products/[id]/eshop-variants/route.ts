@@ -32,10 +32,15 @@ export async function POST(
 
   const { id } = await params
   const body = await req.json()
-  const { name, price, weightGrams, isDefault, isActive } = body
+  const { name, price, variantValue, variantUnit, isDefault, isActive } = body
 
   if (!name || price === undefined) {
     return NextResponse.json({ error: 'Chybí název nebo cena' }, { status: 400 })
+  }
+
+  const ALLOWED_UNITS = ['g', 'ml', 'ks']
+  if (variantUnit && !ALLOWED_UNITS.includes(variantUnit)) {
+    return NextResponse.json({ error: 'Neplatná jednotka varianty (povoleno: g, ml, ks)' }, { status: 400 })
   }
 
   // Pokud je tato varianta výchozí, odeber výchozí příznak ostatním
@@ -51,7 +56,8 @@ export async function POST(
       productId: id,
       name,
       price: parseFloat(String(price)),
-      weightGrams: weightGrams ? parseFloat(String(weightGrams)) : null,
+      variantValue: variantValue ? parseFloat(String(variantValue)) : null,
+      variantUnit: variantUnit ?? null,
       isDefault: isDefault ?? false,
       isActive: isActive ?? true,
     },

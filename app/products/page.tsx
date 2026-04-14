@@ -39,7 +39,8 @@ interface EshopVariant {
   productId: string
   name: string
   price: number | string
-  weightGrams?: number | null
+  variantValue?: number | null  // Množství na variantu (100, 30, 3.5 …)
+  variantUnit?: string | null   // Jednotka: "g" | "ml" | "ks"
   isDefault: boolean
   isActive: boolean
 }
@@ -47,7 +48,8 @@ interface EshopVariant {
 interface EshopVariantForm {
   name: string
   price: string
-  weightGrams: string
+  variantValue: string
+  variantUnit: 'g' | 'ml' | 'ks' | ''
   isDefault: boolean
   isActive: boolean
 }
@@ -497,7 +499,7 @@ export default function ProductsPage() {
   // ─── Eshop Variants ────────────────────────────────────────────────────────
 
   const emptyVariantForm = (): EshopVariantForm => ({
-    name: '', price: '', weightGrams: '', isDefault: false, isActive: true,
+    name: '', price: '', variantValue: '', variantUnit: '', isDefault: false, isActive: true,
   })
 
   async function fetchEshopVariants(productId: string) {
@@ -537,7 +539,8 @@ export default function ProductsPage() {
         body: JSON.stringify({
           name: form.name,
           price: parseFloat(form.price),
-          weightGrams: form.weightGrams ? parseFloat(form.weightGrams) : null,
+          variantValue: form.variantValue ? parseFloat(form.variantValue) : null,
+          variantUnit: form.variantUnit || null,
           isDefault: form.isDefault,
           isActive: form.isActive,
         }),
@@ -560,7 +563,8 @@ export default function ProductsPage() {
       [productId]: {
         name: variant.name,
         price: String(variant.price),
-        weightGrams: variant.weightGrams ? String(variant.weightGrams) : '',
+        variantValue: variant.variantValue ? String(variant.variantValue) : '',
+        variantUnit: (variant.variantUnit as 'g' | 'ml' | 'ks' | '') ?? '',
         isDefault: variant.isDefault,
         isActive: variant.isActive,
       },
@@ -1278,7 +1282,7 @@ export default function ProductsPage() {
                                 <tr className="bg-gray-50 text-gray-600">
                                   <th className="px-3 py-2 text-left font-medium">Název</th>
                                   <th className="px-3 py-2 text-right font-medium">Cena (Kč)</th>
-                                  <th className="px-3 py-2 text-right font-medium">Váha (g)</th>
+                                  <th className="px-3 py-2 text-right font-medium">Množství</th>
                                   <th className="px-3 py-2 text-center font-medium">Výchozí</th>
                                   <th className="px-3 py-2 text-center font-medium">Aktivní</th>
                                   <th className="px-3 py-2 text-center font-medium">Akce</th>
@@ -1289,7 +1293,9 @@ export default function ProductsPage() {
                                   <tr key={v.id} className="border-t border-gray-100 hover:bg-gray-50">
                                     <td className="px-3 py-2 font-medium">{v.name}</td>
                                     <td className="px-3 py-2 text-right">{Number(v.price).toFixed(2)}</td>
-                                    <td className="px-3 py-2 text-right">{v.weightGrams ?? '—'}</td>
+                                    <td className="px-3 py-2 text-right">
+                                      {v.variantValue ? `${v.variantValue} ${v.variantUnit ?? ''}`.trim() : '—'}
+                                    </td>
                                     <td className="px-3 py-2 text-center">
                                       {v.isDefault ? <span className="text-emerald-600 font-semibold">✓</span> : <span className="text-gray-300">—</span>}
                                     </td>
@@ -1351,16 +1357,31 @@ export default function ProductsPage() {
                               />
                             </div>
                             <div className="col-span-2">
-                              <label className="block text-xs text-gray-600 mb-1">Váha (g)</label>
+                              <label className="block text-xs text-gray-600 mb-1">Množství</label>
                               <input
                                 type="number"
-                                step="0.01"
-                                value={variantForms[product.id]?.weightGrams ?? ''}
-                                onChange={(e) => setVariantForms((prev) => ({ ...prev, [product.id]: { ...(prev[product.id] || emptyVariantForm()), weightGrams: e.target.value } }))}
-                                placeholder="3.5"
+                                step="0.001"
+                                min="0"
+                                value={variantForms[product.id]?.variantValue ?? ''}
+                                onChange={(e) => setVariantForms((prev) => ({ ...prev, [product.id]: { ...(prev[product.id] || emptyVariantForm()), variantValue: e.target.value } }))}
+                                placeholder="100"
                                 className="w-full h-8 px-2 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-emerald-400 focus:border-emerald-400"
                                 onClick={(e) => e.stopPropagation()}
                               />
+                            </div>
+                            <div className="col-span-1">
+                              <label className="block text-xs text-gray-600 mb-1">Jednotka</label>
+                              <select
+                                value={variantForms[product.id]?.variantUnit ?? ''}
+                                onChange={(e) => setVariantForms((prev) => ({ ...prev, [product.id]: { ...(prev[product.id] || emptyVariantForm()), variantUnit: e.target.value as 'g' | 'ml' | 'ks' | '' } }))}
+                                className="w-full h-8 px-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-emerald-400 focus:border-emerald-400 bg-white"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <option value="">—</option>
+                                <option value="g">g</option>
+                                <option value="ml">ml</option>
+                                <option value="ks">ks</option>
+                              </select>
                             </div>
                             <div className="col-span-2 flex items-center gap-3 pb-1">
                               <label className="flex items-center gap-1 text-xs cursor-pointer" onClick={(e) => e.stopPropagation()}>
@@ -1382,7 +1403,7 @@ export default function ProductsPage() {
                                 Aktivní
                               </label>
                             </div>
-                            <div className="col-span-3 flex gap-1 pb-1">
+                            <div className="col-span-2 flex gap-1 pb-1">
                               <button
                                 onClick={(e) => { e.stopPropagation(); handleVariantSubmit(product.id) }}
                                 disabled={variantLoading[product.id]}
