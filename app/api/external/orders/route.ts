@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getNextDocumentNumber } from '@/lib/documentNumbering'
+import { createIssuedInvoiceFromCustomerOrder } from '@/lib/createIssuedInvoice'
 import { verifyApiKey, corsHeaders, handleOptions } from '@/lib/apiKeyAuth'
 
 export async function OPTIONS(request: NextRequest) {
@@ -126,7 +127,7 @@ export async function POST(request: NextRequest) {
   try {
     const order = await prisma.$transaction(async (tx) => {
       // Vygeneruj číslo objednávky
-      const orderNumber = await getNextDocumentNumber('customer-order', tx)
+      const orderNumber = await getNextDocumentNumber('eshop-order', tx)
 
       // Vypočítej součty (totalAmountCents je v haléřích, ERP používá Kč)
       const totalAmount = totalAmountCents != null
@@ -193,6 +194,17 @@ export async function POST(request: NextRequest) {
 
       return created
     })
+
+    // Auto-vytvoř fakturu a očekávanou výdejku (mimo transakci, aby číslo bylo definitvní)
+    try {
+      await createIssuedInvoiceFromCustomerOrder(order.id, {
+        paymentType: 'card',
+        variableSymbol: order.orderNumber,
+      })
+    } catch (invoiceErr) {
+      console.error('[ERP External API] Chyba při auto-vytváření faktury:', invoiceErr)
+      // Neblokujeme odpověď — objednávka je vytvořena, faktura se dá vytvořit ručně
+    }
 
     return NextResponse.json(order, {
       status: 201,

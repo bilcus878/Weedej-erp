@@ -22,6 +22,8 @@ const DOCUMENT_PREFIXES: Record<string, string> = {
   'purchase_order': 'OBJ',   // Objednávky dodavatelům (snake_case)
   'customer-order': 'ZAK',   // Objednávky od zákazníků (kebab-case)
   'customer_order': 'ZAK',   // Objednávky od zákazníků (snake_case)
+  'eshop-order': 'ESHY',     // Objednávky z e-shopu (kebab-case)
+  'eshop_order': 'ESHY',     // Objednávky z e-shopu (snake_case)
   'received-invoice': 'FP',  // Přijaté faktury (kebab-case)
   'received_invoice': 'FP',  // Přijaté faktury (snake_case)
   'issued-invoice': 'VF',    // Vystavené faktury (kebab-case)
@@ -40,6 +42,8 @@ export type DocumentType =
   | 'purchase_order'
   | 'customer-order'
   | 'customer_order'
+  | 'eshop-order'
+  | 'eshop_order'
   | 'received-invoice'
   | 'received_invoice'
   | 'issued-invoice'

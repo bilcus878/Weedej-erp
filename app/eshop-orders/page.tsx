@@ -6,7 +6,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { Card, CardContent } from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import { formatPrice, formatDate, formatDateTime } from '@/lib/utils'
 import { generateInvoicePDF } from '@/lib/generateInvoicePDF'
@@ -363,21 +362,6 @@ export default function EshopOrdersPage() {
     }
   }
 
-  // ─── Stats ───────────────────────────────────────────────────────────────────
-
-  const stats = {
-    total: orders.length,
-    paid: orders.filter(o => o.status === 'paid').length,
-    shipped: orders.filter(o => o.status === 'shipped').length,
-    delivered: orders.filter(o => o.status === 'delivered').length,
-    revenue: orders
-      .filter(o => !['cancelled', 'storno'].includes(o.status))
-      .reduce((sum, o) => sum + Number(o.totalAmount), 0),
-    withoutInvoice: orders.filter(o =>
-      !o.issuedInvoice && !['cancelled', 'storno'].includes(o.status)
-    ).length,
-  }
-
   // ─── Loading ─────────────────────────────────────────────────────────────────
 
   if (loading) {
@@ -428,46 +412,6 @@ export default function EshopOrdersPage() {
         </div>
       </div>
 
-      {/* ── Stats karty ── */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        <Card className="bg-white border border-gray-200">
-          <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold text-gray-800">{stats.total}</p>
-            <p className="text-xs text-gray-500 mt-1">Celkem</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-yellow-50 border border-yellow-200">
-          <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold text-yellow-700">{stats.paid}</p>
-            <p className="text-xs text-yellow-600 mt-1">Zaplaceno</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-blue-50 border border-blue-200">
-          <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold text-blue-700">{stats.shipped}</p>
-            <p className="text-xs text-blue-600 mt-1">Expedováno</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-green-50 border border-green-200">
-          <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold text-green-700">{stats.delivered}</p>
-            <p className="text-xs text-green-600 mt-1">Doručeno</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-orange-50 border border-orange-200">
-          <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold text-orange-700">{stats.withoutInvoice}</p>
-            <p className="text-xs text-orange-600 mt-1">Bez faktury</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-emerald-50 border border-emerald-200">
-          <CardContent className="p-4 text-center">
-            <p className="text-lg font-bold text-emerald-700 truncate">{formatPrice(stats.revenue)}</p>
-            <p className="text-xs text-emerald-600 mt-1">Tržby celkem</p>
-          </CardContent>
-        </Card>
-      </div>
-
       {/* ── Filtry ── */}
       <div className="mb-4">
         <div className="grid grid-cols-[auto_1fr_1fr_2fr_1fr_1fr_1fr] items-center gap-3 px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg">
@@ -486,7 +430,7 @@ export default function EshopOrdersPage() {
             type="text"
             value={filterNumber}
             onChange={e => setFilterNumber(e.target.value)}
-            placeholder="ZAK..."
+            placeholder="ESHY..."
             className="px-2 py-1.5 border border-gray-300 rounded text-xs text-center focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
           />
 
