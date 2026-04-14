@@ -503,8 +503,8 @@ export default function EshopOrdersPage() {
       <div ref={sectionRef} className="space-y-2">
 
         {filteredOrders.length === 0 ? (
-          <Card>
-            <CardContent className="p-12 text-center">
+          <div className="border rounded-lg">
+            <div className="p-12 text-center">
               <Globe className="w-12 h-12 text-gray-300 mx-auto mb-4" />
               <p className="text-gray-500 mb-2">
                 {orders.length === 0
@@ -516,8 +516,8 @@ export default function EshopOrdersPage() {
                   Vymazat filtry
                 </Button>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         ) : (
           <>
             {/* Hlavička tabulky */}
