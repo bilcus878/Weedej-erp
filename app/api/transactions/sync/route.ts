@@ -919,13 +919,18 @@ export async function POST(request: Request) {
           console.log(`  → Množství neuvedeno, používám 1`)
         }
 
-        // KROK 1.5: Zkus extrahovat gramáž z názvu (např. "Lemon Skunk 0.5g" → 0.5)
+        // KROK 1.5: Zkus extrahovat gramáž / mililitráž z názvu
+        // Např. "Lemon Skunk 0.5g" → 0.5g, "CBD Oil 30ml" → 30ml
+        const mlMatch = productNameToSearch.match(/(\d+\.?\d*)\s*ml\b/i)
         const gramMatch = productNameToSearch.match(/(\d+\.?\d*)\s*g\b/i)
-        if (gramMatch) {
+        if (mlMatch) {
+          quantity = parseFloat(mlMatch[1])
+          console.log(`  → Nalezena mililitráž v názvu: ${quantity}ml`)
+          productNameToSearch = productNameToSearch.replace(/\s*\d+\.?\d*\s*ml\b/i, '').trim()
+        } else if (gramMatch) {
           const gramsInName = parseFloat(gramMatch[1])
           console.log(`  → Nalezena gramáž v názvu: ${gramsInName}g`)
           quantity = gramsInName
-          // Odstraň gramáž z názvu pro hledání produktu
           productNameToSearch = productNameToSearch.replace(/\s*\d+\.?\d*\s*g\b/i, '').trim()
         }
 

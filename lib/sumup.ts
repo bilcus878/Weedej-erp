@@ -306,23 +306,31 @@ export async function fetchReceiptDetail(clientTransactionId: string): Promise<a
       const qtyMatch = qtyText.match(/(\d+)\s*x/i)
       let quantity = qtyMatch ? parseInt(qtyMatch[1]) : 1
 
-      // EXTRAKCE GRAMÁŽE z detail-content (např. "0.5 g x 200,00 Kč/g" → 0.5)
+      // EXTRAKCE GRAMÁŽE / MILILITRÁŽE z detail-content
+      // Formáty: "0.5 g x 200,00 Kč/g" nebo "30 ml x 150,00 Kč/ml"
       if (detailContent) {
+        const mlMatch = detailContent.match(/(\d+\.?\d*)\s*ml\s*x/i)
         const gramMatch = detailContent.match(/(\d+\.?\d*)\s*g\s*x/i)
-        if (gramMatch) {
-          const gramsInDetail = parseFloat(gramMatch[1])
-          console.log(`  → Nalezena gramáž v detail-content: ${gramsInDetail}g`)
-          quantity = gramsInDetail
+        if (mlMatch) {
+          quantity = parseFloat(mlMatch[1])
+          console.log(`  → Nalezena mililitráž v detail-content: ${quantity}ml`)
+        } else if (gramMatch) {
+          quantity = parseFloat(gramMatch[1])
+          console.log(`  → Nalezena gramáž v detail-content: ${quantity}g`)
         }
       }
 
-      // FALLBACK: Zkus extrahovat gramáž z názvu produktu (např. "Lemon Skunk (X2) 0.5g" → 0.5)
+      // FALLBACK: Zkus extrahovat gramáž / mililitráž z názvu produktu
+      // Např. "Lemon Skunk (X2) 0.5g" → 0.5, "CBD Oil 30ml" → 30
       if (quantity === 1 || !detailContent) {
+        const mlMatch = productName.match(/(\d+\.?\d*)\s*ml\b/i)
         const gramMatch = productName.match(/(\d+\.?\d*)\s*g\b/i)
-        if (gramMatch) {
-          const gramsInName = parseFloat(gramMatch[1])
-          console.log(`  → Nalezena gramáž v názvu produktu: ${gramsInName}g`)
-          quantity = gramsInName
+        if (mlMatch) {
+          quantity = parseFloat(mlMatch[1])
+          console.log(`  → Nalezena mililitráž v názvu produktu: ${quantity}ml`)
+        } else if (gramMatch) {
+          quantity = parseFloat(gramMatch[1])
+          console.log(`  → Nalezena gramáž v názvu produktu: ${quantity}g`)
         }
       }
 
@@ -353,12 +361,15 @@ export async function fetchReceiptDetail(clientTransactionId: string): Promise<a
             const qtyMatch = qtyText.match(/(\d+)\s*x/i)
             let quantity = qtyMatch ? parseInt(qtyMatch[1]) : 1
 
-            // EXTRAKCE GRAMÁŽE z názvu produktu (např. "Lemon Skunk (X2) 0.5g" → 0.5)
+            // EXTRAKCE GRAMÁŽE / MILILITRÁŽE z názvu produktu
+            const mlMatch = productName.match(/(\d+\.?\d*)\s*ml\b/i)
             const gramMatch = productName.match(/(\d+\.?\d*)\s*g\b/i)
-            if (gramMatch) {
-              const gramsInName = parseFloat(gramMatch[1])
-              console.log(`  → Nalezena gramáž v názvu: ${gramsInName}g`)
-              quantity = gramsInName
+            if (mlMatch) {
+              quantity = parseFloat(mlMatch[1])
+              console.log(`  → Nalezena mililitráž v názvu: ${quantity}ml`)
+            } else if (gramMatch) {
+              quantity = parseFloat(gramMatch[1])
+              console.log(`  → Nalezena gramáž v názvu: ${quantity}g`)
             }
 
             console.log(`  → Nalezen produkt (alternativní selektor): "${productName}", množství: ${quantity}`)

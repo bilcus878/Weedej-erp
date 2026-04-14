@@ -819,6 +819,7 @@ export default function ProductsPage() {
                     >
                       <option value="ks">ks (kusy)</option>
                       <option value="g">g (gramy)</option>
+                      <option value="ml">ml (mililitry)</option>
                     </select>
                   </div>
 
