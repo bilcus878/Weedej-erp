@@ -671,106 +671,114 @@ export default function PurchaseOrdersPage() {
             <form onSubmit={handleSubmit} className="space-y-3">
 
               {/* Grid 2×2: Dodavatel | Termíny / Platební údaje | Poznámka */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 items-stretch">
 
                 {/* Dodavatel */}
-                <div className="border border-gray-200 rounded-lg">
+                <div className="border border-gray-200 rounded-lg flex flex-col">
                   <div className="bg-gray-50 px-3 py-2 border-b border-gray-200 rounded-t-lg">
                     <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Dodavatel</h3>
                   </div>
-                  <div className="p-3">
-                    <CustomerSupplierSelector
-                      compact
-                      type="supplier"
-                      entities={suppliers}
-                      selectedId={supplierId}
-                      onSelectedIdChange={setSupplierId}
-                      manualData={manualSupplierData}
-                      onManualDataChange={setManualSupplierData}
-                      isManual={isManualSupplier}
-                      onIsManualChange={setIsManualSupplier}
-                      isAnonymous={isAnonymousSupplier}
-                      onIsAnonymousChange={setIsAnonymousSupplier}
-                      saveToDatabase={saveSupplierToDatabase}
-                      onSaveToDatabaseChange={setSaveSupplierToDatabase}
-                      required={false}
-                    />
+                  <div className="flex-1 flex items-center p-3">
+                    <div className="w-full">
+                      <CustomerSupplierSelector
+                        compact
+                        type="supplier"
+                        entities={suppliers}
+                        selectedId={supplierId}
+                        onSelectedIdChange={setSupplierId}
+                        manualData={manualSupplierData}
+                        onManualDataChange={setManualSupplierData}
+                        isManual={isManualSupplier}
+                        onIsManualChange={setIsManualSupplier}
+                        isAnonymous={isAnonymousSupplier}
+                        onIsAnonymousChange={setIsAnonymousSupplier}
+                        saveToDatabase={saveSupplierToDatabase}
+                        onSaveToDatabaseChange={setSaveSupplierToDatabase}
+                        required={false}
+                      />
+                    </div>
                   </div>
                 </div>
 
                 {/* Termíny — 2 pole vedle sebe */}
-                <div className="border border-gray-200 rounded-lg">
+                <div className="border border-gray-200 rounded-lg flex flex-col">
                   <div className="bg-gray-50 px-3 py-2 border-b border-gray-200 rounded-t-lg">
                     <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Termíny</h3>
                   </div>
-                  <div className="p-3 grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-xs text-gray-500 mb-1 block">Datum objednávky</label>
-                      <Input type="date" value={orderDate} onChange={(e) => handleOrderDateChange(e.target.value)} />
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-500 mb-1 block">Očekávané dodání</label>
-                      <Input type="date" value={expectedDate} onChange={(e) => setExpectedDate(e.target.value)} />
+                  <div className="flex-1 flex items-center p-3">
+                    <div className="grid grid-cols-2 gap-3 w-full">
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">Datum objednávky</label>
+                        <Input type="date" value={orderDate} onChange={(e) => handleOrderDateChange(e.target.value)} />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">Očekávané dodání</label>
+                        <Input type="date" value={expectedDate} onChange={(e) => setExpectedDate(e.target.value)} />
+                      </div>
                     </div>
                   </div>
                 </div>
 
                 {/* Platební údaje */}
-                <div className="border border-gray-200 rounded-lg">
+                <div className="border border-gray-200 rounded-lg flex flex-col">
                   <div className="bg-gray-50 px-3 py-2 border-b border-gray-200 rounded-t-lg">
                     <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Platební údaje</h3>
                   </div>
-                  <div className="p-3 space-y-3">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-xs text-gray-500 mb-1 block">Datum splatnosti</label>
-                        <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+                  <div className="flex-1 flex items-center p-3">
+                    <div className="w-full space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-xs text-gray-500 mb-1 block">Datum splatnosti</label>
+                          <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+                        </div>
+                        <div>
+                          <label className="text-xs text-gray-500 mb-1 block">Forma úhrady</label>
+                          <div className="relative">
+                            <select
+                              value={paymentType}
+                              onChange={(e) => setPaymentType(e.target.value)}
+                              className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 pr-9 py-2 text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            >
+                              <option value="">Vyberte...</option>
+                              <option value="cash">Hotově</option>
+                              <option value="card">Kartou</option>
+                              <option value="transfer">Převodem</option>
+                            </select>
+                            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <label className="text-xs text-gray-500 mb-1 block">Forma úhrady</label>
-                        <select
-                          value={paymentType}
-                          onChange={(e) => setPaymentType(e.target.value)}
-                          className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400"
-                        >
-                          <option value="">Vyberte...</option>
-                          <option value="cash">Hotově</option>
-                          <option value="card">Kartou</option>
-                          <option value="transfer">Převodem</option>
-                        </select>
-                      </div>
+                      {paymentType === 'transfer' && (
+                        <div className="grid grid-cols-3 gap-3 pt-2 border-t border-gray-100">
+                          <div>
+                            <label className="text-xs text-gray-500 mb-1 block">Variabilní symbol</label>
+                            <Input value={variableSymbol} onChange={(e) => setVariableSymbol(e.target.value)} placeholder="VS" />
+                          </div>
+                          <div>
+                            <label className="text-xs text-gray-500 mb-1 block">Konstantní symbol</label>
+                            <Input value={constantSymbol} onChange={(e) => setConstantSymbol(e.target.value)} placeholder="KS" />
+                          </div>
+                          <div>
+                            <label className="text-xs text-gray-500 mb-1 block">Specifický symbol</label>
+                            <Input value={specificSymbol} onChange={(e) => setSpecificSymbol(e.target.value)} placeholder="SS" />
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    {paymentType === 'transfer' && (
-                      <div className="grid grid-cols-3 gap-3 pt-2 border-t border-gray-100">
-                        <div>
-                          <label className="text-xs text-gray-500 mb-1 block">Variabilní symbol</label>
-                          <Input value={variableSymbol} onChange={(e) => setVariableSymbol(e.target.value)} placeholder="VS" />
-                        </div>
-                        <div>
-                          <label className="text-xs text-gray-500 mb-1 block">Konstantní symbol</label>
-                          <Input value={constantSymbol} onChange={(e) => setConstantSymbol(e.target.value)} placeholder="KS" />
-                        </div>
-                        <div>
-                          <label className="text-xs text-gray-500 mb-1 block">Specifický symbol</label>
-                          <Input value={specificSymbol} onChange={(e) => setSpecificSymbol(e.target.value)} placeholder="SS" />
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </div>
 
                 {/* Poznámka */}
-                <div className="border border-gray-200 rounded-lg">
+                <div className="border border-gray-200 rounded-lg flex flex-col">
                   <div className="bg-gray-50 px-3 py-2 border-b border-gray-200 rounded-t-lg">
                     <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Poznámka</h3>
                   </div>
-                  <div className="p-3">
+                  <div className="flex-1 p-3">
                     <textarea
                       value={note}
                       onChange={(e) => setNote(e.target.value)}
                       placeholder="Volitelná poznámka..."
-                      rows={4}
-                      className="w-full text-sm border border-gray-200 rounded px-2 py-1.5 resize-none focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400 placeholder-gray-400"
+                      className="w-full h-full min-h-[80px] text-sm rounded-md border border-gray-300 bg-white px-3 py-2 resize-none placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
                 </div>

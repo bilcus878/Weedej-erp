@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { ChevronDown } from 'lucide-react'
 import Input from '@/components/ui/Input'
 
 interface Customer {
@@ -141,30 +142,33 @@ export default function CustomerSupplierSelector({
           </label>
         )}
         <div className="flex items-center gap-2">
-          <select
-            value={selectedId}
-            onChange={(e) => handleSelectChange(e.target.value)}
-            className="flex-1 border border-gray-200 rounded px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400"
-            disabled={isManual || isAnonymous}
-            required={required && !isManual && !isAnonymous}
-          >
-            <option value="">
-              {isManual ? '— ruční zadání —' : isAnonymous ? '— anonymní —' : `Vyberte ${type === 'customer' ? 'zákazníka' : 'dodavatele'}...`}
-            </option>
-            {entities.map(entity => (
-              <option key={entity.id} value={entity.id}>{entity.name}</option>
-            ))}
-          </select>
+          <div className="relative flex-1">
+            <select
+              value={selectedId}
+              onChange={(e) => handleSelectChange(e.target.value)}
+              className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 pr-9 py-2 text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isManual || isAnonymous}
+              required={required && !isManual && !isAnonymous}
+            >
+              <option value="">
+                {isManual ? '— ruční zadání —' : isAnonymous ? '— anonymní —' : `Vyberte ${type === 'customer' ? 'zákazníka' : 'dodavatele'}...`}
+              </option>
+              {entities.map(entity => (
+                <option key={entity.id} value={entity.id}>{entity.name}</option>
+              ))}
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          </div>
 
-          {/* Pill toggle tlačítka */}
+          {/* Toggle tlačítka — stejná výška jako select (h-10) */}
           <button
             type="button"
             onClick={() => { onIsManualChange(!isManual); if (!isManual) onIsAnonymousChange(false) }}
             disabled={isAnonymous}
-            className={`px-2.5 py-1.5 text-xs rounded border transition-colors whitespace-nowrap ${
+            className={`h-10 px-3 text-xs rounded-md border transition-colors whitespace-nowrap font-medium ${
               isManual
                 ? 'bg-blue-600 text-white border-blue-600'
-                : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400 hover:bg-gray-50'
             } disabled:opacity-40 disabled:cursor-not-allowed`}
           >
             Ručně
@@ -173,10 +177,10 @@ export default function CustomerSupplierSelector({
             type="button"
             onClick={() => { onIsAnonymousChange(!isAnonymous); if (!isAnonymous) onIsManualChange(false) }}
             disabled={isManual}
-            className={`px-2.5 py-1.5 text-xs rounded border transition-colors whitespace-nowrap ${
+            className={`h-10 px-3 text-xs rounded-md border transition-colors whitespace-nowrap font-medium ${
               isAnonymous
                 ? 'bg-gray-500 text-white border-gray-500'
-                : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400 hover:bg-gray-50'
             } disabled:opacity-40 disabled:cursor-not-allowed`}
           >
             Anon.
