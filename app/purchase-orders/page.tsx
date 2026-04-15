@@ -15,6 +15,8 @@ import CustomerSupplierSelector from '@/components/CustomerSupplierSelector'
 import PaymentDetailsSelector from '@/components/PaymentDetailsSelector'
 import { CZECH_VAT_RATES, calculateVatFromNet, calculateVatFromGross, calculateLineVat, calculateVatSummary, isNonVatPayer, NON_VAT_PAYER_RATE, DEFAULT_VAT_RATE, VAT_RATE_LABELS, type VatLineItem } from '@/lib/vatCalculation'
 
+export const dynamic = 'force-dynamic'
+
 interface Supplier {
   id: string
   name: string

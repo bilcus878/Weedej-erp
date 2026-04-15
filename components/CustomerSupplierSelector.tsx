@@ -100,6 +100,7 @@ export default function CustomerSupplierSelector({
       onSelectedIdChange('')
       onIsManualChange(false)
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAnonymous])
 
   // Když se zaškrtne "Zadat ručně", vymaž select
@@ -107,6 +108,7 @@ export default function CustomerSupplierSelector({
     if (isManual && !isAnonymous) {
       onSelectedIdChange('')
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isManual])
 
   // Když se vybere ze selectu, zruš manuální režim a anonymní

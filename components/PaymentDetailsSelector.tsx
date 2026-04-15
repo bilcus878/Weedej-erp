@@ -38,6 +38,7 @@ export default function PaymentDetailsSelector({
     if (autoGenerateNumber && paymentType === 'transfer' && !variableSymbol) {
       onVariableSymbolChange(autoGenerateNumber)
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoGenerateNumber, paymentType])
 
   // Výchozí datum splatnosti = dnes + 14 dní
@@ -47,6 +48,7 @@ export default function PaymentDetailsSelector({
       defaultDueDate.setDate(defaultDueDate.getDate() + 14)
       onDueDateChange(defaultDueDate.toISOString().split('T')[0])
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   return (

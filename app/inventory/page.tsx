@@ -12,6 +12,8 @@ import { formatPrice, formatQuantity, formatDate } from '@/lib/utils'
 import { isNonVatPayer } from '@/lib/vatCalculation'
 import { ArrowLeft, ChevronDown, ChevronUp, ChevronRight, Edit2, Eye, RefreshCw } from 'lucide-react'
 
+export const dynamic = 'force-dynamic'
+
 interface InventorySummary {
   productId: string
   productName: string
@@ -146,6 +148,7 @@ export default function InventoryPage() {
         }, 100)
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [highlightId, summary, itemsPerPage])
 
   // Auto-otevři detail produktu z URL
@@ -178,6 +181,7 @@ export default function InventoryPage() {
         }, 100)
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [highlightMovementId, stockMovements, movementsPerPage])
 
   // Zavření dropdownů

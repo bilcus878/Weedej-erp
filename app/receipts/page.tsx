@@ -14,6 +14,8 @@ import { formatDate, formatPrice } from '@/lib/utils'
 import { generateReceiptPDF, openPDFInNewTab } from '@/lib/pdfGenerator'
 import { isNonVatPayer, DEFAULT_VAT_RATE } from '@/lib/vatCalculation'
 
+export const dynamic = 'force-dynamic'
+
 interface Supplier {
   id: string
   name: string

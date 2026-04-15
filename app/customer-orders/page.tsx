@@ -16,6 +16,8 @@ import { VAT_RATE_LABELS, isNonVatPayer, calculateLineVat, calculateVatSummary, 
 import CustomerSupplierSelector from '@/components/CustomerSupplierSelector'
 import PaymentDetailsSelector from '@/components/PaymentDetailsSelector'
 
+export const dynamic = 'force-dynamic'
+
 interface Customer {
   id: string
   name: string

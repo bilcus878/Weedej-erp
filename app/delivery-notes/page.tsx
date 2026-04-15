@@ -15,6 +15,8 @@ import { formatDate, formatPrice, formatQuantity } from '@/lib/utils'
 import { generateDeliveryNotePDF, openPDFInNewTab } from '@/lib/pdfGenerator'
 import { isNonVatPayer, DEFAULT_VAT_RATE } from '@/lib/vatCalculation'
 
+export const dynamic = 'force-dynamic'
+
 interface DeliveryNoteItem {
   id: string
   productId?: string

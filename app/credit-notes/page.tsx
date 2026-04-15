@@ -9,6 +9,8 @@ import { formatPrice, formatQuantity } from '@/lib/utils'
 import { ChevronDown, ChevronRight, XCircle, ExternalLink } from 'lucide-react'
 import { isNonVatPayer, DEFAULT_VAT_RATE } from '@/lib/vatCalculation'
 
+export const dynamic = 'force-dynamic'
+
 interface CreditNoteItem {
   id: string
   productName: string | null

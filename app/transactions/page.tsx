@@ -14,6 +14,8 @@ import { generateInvoicePDF } from '@/lib/generateInvoicePDF'
 import { RefreshCw, ChevronDown, ChevronRight, X, Trash2, Calendar, ExternalLink } from 'lucide-react'
 import { isNonVatPayer, NON_VAT_PAYER_RATE, DEFAULT_VAT_RATE } from '@/lib/vatCalculation'
 
+export const dynamic = 'force-dynamic'
+
 interface TransactionItem {
   id: string
   quantity: number

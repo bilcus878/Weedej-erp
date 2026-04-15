@@ -10,6 +10,8 @@ import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import { Plus, Edit2, Trash2, X, ChevronDown, ChevronRight, Users } from 'lucide-react'
 
+export const dynamic = 'force-dynamic'
+
 interface Customer {
   id: string
   name: string

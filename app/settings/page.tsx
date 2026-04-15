@@ -129,10 +129,12 @@ export default function SettingsPage() {
 
   useEffect(() => {
     fetchSettings()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
     if (activeTab === 'api') fetchApiKeys()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab])
 
   // Track changes
@@ -588,6 +590,7 @@ export default function SettingsPage() {
                 {/* Logo */}
                 <div>
                   <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1.5">
+                    {/* eslint-disable-next-line jsx-a11y/alt-text */}
                     <Image className="h-3.5 w-3.5 text-gray-400" />
                     Logo
                     <span className="text-xs font-normal text-gray-400">(volitelné)</span>
@@ -600,6 +603,7 @@ export default function SettingsPage() {
                   {formData.logo && (
                     <div className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
                       <p className="text-xs text-gray-500 mb-2">Náhled:</p>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={formData.logo}
                         alt="Logo náhled"

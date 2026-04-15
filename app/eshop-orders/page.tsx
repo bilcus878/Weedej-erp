@@ -25,6 +25,8 @@ import {
   RefreshCw,
 } from 'lucide-react'
 
+export const dynamic = 'force-dynamic'
+
 // ─── Typy ────────────────────────────────────────────────────────────────────
 
 interface EshopOrderItem {

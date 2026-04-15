@@ -7,6 +7,8 @@ import InvoiceDetailsModal from '@/components/InvoiceDetailsModal'
 import { isNonVatPayer, NON_VAT_PAYER_RATE, DEFAULT_VAT_RATE } from '@/lib/vatCalculation'
 import { formatPrice } from '@/lib/utils'
 
+export const dynamic = 'force-dynamic'
+
 type Supplier = {
   id: string
   name: string
