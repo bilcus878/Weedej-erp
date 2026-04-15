@@ -60,6 +60,8 @@ interface CustomerSupplierSelectorProps {
   onSaveToDatabaseChange: (save: boolean) => void
   required?: boolean
   label?: string
+  /** Compact mode: only renders the select + toggle buttons, no expanded form */
+  compact?: boolean
 }
 
 export default function CustomerSupplierSelector({
@@ -76,7 +78,8 @@ export default function CustomerSupplierSelector({
   saveToDatabase,
   onSaveToDatabaseChange,
   required = false,
-  label
+  label,
+  compact = false,
 }: CustomerSupplierSelectorProps) {
   const entityLabel = label || (type === 'customer' ? 'Zákazník / Odběratel' : 'Dodavatel')
   const anonymousLabel = type === 'customer' ? 'Anonymní zákazník/odběratel' : 'Anonymní dodavatel'
@@ -129,65 +132,60 @@ export default function CustomerSupplierSelector({
   }
 
   return (
-    <div className="space-y-4">
-      {/* Select a checkboxy na jednom řádku */}
+    <div className="space-y-3">
+      {/* Select + pill toggle tlačítka */}
       <div>
-        <label className="block text-sm font-medium mb-1">
-          {entityLabel} {required && '*'}
-        </label>
-        <div className="flex items-center gap-4">
+        {!compact && (
+          <label className="block text-xs font-medium text-gray-500 mb-1">
+            {entityLabel} {required && <span className="text-red-400">*</span>}
+          </label>
+        )}
+        <div className="flex items-center gap-2">
           <select
             value={selectedId}
             onChange={(e) => handleSelectChange(e.target.value)}
-            className="flex-1 border rounded px-3 py-2"
+            className="flex-1 border border-gray-200 rounded px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400"
             disabled={isManual || isAnonymous}
             required={required && !isManual && !isAnonymous}
           >
             <option value="">
-              {isManual ? 'Ruční zadání aktivní' : isAnonymous ? 'Anonymní režim aktivní' : `Vyberte ${type === 'customer' ? 'zákazníka' : 'dodavatele'}`}
+              {isManual ? '— ruční zadání —' : isAnonymous ? '— anonymní —' : `Vyberte ${type === 'customer' ? 'zákazníka' : 'dodavatele'}...`}
             </option>
             {entities.map(entity => (
               <option key={entity.id} value={entity.id}>{entity.name}</option>
             ))}
           </select>
 
-          {/* Checkboxy vedle selectu */}
-          <label className="flex items-center gap-2 cursor-pointer whitespace-nowrap">
-            <input
-              type="checkbox"
-              checked={isManual}
-              onChange={(e) => {
-                onIsManualChange(e.target.checked)
-                if (e.target.checked) {
-                  onIsAnonymousChange(false)
-                }
-              }}
-              className="w-4 h-4"
-              disabled={isAnonymous}
-            />
-            <span className="text-sm">Zadat ručně</span>
-          </label>
-
-          <label className="flex items-center gap-2 cursor-pointer whitespace-nowrap">
-            <input
-              type="checkbox"
-              checked={isAnonymous}
-              onChange={(e) => {
-                onIsAnonymousChange(e.target.checked)
-                if (e.target.checked) {
-                  onIsManualChange(false)
-                }
-              }}
-              className="w-4 h-4"
-              disabled={isManual}
-            />
-            <span className="text-sm">{anonymousLabel}</span>
-          </label>
+          {/* Pill toggle tlačítka */}
+          <button
+            type="button"
+            onClick={() => { onIsManualChange(!isManual); if (!isManual) onIsAnonymousChange(false) }}
+            disabled={isAnonymous}
+            className={`px-2.5 py-1.5 text-xs rounded border transition-colors whitespace-nowrap ${
+              isManual
+                ? 'bg-blue-600 text-white border-blue-600'
+                : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+            } disabled:opacity-40 disabled:cursor-not-allowed`}
+          >
+            Ručně
+          </button>
+          <button
+            type="button"
+            onClick={() => { onIsAnonymousChange(!isAnonymous); if (!isAnonymous) onIsManualChange(false) }}
+            disabled={isManual}
+            className={`px-2.5 py-1.5 text-xs rounded border transition-colors whitespace-nowrap ${
+              isAnonymous
+                ? 'bg-gray-500 text-white border-gray-500'
+                : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+            } disabled:opacity-40 disabled:cursor-not-allowed`}
+          >
+            Anon.
+          </button>
         </div>
       </div>
 
-      {/* Manuální formulář */}
-      {isManual && !isAnonymous && (
+      {/* Manuální formulář — skrytý v compact módu (parent ho renderuje sám) */}
+      {!compact && isManual && !isAnonymous && (
         <div className="p-4 border rounded bg-gray-50 space-y-3">
           <h4 className="font-medium text-sm">Manuální údaje {type === 'customer' ? 'o odběrateli' : 'o dodavateli'}</h4>
 
@@ -345,8 +343,8 @@ export default function CustomerSupplierSelector({
         </div>
       )}
 
-      {/* Info pro anonymní režim */}
-      {isAnonymous && (
+      {/* Info pro anonymní režim — skrytý v compact módu */}
+      {!compact && isAnonymous && (
         <div className="p-3 border rounded bg-blue-50 border-blue-200">
           <p className="text-sm text-blue-800">
             ℹ️ {type === 'customer' ? 'Zákazník' : 'Dodavatel'} bude uložen jako "{type === 'customer' ? 'Anonymní zákazník' : 'Anonymní dodavatel'}" bez dalších údajů.

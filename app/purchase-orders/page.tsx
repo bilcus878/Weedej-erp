@@ -671,83 +671,71 @@ export default function PurchaseOrdersPage() {
           <CardContent className="p-6 bg-white">
             <form onSubmit={handleSubmit} className="space-y-3">
 
-              {/* Dodavatel */}
-              <div className="border border-gray-200 rounded-lg overflow-hidden">
-                <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
-                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Dodavatel</h3>
-                </div>
-                <div className="p-4">
-                  <CustomerSupplierSelector
-                    type="supplier"
-                    entities={suppliers}
-                    selectedId={supplierId}
-                    onSelectedIdChange={setSupplierId}
-                    manualData={manualSupplierData}
-                    onManualDataChange={setManualSupplierData}
-                    isManual={isManualSupplier}
-                    onIsManualChange={setIsManualSupplier}
-                    isAnonymous={isAnonymousSupplier}
-                    onIsAnonymousChange={setIsAnonymousSupplier}
-                    saveToDatabase={saveSupplierToDatabase}
-                    onSaveToDatabaseChange={setSaveSupplierToDatabase}
-                    required={false}
-                  />
-                </div>
-              </div>
+              {/* Řádek: Dodavatel + Termíny + Platba + Poznámka */}
+              <div className="grid grid-cols-[2fr_1fr_2fr_1fr] gap-3 items-start">
 
-              {/* Základní údaje + Platební údaje + Poznámka v jednom řádku */}
-              <div className="grid grid-cols-[1fr_2fr_1fr] gap-3">
-                {/* Základní údaje */}
-                <div className="border border-gray-200 rounded-lg overflow-hidden">
-                  <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
+                {/* Dodavatel */}
+                <div className="border border-gray-200 rounded-lg">
+                  <div className="bg-gray-50 px-3 py-2 border-b border-gray-200 rounded-t-lg">
+                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Dodavatel</h3>
+                  </div>
+                  <div className="p-3">
+                    <CustomerSupplierSelector
+                      compact
+                      type="supplier"
+                      entities={suppliers}
+                      selectedId={supplierId}
+                      onSelectedIdChange={setSupplierId}
+                      manualData={manualSupplierData}
+                      onManualDataChange={setManualSupplierData}
+                      isManual={isManualSupplier}
+                      onIsManualChange={setIsManualSupplier}
+                      isAnonymous={isAnonymousSupplier}
+                      onIsAnonymousChange={setIsAnonymousSupplier}
+                      saveToDatabase={saveSupplierToDatabase}
+                      onSaveToDatabaseChange={setSaveSupplierToDatabase}
+                      required={false}
+                    />
+                  </div>
+                </div>
+
+                {/* Termíny */}
+                <div className="border border-gray-200 rounded-lg">
+                  <div className="bg-gray-50 px-3 py-2 border-b border-gray-200 rounded-t-lg">
                     <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Termíny</h3>
                   </div>
                   <div className="p-3 space-y-2">
                     <div>
                       <label className="text-xs text-gray-500 mb-1 block">Datum objednávky</label>
-                      <Input
-                        type="date"
-                        value={orderDate}
-                        onChange={(e) => handleOrderDateChange(e.target.value)}
-                      />
+                      <Input type="date" value={orderDate} onChange={(e) => handleOrderDateChange(e.target.value)} />
                     </div>
                     <div>
                       <label className="text-xs text-gray-500 mb-1 block">Očekávané dodání</label>
-                      <Input
-                        type="date"
-                        value={expectedDate}
-                        onChange={(e) => setExpectedDate(e.target.value)}
-                      />
+                      <Input type="date" value={expectedDate} onChange={(e) => setExpectedDate(e.target.value)} />
                     </div>
                   </div>
                 </div>
 
                 {/* Platební údaje */}
-                <div className="border border-gray-200 rounded-lg overflow-hidden">
-                  <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
+                <div className="border border-gray-200 rounded-lg">
+                  <div className="bg-gray-50 px-3 py-2 border-b border-gray-200 rounded-t-lg">
                     <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Platební údaje</h3>
                   </div>
                   <div className="p-3">
                     <PaymentDetailsSelector
-                      dueDate={dueDate}
-                      onDueDateChange={setDueDate}
-                      paymentType={paymentType}
-                      onPaymentTypeChange={setPaymentType}
-                      variableSymbol={variableSymbol}
-                      onVariableSymbolChange={setVariableSymbol}
-                      constantSymbol={constantSymbol}
-                      onConstantSymbolChange={setConstantSymbol}
-                      specificSymbol={specificSymbol}
-                      onSpecificSymbolChange={setSpecificSymbol}
-                      required={false}
-                      autoGenerateNumber={orderNumber}
+                      dueDate={dueDate} onDueDateChange={setDueDate}
+                      paymentType={paymentType} onPaymentTypeChange={setPaymentType}
+                      variableSymbol={variableSymbol} onVariableSymbolChange={setVariableSymbol}
+                      constantSymbol={constantSymbol} onConstantSymbolChange={setConstantSymbol}
+                      specificSymbol={specificSymbol} onSpecificSymbolChange={setSpecificSymbol}
+                      required={false} autoGenerateNumber={orderNumber}
                     />
                   </div>
                 </div>
 
                 {/* Poznámka */}
-                <div className="border border-gray-200 rounded-lg overflow-hidden">
-                  <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
+                <div className="border border-gray-200 rounded-lg">
+                  <div className="bg-gray-50 px-3 py-2 border-b border-gray-200 rounded-t-lg">
                     <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Poznámka</h3>
                   </div>
                   <div className="p-3">
@@ -755,16 +743,97 @@ export default function PurchaseOrdersPage() {
                       value={note}
                       onChange={(e) => setNote(e.target.value)}
                       placeholder="Volitelná poznámka..."
-                      rows={4}
-                      className="w-full text-sm border border-gray-200 rounded px-3 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400 placeholder-gray-400"
+                      rows={3}
+                      className="w-full text-sm border border-gray-200 rounded px-2 py-1.5 resize-none focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400 placeholder-gray-400"
                     />
                   </div>
                 </div>
               </div>
 
+              {/* Manuální formulář dodavatele — plná šířka pod řádkem */}
+              {isManualSupplier && !isAnonymousSupplier && (
+                <div className="border border-blue-200 rounded-lg bg-blue-50/30">
+                  <div className="bg-blue-50 px-3 py-2 border-b border-blue-200 rounded-t-lg flex items-center justify-between">
+                    <h3 className="text-xs font-semibold text-blue-600 uppercase tracking-wide">Údaje o dodavateli — ruční zadání</h3>
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                      <input type="checkbox" checked={saveSupplierToDatabase} onChange={(e) => setSaveSupplierToDatabase(e.target.checked)} className="w-3.5 h-3.5" />
+                      <span className="text-xs text-blue-700">Uložit do databáze</span>
+                    </label>
+                  </div>
+                  <div className="p-3">
+                    <div className="grid grid-cols-4 gap-2">
+                      {/* Typ subjektu */}
+                      <div className="col-span-4 flex items-center gap-4 mb-1">
+                        <label className="flex items-center gap-1.5 cursor-pointer text-sm">
+                          <input type="radio" name="supplierEntityType" value="company" checked={manualSupplierData.entityType === 'company'} onChange={() => setManualSupplierData({...manualSupplierData, entityType: 'company'})} className="w-3.5 h-3.5" />
+                          🏢 Firma
+                        </label>
+                        <label className="flex items-center gap-1.5 cursor-pointer text-sm">
+                          <input type="radio" name="supplierEntityType" value="individual" checked={manualSupplierData.entityType === 'individual'} onChange={() => setManualSupplierData({...manualSupplierData, entityType: 'individual'})} className="w-3.5 h-3.5" />
+                          👤 Fyzická osoba
+                        </label>
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">{manualSupplierData.entityType === 'individual' ? 'Jméno a příjmení' : 'Název'} *</label>
+                        <Input value={manualSupplierData.name} onChange={(e) => setManualSupplierData({...manualSupplierData, name: e.target.value})} placeholder={manualSupplierData.entityType === 'individual' ? 'Jan Novák' : 'Název firmy'} required />
+                      </div>
+                      {manualSupplierData.entityType === 'company' && (
+                        <div>
+                          <label className="text-xs text-gray-500 mb-1 block">Kontaktní osoba</label>
+                          <Input value={manualSupplierData.contactPerson} onChange={(e) => setManualSupplierData({...manualSupplierData, contactPerson: e.target.value})} placeholder="Kontaktní osoba" />
+                        </div>
+                      )}
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">Email</label>
+                        <Input type="email" value={manualSupplierData.email} onChange={(e) => setManualSupplierData({...manualSupplierData, email: e.target.value})} placeholder="email@example.com" />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">Telefon</label>
+                        <Input value={manualSupplierData.phone} onChange={(e) => setManualSupplierData({...manualSupplierData, phone: e.target.value})} placeholder="+420 123 456 789" />
+                      </div>
+                      {manualSupplierData.entityType === 'company' && (<>
+                        <div>
+                          <label className="text-xs text-gray-500 mb-1 block">IČO</label>
+                          <Input value={manualSupplierData.ico} onChange={(e) => setManualSupplierData({...manualSupplierData, ico: e.target.value})} placeholder="IČO" />
+                        </div>
+                        <div>
+                          <label className="text-xs text-gray-500 mb-1 block">DIČ</label>
+                          <Input value={manualSupplierData.dic} onChange={(e) => setManualSupplierData({...manualSupplierData, dic: e.target.value})} placeholder="DIČ" />
+                        </div>
+                      </>)}
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">Číslo účtu</label>
+                        <Input value={manualSupplierData.bankAccount} onChange={(e) => setManualSupplierData({...manualSupplierData, bankAccount: e.target.value})} placeholder="123456789/0100" />
+                      </div>
+                      {manualSupplierData.entityType === 'company' && (
+                        <div>
+                          <label className="text-xs text-gray-500 mb-1 block">Web</label>
+                          <Input value={manualSupplierData.website} onChange={(e) => setManualSupplierData({...manualSupplierData, website: e.target.value})} placeholder="https://example.com" />
+                        </div>
+                      )}
+                      <div className="col-span-2">
+                        <label className="text-xs text-gray-500 mb-1 block">Adresa *</label>
+                        <Input value={manualSupplierData.address} onChange={(e) => setManualSupplierData({...manualSupplierData, address: e.target.value})} placeholder="Ulice, Město, PSČ" required />
+                      </div>
+                      <div className="col-span-2">
+                        <label className="text-xs text-gray-500 mb-1 block">Poznámka</label>
+                        <Input value={manualSupplierData.note} onChange={(e) => setManualSupplierData({...manualSupplierData, note: e.target.value})} placeholder="Volitelná poznámka..." />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Anonymní info */}
+              {isAnonymousSupplier && (
+                <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-500">
+                  Dodavatel bude uložen jako „Anonymní dodavatel" bez dalších údajů.
+                </div>
+              )}
+
               {/* Položky */}
-              <div className="border border-gray-200 rounded-lg overflow-hidden">
-                <div className="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between">
+              <div className="border border-gray-200 rounded-lg">
+                <div className="bg-gray-50 px-4 py-2 border-b border-gray-200 rounded-t-lg flex items-center justify-between">
                   <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1">
                     Položky objednávky
                     <span className="text-red-400 ml-0.5">*</span>
