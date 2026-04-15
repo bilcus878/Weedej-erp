@@ -429,7 +429,14 @@ export async function generateDeliveryNotePDF(
   })
 }
 
-export function openPDFInNewTab(blob: Blob) {
+export function openPDFInNewTab(blob: Blob, filename = 'dokument.pdf') {
   const url = URL.createObjectURL(blob)
-  window.open(url, '_blank')
+  const a = document.createElement('a')
+  a.href = url
+  a.target = '_blank'
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(url), 10000)
 }

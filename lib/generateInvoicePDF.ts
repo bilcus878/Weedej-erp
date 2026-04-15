@@ -447,7 +447,17 @@ export async function generateInvoicePDF(
   }
 
   return new Promise<void>(resolve => {
-    pdfMake.createPdf(dd).open()
-    resolve()
+    pdfMake.createPdf(dd).getBlob((blob: Blob) => {
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.target = '_blank'
+      a.download = `faktura-${invoice.transactionCode}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(url), 10000)
+      resolve()
+    })
   })
 }
