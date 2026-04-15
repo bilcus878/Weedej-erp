@@ -669,125 +669,120 @@ export default function PurchaseOrdersPage() {
         </CardHeader>
         {showForm && (
           <CardContent className="p-6 bg-white">
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Karta: Dodavatel */}
-              <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-5 border-l-4 border-blue-500 shadow-sm">
-                <h3 className="text-lg font-semibold mb-4 text-gray-800 flex items-center gap-2">
-                  <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                  </svg>
-                  Dodavatel
-                </h3>
-                <CustomerSupplierSelector
-                  type="supplier"
-                  entities={suppliers}
-                  selectedId={supplierId}
-                  onSelectedIdChange={setSupplierId}
-                  manualData={manualSupplierData}
-                  onManualDataChange={setManualSupplierData}
-                  isManual={isManualSupplier}
-                  onIsManualChange={setIsManualSupplier}
-                  isAnonymous={isAnonymousSupplier}
-                  onIsAnonymousChange={setIsAnonymousSupplier}
-                  saveToDatabase={saveSupplierToDatabase}
-                  onSaveToDatabaseChange={setSaveSupplierToDatabase}
-                  required={false}
-                />
+            <form onSubmit={handleSubmit} className="space-y-3">
+
+              {/* Dodavatel */}
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Dodavatel</h3>
+                </div>
+                <div className="p-4">
+                  <CustomerSupplierSelector
+                    type="supplier"
+                    entities={suppliers}
+                    selectedId={supplierId}
+                    onSelectedIdChange={setSupplierId}
+                    manualData={manualSupplierData}
+                    onManualDataChange={setManualSupplierData}
+                    isManual={isManualSupplier}
+                    onIsManualChange={setIsManualSupplier}
+                    isAnonymous={isAnonymousSupplier}
+                    onIsAnonymousChange={setIsAnonymousSupplier}
+                    saveToDatabase={saveSupplierToDatabase}
+                    onSaveToDatabaseChange={setSaveSupplierToDatabase}
+                    required={false}
+                  />
+                </div>
               </div>
 
-              {/* Karta: Základní údaje */}
-              <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-lg p-5 border-l-4 border-indigo-500 shadow-sm">
-                <h3 className="text-lg font-semibold mb-4 text-gray-800 flex items-center gap-2">
-                  <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  Základní údaje
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium mb-1 block text-gray-700">Datum objednávky</label>
-                    <Input
-                      type="date"
-                      value={orderDate}
-                      onChange={(e) => handleOrderDateChange(e.target.value)}
-                      className="bg-white border-indigo-200 focus:border-indigo-400 focus:ring-indigo-400"
+              {/* Základní údaje + Platební údaje + Poznámka v jednom řádku */}
+              <div className="grid grid-cols-[1fr_2fr_1fr] gap-3">
+                {/* Základní údaje */}
+                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                  <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
+                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Termíny</h3>
+                  </div>
+                  <div className="p-3 space-y-2">
+                    <div>
+                      <label className="text-xs text-gray-500 mb-1 block">Datum objednávky</label>
+                      <Input
+                        type="date"
+                        value={orderDate}
+                        onChange={(e) => handleOrderDateChange(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500 mb-1 block">Očekávané dodání</label>
+                      <Input
+                        type="date"
+                        value={expectedDate}
+                        onChange={(e) => setExpectedDate(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Platební údaje */}
+                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                  <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
+                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Platební údaje</h3>
+                  </div>
+                  <div className="p-3">
+                    <PaymentDetailsSelector
+                      dueDate={dueDate}
+                      onDueDateChange={setDueDate}
+                      paymentType={paymentType}
+                      onPaymentTypeChange={setPaymentType}
+                      variableSymbol={variableSymbol}
+                      onVariableSymbolChange={setVariableSymbol}
+                      constantSymbol={constantSymbol}
+                      onConstantSymbolChange={setConstantSymbol}
+                      specificSymbol={specificSymbol}
+                      onSpecificSymbolChange={setSpecificSymbol}
+                      required={false}
+                      autoGenerateNumber={orderNumber}
                     />
                   </div>
-                  <div>
-                    <label className="text-sm font-medium mb-1 block text-gray-700">Očekávané dodání</label>
-                    <Input
-                      type="date"
-                      value={expectedDate}
-                      onChange={(e) => setExpectedDate(e.target.value)}
-                      className="bg-white border-indigo-200 focus:border-indigo-400 focus:ring-indigo-400"
+                </div>
+
+                {/* Poznámka */}
+                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                  <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
+                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Poznámka</h3>
+                  </div>
+                  <div className="p-3">
+                    <textarea
+                      value={note}
+                      onChange={(e) => setNote(e.target.value)}
+                      placeholder="Volitelná poznámka..."
+                      rows={4}
+                      className="w-full text-sm border border-gray-200 rounded px-3 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400 placeholder-gray-400"
                     />
                   </div>
                 </div>
               </div>
 
-              {/* Karta: Platební údaje */}
-              <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-5 border-l-4 border-green-500 shadow-sm">
-                <h3 className="text-lg font-semibold mb-4 text-gray-800 flex items-center gap-2">
-                  <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                  </svg>
-                  Platební údaje
-                </h3>
-                <PaymentDetailsSelector
-                  dueDate={dueDate}
-                  onDueDateChange={setDueDate}
-                  paymentType={paymentType}
-                  onPaymentTypeChange={setPaymentType}
-                  variableSymbol={variableSymbol}
-                  onVariableSymbolChange={setVariableSymbol}
-                  constantSymbol={constantSymbol}
-                  onConstantSymbolChange={setConstantSymbol}
-                  specificSymbol={specificSymbol}
-                  onSpecificSymbolChange={setSpecificSymbol}
-                  required={false}
-                  autoGenerateNumber={orderNumber}
-                />
-              </div>
-
-              {/* Karta: Poznámka */}
-              <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-lg p-5 border-l-4 border-amber-500 shadow-sm">
-                <h3 className="text-lg font-semibold mb-3 text-gray-800 flex items-center gap-2">
-                  <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                  Poznámka
-                </h3>
-                <Input
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  placeholder="Volitelná poznámka k objednávce..."
-                  className="bg-white border-amber-200 focus:border-amber-400 focus:ring-amber-400"
-                />
-              </div>
-
-              {/* Karta: Položky */}
-              <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-5 border-l-4 border-purple-500 shadow-sm">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                    <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-                    </svg>
+              {/* Položky */}
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <div className="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between">
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1">
                     Položky objednávky
-                    <span className="text-red-500 text-sm">*</span>
+                    <span className="text-red-400 ml-0.5">*</span>
                   </h3>
                   <Button
                     type="button"
                     onClick={handleAddItem}
                     size="sm"
-                    className="bg-purple-600 hover:bg-purple-700 text-white shadow-md hover:shadow-lg transition-all"
+                    className="h-7 px-3 text-xs bg-blue-600 hover:bg-blue-700 text-white"
                   >
-                    <Plus className="w-4 h-4 mr-1" />
-                    Přidat položku
+                    <Plus className="w-3 h-3 mr-1" />
+                    Přidat
                   </Button>
                 </div>
+                <div className="p-3">
 
                 {items.map((item, index) => (
-                  <div key={index} className={`grid ${isVatPayer ? 'grid-cols-[4fr_2fr_1fr_1fr_2fr_2fr_auto]' : 'grid-cols-12'} gap-3 mb-3 items-end bg-white rounded-lg p-3 shadow-sm border border-purple-200 hover:border-purple-400 transition-colors`}>
+                  <div key={index} className={`grid ${isVatPayer ? 'grid-cols-[4fr_2fr_1fr_1fr_2fr_2fr_auto]' : 'grid-cols-12'} gap-2 mb-1.5 items-end bg-white rounded border border-gray-200 hover:border-blue-300 transition-colors px-2 py-1.5`}>
                     <div className={isVatPayer ? '' : 'col-span-4'} style={{ position: 'relative' }}>
                       {/* Windows-style cascading menu */}
                       <div className="relative">
@@ -1000,7 +995,7 @@ export default function PurchaseOrdersPage() {
                         value={item.quantity || ''}
                         onChange={(e) => handleItemChange(index, 'quantity', e.target.value === '' ? '' : parseFloat(e.target.value))}
                         placeholder="0"
-                        className="bg-white border-purple-200 focus:border-purple-400 focus:ring-purple-400"
+                        className="bg-white"
                       />
                     </div>
 
@@ -1010,7 +1005,7 @@ export default function PurchaseOrdersPage() {
                         value={item.unit}
                         onChange={(e) => handleItemChange(index, 'unit', e.target.value)}
                         placeholder="ks"
-                        className="bg-white border-purple-200 focus:border-purple-400 focus:ring-purple-400"
+                        className="bg-white"
                       />
                     </div>
 
@@ -1019,8 +1014,8 @@ export default function PurchaseOrdersPage() {
                         <label className="text-xs text-gray-600 mb-1 block">DPH</label>
                         <div className={`px-2 py-2 border rounded text-sm text-center ${
                           isNonVatPayer(item.vatRate)
-                            ? 'bg-gray-100 text-gray-600 border-gray-300'
-                            : 'bg-purple-50 text-purple-700 border-purple-200'
+                            ? 'bg-gray-100 text-gray-500 border-gray-200'
+                            : 'bg-blue-50 text-blue-700 border-blue-200'
                         }`}>
                           {isNonVatPayer(item.vatRate) ? '-' : (VAT_RATE_LABELS[item.vatRate] || `${item.vatRate}%`)}
                         </div>
@@ -1035,7 +1030,7 @@ export default function PurchaseOrdersPage() {
                         value={item.expectedPrice || ''}
                         onChange={(e) => handleItemChange(index, 'expectedPrice', e.target.value === '' ? '' : parseFloat(e.target.value))}
                         placeholder="0.00"
-                        className="bg-white border-purple-200 focus:border-purple-400 focus:ring-purple-400"
+                        className="bg-white"
                       />
                     </div>
 
@@ -1047,7 +1042,7 @@ export default function PurchaseOrdersPage() {
                             ? calculateLineVat(item.quantity || 0, item.expectedPrice || 0, item.vatRate).totalWithVat
                             : (item.quantity || 0) * (item.expectedPrice || 0)
                           return (
-                            <div className="px-2 py-2 border rounded text-sm text-right font-medium bg-green-50 text-green-700 border-green-200">
+                            <div className="px-2 py-2 border rounded text-sm text-right font-medium bg-gray-50 text-gray-800 border-gray-200">
                               {total.toLocaleString('cs-CZ')} Kč
                             </div>
                           )
@@ -1077,7 +1072,7 @@ export default function PurchaseOrdersPage() {
                   const summary = calculateVatSummary(vatLineItems)
 
                   return (
-                    <div className="mt-4 bg-white rounded-lg border border-purple-300 overflow-hidden">
+                    <div className="mt-2 bg-gray-50 rounded border border-gray-200 overflow-hidden">
                       <div className="p-4 space-y-2">
                         {/* Základ bez DPH */}
                         <div className="flex justify-between text-sm">
@@ -1098,18 +1093,19 @@ export default function PurchaseOrdersPage() {
                         ))}
 
                         {/* Celkem s DPH */}
-                        <div className="flex justify-between pt-2 border-t border-purple-200">
-                          <span className="font-bold text-purple-900">Celkem s DPH:</span>
-                          <span className="font-bold text-purple-900 text-lg">{summary.totalWithVat.toLocaleString('cs-CZ', { minimumFractionDigits: 2 })} Kč</span>
+                        <div className="flex justify-between pt-2 border-t border-gray-200">
+                          <span className="font-semibold text-gray-800">Celkem s DPH:</span>
+                          <span className="font-bold text-gray-900 text-base">{summary.totalWithVat.toLocaleString('cs-CZ', { minimumFractionDigits: 2 })} Kč</span>
                         </div>
                       </div>
                     </div>
                   )
                 })()}
-              </div>
+                </div>{/* /p-3 */}
+              </div>{/* /items card */}
 
               {/* Tlačítka */}
-              <div className="flex gap-3 justify-end pt-4 border-t border-gray-200">
+              <div className="flex gap-3 justify-end pt-3 border-t border-gray-100">
                 <Button
                   type="button"
                   variant="ghost"
@@ -1117,13 +1113,13 @@ export default function PurchaseOrdersPage() {
                     setShowForm(false)
                     resetForm()
                   }}
-                  className="px-6 py-2 hover:bg-gray-100 transition-colors"
+                  className="px-5 hover:bg-gray-100"
                 >
                   Zrušit
                 </Button>
                 <Button
                   type="submit"
-                  className="px-8 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-md hover:shadow-lg transition-all"
+                  className="px-6 bg-blue-600 hover:bg-blue-700 text-white"
                 >
                   <Package className="w-4 h-4 mr-2" />
                   Vytvořit objednávku
