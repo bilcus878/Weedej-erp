@@ -1,6 +1,7 @@
 // API Endpoint pro statistiky (pro dashboard)
 // URL: http://localhost:3000/api/stats
 
+import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'

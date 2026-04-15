@@ -1,6 +1,7 @@
 // API Endpoint pro objednávky zákazníků (E-shop)
 // URL: /api/customer-orders
 
+import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getNextDocumentNumber } from '@/lib/documentNumbering'
 import { createReservations, canReserveQuantity } from '@/lib/reservationManagement'

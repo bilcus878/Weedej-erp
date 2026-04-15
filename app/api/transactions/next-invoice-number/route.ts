@@ -1,6 +1,7 @@
 // API Endpoint pro získání dalšího čísla faktury
 // URL: http://localhost:3000/api/transactions/next-invoice-number
 
+import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'

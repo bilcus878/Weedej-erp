@@ -1,6 +1,7 @@
 // API Endpoint pro jednu přijatou fakturu
 // URL: /api/received-invoices/[id]
 
+import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'

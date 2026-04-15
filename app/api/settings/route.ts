@@ -1,6 +1,7 @@
 // API Endpoint pro uživatelské nastavení
 // URL: http://localhost:3000/api/settings
 
+import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'

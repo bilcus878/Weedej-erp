@@ -2,6 +2,7 @@
 // GET - seznam inventur
 // POST - vytvořit novou inventuru
 
+import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getNextDocumentNumber } from '@/lib/documentSeries'
 

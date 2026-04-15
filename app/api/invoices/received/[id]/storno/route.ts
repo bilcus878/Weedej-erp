@@ -3,6 +3,7 @@
 // CASCADE STORNO: Stornuje fakturu + objednávku vydanou (Purchase Order)
 // NEŘEŠÍ sklad ani příjemky - to se stornuje samostatně
 
+import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'

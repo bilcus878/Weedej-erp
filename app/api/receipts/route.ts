@@ -1,6 +1,7 @@
 // API Endpoint pro příjemky (Receipts)
 // URL: /api/receipts
 
+import { NextResponse } from 'next/server'
 import { getNextDocumentNumber } from '@/lib/documentNumbering'
 import { prisma } from '@/lib/prisma'
 

@@ -3,6 +3,7 @@
 // Query params: ?ids=id1,id2,id3  (volitelné — bez filtru vrátí vše eshopActive)
 // Určeno pro e-shop — vyžaduje API klíč v hlavičce X-API-Key
 
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyApiKey, corsHeaders, handleOptions } from '@/lib/apiKeyAuth'
 

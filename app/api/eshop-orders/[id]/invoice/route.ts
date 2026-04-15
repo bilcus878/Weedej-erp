@@ -2,6 +2,7 @@
 // Vytvoří vystavenou fakturu pro eshop objednávku
 // Pokud faktura již existuje, vrátí ji (idempotentní)
 
+import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createIssuedInvoiceFromCustomerOrder } from '@/lib/createIssuedInvoice'
 

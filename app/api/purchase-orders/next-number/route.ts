@@ -1,6 +1,7 @@
 // API Endpoint pro získání dalšího čísla objednávky
 // URL: /api/purchase-orders/next-number
 
+import { NextResponse } from 'next/server'
 import { previewNextDocumentNumber } from '@/lib/documentSeries'
 
 export const dynamic = 'force-dynamic'

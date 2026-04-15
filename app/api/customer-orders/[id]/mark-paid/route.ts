@@ -1,6 +1,7 @@
 // API Endpoint pro označení objednávky jako zaplacené
 // URL: /api/customer-orders/[id]/mark-paid
 
+import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'

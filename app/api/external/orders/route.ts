@@ -3,6 +3,7 @@
 // GET  /api/external/orders?id=<erpOrderId> — vrátí stav objednávky
 // Určeno pro e-shop — vyžaduje API klíč v hlavičce X-API-Key
 
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getNextDocumentNumber } from '@/lib/documentNumbering'
 import { createIssuedInvoiceFromCustomerOrder } from '@/lib/createIssuedInvoice'

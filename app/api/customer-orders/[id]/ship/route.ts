@@ -2,6 +2,7 @@
 // URL: /api/customer-orders/[id]/ship
 // Workflow: Vytvoří DeliveryNote se statusem "draft" - čeká na vyskladnění
 
+import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'

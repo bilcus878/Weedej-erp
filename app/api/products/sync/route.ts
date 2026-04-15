@@ -1,6 +1,7 @@
 // API Endpoint pro synchronizaci produktů ze SumUp
 // URL: http://localhost:3000/api/products/sync
 
+import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { fetchSumUpItems } from '@/lib/sumup'
 

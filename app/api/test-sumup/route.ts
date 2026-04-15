@@ -1,6 +1,7 @@
 // Testovací endpoint pro SumUp API
 // URL: http://localhost:3000/api/test-sumup
 
+import { NextResponse } from 'next/server'
 import axios from 'axios'
 
 export const dynamic = 'force-dynamic'

@@ -1,6 +1,7 @@
 // GET /api/eshop-orders
 // Vrátí všechny objednávky přijaté z e-shopu (source = 'eshop')
 
+import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'

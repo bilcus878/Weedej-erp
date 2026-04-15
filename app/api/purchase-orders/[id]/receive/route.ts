@@ -2,6 +2,7 @@
 // URL: /api/purchase-orders/[id]/receive
 // NOVÝ WORKFLOW: Všechno naráz - příjemka + sklad + faktura v jedné transakci
 
+import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getNextDocumentNumber } from '@/lib/documentNumbering'
 

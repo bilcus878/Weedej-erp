@@ -1,6 +1,7 @@
 // API Endpoint pro jednu výdejku
 // URL: /api/delivery-notes/[id]
 
+import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'

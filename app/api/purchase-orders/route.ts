@@ -1,6 +1,7 @@
 // API Endpoint pro objednávky (Purchase Orders)
 // URL: /api/purchase-orders
 
+import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getNextDocumentNumber } from '@/lib/documentNumbering'
 import { calculateVatFromNet, calculateVatFromGross, calculateLineVat, calculateVatSummary, DEFAULT_VAT_RATE } from '@/lib/vatCalculation'

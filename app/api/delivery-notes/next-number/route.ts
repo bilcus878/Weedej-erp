@@ -1,6 +1,7 @@
 // API Endpoint pro získání dalšího čísla výdejky
 // URL: /api/delivery-notes/next-number
 
+import { NextResponse } from 'next/server'
 import { previewNextDocumentNumber } from '@/lib/documentNumbering'
 
 export const dynamic = 'force-dynamic'

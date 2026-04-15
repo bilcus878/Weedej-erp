@@ -1,6 +1,7 @@
 // PATCH /api/eshop-orders/[id]
 // Aktualizace statusu eshop objednávky (shipped, delivered, cancelled)
 
+import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'

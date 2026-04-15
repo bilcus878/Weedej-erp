@@ -1,6 +1,7 @@
 // API Endpoint pro zrušení objednávky
 // URL: /api/customer-orders/[id]/cancel
 
+import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { cancelReservations } from '@/lib/reservationManagement'
 

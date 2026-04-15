@@ -2,6 +2,7 @@
 // URL: /api/receipts/[id]/process
 // NOVÝ WORKFLOW: Tahová logika s validací zbývajícího množství
 
+import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getNextDocumentNumber } from '@/lib/documentNumbering'
 

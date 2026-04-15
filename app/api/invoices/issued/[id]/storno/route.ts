@@ -3,6 +3,7 @@
 // CASCADE STORNO: Stornuje fakturu + objednávku zákazníka (nebo SumUp transakci)
 // NEŘEŠÍ sklad ani výdejky - to se stornuje samostatně
 
+import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'

@@ -1,6 +1,7 @@
 // API Endpoint pro dobropisy konkrétní faktury
 // URL: /api/issued-invoices/[id]/credit-notes
 
+import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'

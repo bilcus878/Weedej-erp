@@ -2,6 +2,7 @@
 // Vrací seznam aktivních produktů s aktuálním stavem skladu
 // Určeno pro e-shop — vyžaduje API klíč v hlavičce X-API-Key
 
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyApiKey, corsHeaders, handleOptions } from '@/lib/apiKeyAuth'
 
