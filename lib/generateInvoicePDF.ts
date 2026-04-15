@@ -343,7 +343,6 @@ export async function generateInvoicePDF(
     body: tableRows,
     theme: 'grid',
     styles: {
-      font: 'Roboto',
       fontSize: 8,
       textColor: C.text,
       cellPadding: 2.5,
@@ -406,7 +405,6 @@ export async function generateInvoicePDF(
       body: vatRows,
       theme: 'grid',
       styles: {
-        font: 'Roboto',
         fontSize: 8,
         textColor: C.text,
         cellPadding: 2,

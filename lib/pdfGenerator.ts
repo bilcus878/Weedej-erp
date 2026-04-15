@@ -376,7 +376,6 @@ export async function generatePurchaseOrderPDF(
     body: tableRows,
     theme: 'grid',
     styles: {
-      font: 'Roboto',
       fontSize: 8.5,
       textColor: C.text,
       cellPadding: 2.5,
@@ -490,7 +489,6 @@ export async function generateReceiptPDF(
     body: tableRows,
     theme: 'grid',
     styles: {
-      font: 'Roboto',
       fontSize: 8.5,
       textColor: C.text,
       cellPadding: 2.5,
@@ -604,7 +602,6 @@ export async function generateDeliveryNotePDF(
     body: tableRows,
     theme: 'grid',
     styles: {
-      font: 'Roboto',
       fontSize: 8.5,
       textColor: C.text,
       cellPadding: 2.5,
