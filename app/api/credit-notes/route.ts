@@ -1,8 +1,9 @@
 // API Endpoint pro dobropisy (Credit Notes)
 // URL: /api/credit-notes
 
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+
+export const dynamic = 'force-dynamic'
 
 // GET /api/credit-notes - Získat všechny dobropisy
 export async function GET() {

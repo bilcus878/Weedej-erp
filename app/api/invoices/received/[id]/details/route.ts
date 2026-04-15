@@ -1,8 +1,9 @@
 // API Endpoint pro doplnění detailů přijaté faktury
 // URL: /api/invoices/received/[id]/details
 
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+
+export const dynamic = 'force-dynamic'
 
 // PATCH /api/invoices/received/[id]/details - Doplnit/upravit detaily faktury
 export async function PATCH(

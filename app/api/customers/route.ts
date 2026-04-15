@@ -1,8 +1,9 @@
 // API Endpoint pro odběratele
 // URL: http://localhost:3000/api/customers
 
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+
+export const dynamic = 'force-dynamic'
 
 // GET /api/customers - Získat všechny odběratele
 export async function GET() {

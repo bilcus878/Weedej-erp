@@ -2,8 +2,9 @@
 // [id] znamená dynamický parametr - např. /api/products/123
 // URL: http://localhost:3000/api/products/[id]
 
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+
+export const dynamic = 'force-dynamic'
 
 // GET /api/products/[id] - Získat jeden produkt
 export async function GET(

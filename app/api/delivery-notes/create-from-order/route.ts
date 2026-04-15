@@ -2,9 +2,10 @@
 // URL: /api/delivery-notes/create-from-order
 // Workflow: Vytvoří výdejku, nastaví status "active", odečte ze skladu, aktualizuje shippedQuantity
 
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getNextDocumentNumber } from '@/lib/documentNumbering'
+
+export const dynamic = 'force-dynamic'
 
 interface CreateDeliveryNoteItem {
   productId: string | null

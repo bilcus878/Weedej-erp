@@ -1,8 +1,9 @@
 // API Endpoint pro skladovou evidenci
 // URL: http://localhost:3000/api/inventory
 
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+
+export const dynamic = 'force-dynamic'
 
 // GET /api/inventory - Získat všechny skladové položky
 export async function GET() {

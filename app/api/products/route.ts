@@ -2,9 +2,10 @@
 // V Next.js je API endpoint = soubor v /app/api/něco/route.ts
 // Tento soubor je dostupný na URL: http://localhost:3000/api/products
 
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { fetchProducts } from '@/lib/sumup'
+
+export const dynamic = 'force-dynamic'
 
 // GET /api/products - Získat všechny produkty z databáze
 export async function GET() {

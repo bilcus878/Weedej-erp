@@ -1,8 +1,9 @@
 // API Endpoint pro reset databáze
 // URL: /api/settings/reset-database
 
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+
+export const dynamic = 'force-dynamic'
 
 // POST /api/settings/reset-database - Reset databáze (zachová nastavení, produkty, zákazníky, dodavatele)
 export async function POST() {

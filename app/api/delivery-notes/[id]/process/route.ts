@@ -2,8 +2,9 @@
 // URL: /api/delivery-notes/[id]/process
 // Workflow: Změní status z "draft" na "active", odečte ze skladu, uvolní rezervace
 
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+
+export const dynamic = 'force-dynamic'
 
 // Typy pro request body
 interface ProcessDeliveryNoteRequest {

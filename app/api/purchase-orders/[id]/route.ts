@@ -1,8 +1,9 @@
 // API Endpoint pro jednu objednávku
 // URL: /api/purchase-orders/[id]
 
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+
+export const dynamic = 'force-dynamic'
 
 // GET /api/purchase-orders/[id] - Získat detail objednávky
 export async function GET(

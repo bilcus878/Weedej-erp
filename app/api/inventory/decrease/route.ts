@@ -1,8 +1,9 @@
 // API Endpoint pro ruční snížení stavu skladu (manko)
 // URL: http://localhost:3000/api/inventory/decrease
 
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+
+export const dynamic = 'force-dynamic'
 
 // POST /api/inventory/decrease - Vytvořit záznam o manku (záporné množství)
 export async function POST(request: Request) {

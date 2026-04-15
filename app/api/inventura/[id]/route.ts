@@ -1,8 +1,9 @@
 // API pro detail inventury
 // GET - detail jedné inventury s položkami
 
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+
+export const dynamic = 'force-dynamic'
 
 // GET /api/inventura/[id] - detail inventury
 export async function GET(

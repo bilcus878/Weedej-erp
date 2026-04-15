@@ -1,8 +1,9 @@
 // PATCH/DELETE /api/api-keys/[id]
 // Deaktivace nebo smazání konkrétního API klíče
 
-import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+
+export const dynamic = 'force-dynamic'
 
 // PATCH /api/api-keys/[id] — aktivovat / deaktivovat klíč
 export async function PATCH(

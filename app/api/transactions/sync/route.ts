@@ -1,10 +1,11 @@
 // API Endpoint pro synchronizaci transakcí ze SumUp
 // URL: http://localhost:3000/api/transactions/sync
 
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { fetchTransactions, fetchReceiptDetail } from '@/lib/sumup'
 import { calculateVatFromGross, DEFAULT_VAT_RATE, round2 } from '@/lib/vatCalculation'
+
+export const dynamic = 'force-dynamic'
 
 // POST /api/transactions/sync - Synchronizovat transakce ze SumUp
 export async function POST(request: Request) {

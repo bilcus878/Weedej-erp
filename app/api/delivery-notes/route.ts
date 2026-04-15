@@ -1,8 +1,9 @@
 // API Endpoint pro výdejky (Delivery Notes)
 // URL: /api/delivery-notes
 
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+
+export const dynamic = 'force-dynamic'
 
 // GET /api/delivery-notes - Získat všechny výdejky
 export async function GET() {

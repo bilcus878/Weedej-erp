@@ -1,8 +1,9 @@
 // API Endpoint pro seznam očekávaných výdejek
 // URL: /api/customer-orders/pending
 
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+
+export const dynamic = 'force-dynamic'
 
 // GET /api/customer-orders/pending - Získat objednávky čekající na expedici
 export async function GET() {

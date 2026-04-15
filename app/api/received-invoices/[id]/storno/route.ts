@@ -1,8 +1,9 @@
 // API Endpoint pro storno přijaté faktury
 // URL: /api/received-invoices/[id]/storno
 
-import { NextResponse } from 'next/server'
 import { stornoReceivedInvoice } from '@/lib/storno'
+
+export const dynamic = 'force-dynamic'
 
 // POST /api/received-invoices/[id]/storno - Stornovat fakturu
 export async function POST(

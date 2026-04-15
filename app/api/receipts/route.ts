@@ -1,9 +1,10 @@
 // API Endpoint pro příjemky (Receipts)
 // URL: /api/receipts
 
-import { NextResponse } from 'next/server'
 import { getNextDocumentNumber } from '@/lib/documentNumbering'
 import { prisma } from '@/lib/prisma'
+
+export const dynamic = 'force-dynamic'
 
 // GET /api/receipts - Získat všechny příjemky
 export async function GET() {

@@ -1,8 +1,9 @@
 // API Endpoint pro storno příjemky
 // URL: /api/receipts/[id]/storno
 
-import { NextResponse } from 'next/server'
 import { stornoReceipt } from '@/lib/storno'
+
+export const dynamic = 'force-dynamic'
 
 // POST /api/receipts/[id]/storno - Stornovat příjemku
 export async function POST(

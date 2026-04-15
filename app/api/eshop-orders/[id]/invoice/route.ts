@@ -2,9 +2,10 @@
 // Vytvoří vystavenou fakturu pro eshop objednávku
 // Pokud faktura již existuje, vrátí ji (idempotentní)
 
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createIssuedInvoiceFromCustomerOrder } from '@/lib/createIssuedInvoice'
+
+export const dynamic = 'force-dynamic'
 
 export async function POST(
   _request: Request,

@@ -1,8 +1,9 @@
 // API Endpoint pro uplatnění slevy dodavatele na přijatou fakturu
 // URL: /api/received-invoices/[id]/apply-discount
 
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+
+export const dynamic = 'force-dynamic'
 
 // POST /api/received-invoices/[id]/apply-discount - Uplatnit slevu dodavatele
 export async function POST(

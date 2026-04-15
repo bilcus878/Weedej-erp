@@ -1,8 +1,9 @@
 // API Endpoint pro storno objednávky
 // URL: /api/purchase-orders/[id]/storno
 
-import { NextResponse } from 'next/server'
 import { stornoPurchaseOrder } from '@/lib/storno'
+
+export const dynamic = 'force-dynamic'
 
 // POST /api/purchase-orders/[id]/storno - Stornovat objednávku
 export async function POST(

@@ -1,9 +1,10 @@
 // GET/POST /api/api-keys
 // Správa API klíčů pro přístup externích systémů (e-shop) k ERP API
 
-import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import crypto from 'crypto'
+
+export const dynamic = 'force-dynamic'
 
 // GET /api/api-keys — seznam všech klíčů (bez zobrazení samotného klíče)
 export async function GET() {

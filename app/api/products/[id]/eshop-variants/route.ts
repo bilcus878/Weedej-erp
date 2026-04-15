@@ -1,10 +1,11 @@
 // GET  /api/products/[id]/eshop-variants  — seznam variant produktu pro eshop
 // POST /api/products/[id]/eshop-variants  — vytvoření nové varianty
 
-import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+
+export const dynamic = 'force-dynamic'
 
 export async function GET(
   _req: NextRequest,

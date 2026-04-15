@@ -1,8 +1,9 @@
 // API Endpoint pro stornování dobropisu
 // URL: /api/credit-notes/[id]/storno
 
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+
+export const dynamic = 'force-dynamic'
 
 interface StornoRequest {
   reason?: string

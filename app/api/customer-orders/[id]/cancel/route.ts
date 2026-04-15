@@ -1,9 +1,10 @@
 // API Endpoint pro zrušení objednávky
 // URL: /api/customer-orders/[id]/cancel
 
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { cancelReservations } from '@/lib/reservationManagement'
+
+export const dynamic = 'force-dynamic'
 
 // POST /api/customer-orders/[id]/cancel - Zrušit objednávku
 export async function POST(

@@ -1,8 +1,9 @@
 // API Endpoint pro jednu přijatou fakturu
 // URL: /api/received-invoices/[id]
 
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+
+export const dynamic = 'force-dynamic'
 
 // GET /api/received-invoices/[id] - Získat detail faktury
 export async function GET(

@@ -1,8 +1,9 @@
 // API Endpoint pro jednu skladovou položku
 // URL: http://localhost:3000/api/inventory/[id]
 
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+
+export const dynamic = 'force-dynamic'
 
 // PATCH /api/inventory/[id] - Opravit naskladnění (pokud se člověk spletl)
 export async function PATCH(

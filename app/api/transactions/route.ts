@@ -1,9 +1,10 @@
 // API Endpoint pro transakce
 // URL: http://localhost:3000/api/transactions
 
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { calculateVatFromNet, calculateVatFromGross, calculateLineVat, DEFAULT_VAT_RATE, round2 } from '@/lib/vatCalculation'
+
+export const dynamic = 'force-dynamic'
 
 // GET /api/transactions - Získat transakce s paginací
 export async function GET(request: Request) {

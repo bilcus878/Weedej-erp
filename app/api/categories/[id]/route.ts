@@ -3,8 +3,9 @@
 // PATCH /api/categories/[id] - upravit kategorii
 // DELETE /api/categories/[id] - smazat kategorii
 
-import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+
+export const dynamic = 'force-dynamic'
 
 // GET /api/categories/[id] - Načíst kategorii
 export async function GET(
