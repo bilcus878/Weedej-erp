@@ -97,9 +97,7 @@ function fmtDate(dateStr: string): string {
 // ─── pdfmake loader ──────────────────────────────────────────────────────────
 
 async function getPdfMake() {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const pdfMake = (await import('pdfmake/build/pdfmake' as any)).default as any
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const pdfFonts = (await import('pdfmake/build/vfs_fonts' as any)).default as any
   pdfMake.vfs = pdfFonts.pdfMake?.vfs ?? pdfFonts
   return pdfMake

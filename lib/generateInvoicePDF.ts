@@ -71,11 +71,8 @@ function fmtDate(d: string): string {
   try { return new Date(d).toLocaleDateString('cs-CZ') } catch { return d }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function getPdfMake(): Promise<any> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const pdfMake = (await import('pdfmake/build/pdfmake' as any)).default as any
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const pdfFonts = (await import('pdfmake/build/vfs_fonts' as any)).default as any
   pdfMake.vfs = pdfFonts.pdfMake?.vfs ?? pdfFonts
   return pdfMake
