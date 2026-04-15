@@ -12,7 +12,6 @@ import { Plus, Package, Clock, CheckCircle, XCircle, ChevronDown, ChevronRight, 
 import { formatDate, formatPrice } from '@/lib/utils'
 import { generatePurchaseOrderPDF, openPDFInNewTab } from '@/lib/pdfGenerator'
 import CustomerSupplierSelector from '@/components/CustomerSupplierSelector'
-import PaymentDetailsSelector from '@/components/PaymentDetailsSelector'
 import { CZECH_VAT_RATES, calculateVatFromNet, calculateVatFromGross, calculateLineVat, calculateVatSummary, isNonVatPayer, NON_VAT_PAYER_RATE, DEFAULT_VAT_RATE, VAT_RATE_LABELS, type VatLineItem } from '@/lib/vatCalculation'
 
 export const dynamic = 'force-dynamic'
@@ -671,15 +670,13 @@ export default function PurchaseOrdersPage() {
           <CardContent className="p-6 bg-white">
             <form onSubmit={handleSubmit} className="space-y-3">
 
-              {/* Řádek: Dodavatel + Termíny + Platba + Poznámka */}
-              <div className="grid grid-cols-[2fr_1fr_2fr_1fr] gap-3 items-start">
+              {/* Hlavní pole formuláře — flat layout bez nested karet */}
+              <div className="border border-gray-200 rounded-lg p-4 space-y-3">
+                <div className="grid grid-cols-[2.5fr_1fr_1fr_1fr_1.5fr_1.5fr] gap-4 items-start">
 
-                {/* Dodavatel */}
-                <div className="border border-gray-200 rounded-lg">
-                  <div className="bg-gray-50 px-3 py-2 border-b border-gray-200 rounded-t-lg">
-                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Dodavatel</h3>
-                  </div>
-                  <div className="p-3">
+                  {/* Dodavatel */}
+                  <div>
+                    <label className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-1.5 block">Dodavatel</label>
                     <CustomerSupplierSelector
                       compact
                       type="supplier"
@@ -697,57 +694,68 @@ export default function PurchaseOrdersPage() {
                       required={false}
                     />
                   </div>
-                </div>
 
-                {/* Termíny */}
-                <div className="border border-gray-200 rounded-lg">
-                  <div className="bg-gray-50 px-3 py-2 border-b border-gray-200 rounded-t-lg">
-                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Termíny</h3>
+                  {/* Datum objednávky */}
+                  <div>
+                    <label className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-1.5 block">Datum obj.</label>
+                    <Input type="date" value={orderDate} onChange={(e) => handleOrderDateChange(e.target.value)} />
                   </div>
-                  <div className="p-3 space-y-2">
-                    <div>
-                      <label className="text-xs text-gray-500 mb-1 block">Datum objednávky</label>
-                      <Input type="date" value={orderDate} onChange={(e) => handleOrderDateChange(e.target.value)} />
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-500 mb-1 block">Očekávané dodání</label>
-                      <Input type="date" value={expectedDate} onChange={(e) => setExpectedDate(e.target.value)} />
-                    </div>
-                  </div>
-                </div>
 
-                {/* Platební údaje */}
-                <div className="border border-gray-200 rounded-lg">
-                  <div className="bg-gray-50 px-3 py-2 border-b border-gray-200 rounded-t-lg">
-                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Platební údaje</h3>
+                  {/* Očekávané dodání */}
+                  <div>
+                    <label className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-1.5 block">Dodání</label>
+                    <Input type="date" value={expectedDate} onChange={(e) => setExpectedDate(e.target.value)} />
                   </div>
-                  <div className="p-3">
-                    <PaymentDetailsSelector
-                      dueDate={dueDate} onDueDateChange={setDueDate}
-                      paymentType={paymentType} onPaymentTypeChange={setPaymentType}
-                      variableSymbol={variableSymbol} onVariableSymbolChange={setVariableSymbol}
-                      constantSymbol={constantSymbol} onConstantSymbolChange={setConstantSymbol}
-                      specificSymbol={specificSymbol} onSpecificSymbolChange={setSpecificSymbol}
-                      required={false} autoGenerateNumber={orderNumber}
-                    />
-                  </div>
-                </div>
 
-                {/* Poznámka */}
-                <div className="border border-gray-200 rounded-lg">
-                  <div className="bg-gray-50 px-3 py-2 border-b border-gray-200 rounded-t-lg">
-                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Poznámka</h3>
+                  {/* Datum splatnosti */}
+                  <div>
+                    <label className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-1.5 block">Splatnost</label>
+                    <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
                   </div>
-                  <div className="p-3">
-                    <textarea
+
+                  {/* Forma úhrady */}
+                  <div>
+                    <label className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-1.5 block">Forma úhrady</label>
+                    <select
+                      value={paymentType}
+                      onChange={(e) => setPaymentType(e.target.value)}
+                      className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400"
+                    >
+                      <option value="">Vyberte...</option>
+                      <option value="cash">Hotově</option>
+                      <option value="card">Kartou</option>
+                      <option value="transfer">Převodem</option>
+                    </select>
+                  </div>
+
+                  {/* Poznámka */}
+                  <div>
+                    <label className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-1.5 block">Poznámka</label>
+                    <Input
                       value={note}
                       onChange={(e) => setNote(e.target.value)}
                       placeholder="Volitelná poznámka..."
-                      rows={3}
-                      className="w-full text-sm border border-gray-200 rounded px-2 py-1.5 resize-none focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400 placeholder-gray-400"
                     />
                   </div>
                 </div>
+
+                {/* Bankovní symboly — zobrazí se jen pro převod */}
+                {paymentType === 'transfer' && (
+                  <div className="grid grid-cols-3 gap-4 pt-3 border-t border-gray-100">
+                    <div>
+                      <label className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-1.5 block">Variabilní symbol</label>
+                      <Input value={variableSymbol} onChange={(e) => setVariableSymbol(e.target.value)} placeholder="VS" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-1.5 block">Konstantní symbol</label>
+                      <Input value={constantSymbol} onChange={(e) => setConstantSymbol(e.target.value)} placeholder="KS" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-1.5 block">Specifický symbol</label>
+                      <Input value={specificSymbol} onChange={(e) => setSpecificSymbol(e.target.value)} placeholder="SS" />
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Manuální formulář dodavatele — plná šířka pod řádkem */}
