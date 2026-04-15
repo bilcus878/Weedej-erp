@@ -456,9 +456,9 @@ export async function generateInvoicePDF(
   const a = document.createElement('a')
   a.href = url
   a.target = '_blank'
-  a.download = `faktura-${invoice.transactionCode}.pdf`
+  a.rel = 'noopener noreferrer'
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)
-  setTimeout(() => URL.revokeObjectURL(url), 10000)
+  setTimeout(() => URL.revokeObjectURL(url), 60000)
 }

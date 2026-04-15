@@ -428,14 +428,14 @@ export async function generateDeliveryNotePDF(
   return pdfMake.createPdf(dd).getBlob() as Promise<Blob>
 }
 
-export function openPDFInNewTab(blob: Blob, filename = 'dokument.pdf') {
+export function openPDFInNewTab(blob: Blob) {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
   a.target = '_blank'
-  a.download = filename
+  a.rel = 'noopener noreferrer'
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)
-  setTimeout(() => URL.revokeObjectURL(url), 10000)
+  setTimeout(() => URL.revokeObjectURL(url), 60000)
 }
