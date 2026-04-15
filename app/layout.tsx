@@ -7,8 +7,8 @@ import { Providers } from "@/components/Providers";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Účetní program",
-  description: "Účetní program s integrací SumUp API",
+  title: "Weedej - ERP",
+  description: "Weedej ERP systém s integrací SumUp API",
 };
 
 export default function RootLayout({
