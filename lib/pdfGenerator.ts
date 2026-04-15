@@ -1,9 +1,8 @@
 // Generování PDF dokladů – Weedej ERP
 // Podporuje: Objednávky, Příjemky, Výdejky
-// Jednotný design, česká diakritika (Roboto), dynamické firemní údaje
+// Používá pdfmake s embedded Roboto fontem (plná česká diakritika)
 
-import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
+import type { TDocumentDefinitions, StyleDictionary } from 'pdfmake/interfaces'
 
 // ─── Typy ─────────────────────────────────────────────────────────────────────
 
@@ -18,15 +17,6 @@ export interface CompanySettings {
   isVatPayer?: boolean
 }
 
-interface Party {
-  name: string
-  address?: string
-  ico?: string
-  dic?: string
-  phone?: string
-  email?: string
-}
-
 export interface PurchaseOrderData {
   orderNumber: string
   orderDate: string
@@ -37,12 +27,7 @@ export interface PurchaseOrderData {
   supplierDIC?: string
   supplierPhone?: string
   supplierEmail?: string
-  items: Array<{
-    productName: string
-    quantity: number
-    unit: string
-    price: number
-  }>
+  items: Array<{ productName: string; quantity: number; unit: string; price: number }>
   totalAmount: number
   note?: string
   status?: string
@@ -59,12 +44,7 @@ export interface ReceiptData {
   supplierDIC?: string
   supplierPhone?: string
   supplierEmail?: string
-  items: Array<{
-    productName: string
-    quantity: number
-    unit: string
-    price: number
-  }>
+  items: Array<{ productName: string; quantity: number; unit: string; price: number }>
   totalAmount: number
   note?: string
   status?: string
@@ -81,12 +61,7 @@ export interface DeliveryNoteData {
   customerPhone?: string
   customerICO?: string
   customerDIC?: string
-  items: Array<{
-    productName: string
-    quantity: number
-    unit: string
-    price: number
-  }>
+  items: Array<{ productName: string; quantity: number; unit: string; price: number }>
   totalAmount: number
   note?: string
   status?: string
@@ -96,566 +71,366 @@ export interface DeliveryNoteData {
 
 // ─── Barvy ────────────────────────────────────────────────────────────────────
 
-const C = {
-  order:        [124, 58, 237] as [number, number, number],  // violet
-  receipt:      [22, 163, 74]  as [number, number, number],  // green
-  delivery:     [234, 88, 12]  as [number, number, number],  // orange
-  text:         [17, 24, 39]   as [number, number, number],  // gray-900
-  muted:        [107, 114, 128] as [number, number, number], // gray-500
-  light:        [243, 244, 246] as [number, number, number], // gray-100
-  white:        [255, 255, 255] as [number, number, number],
-  red:          [220, 38, 38]  as [number, number, number],
-  redLight:     [254, 226, 226] as [number, number, number],
-  redDark:      [127, 29, 29]  as [number, number, number],
+const COLORS = {
+  order:    '#7c3aed',
+  receipt:  '#16a34a',
+  delivery: '#ea580c',
+  muted:    '#6b7280',
+  light:    '#f3f4f6',
+  border:   '#e5e7eb',
+  text:     '#111827',
+  white:    '#ffffff',
+  red:      '#dc2626',
+  redLight: '#fee2e2',
 }
 
-// ─── Font loading ─────────────────────────────────────────────────────────────
+// ─── Formátování ──────────────────────────────────────────────────────────────
 
-let fontCache: { regular: string; bold: string } | null = null
-
-async function loadFont(): Promise<{ regular: string; bold: string }> {
-  if (fontCache) return fontCache
-  const toBase64 = (buf: ArrayBuffer): string => {
-    const bytes = new Uint8Array(buf)
-    let bin = ''
-    for (let i = 0; i < bytes.byteLength; i++) bin += String.fromCharCode(bytes[i])
-    return btoa(bin)
-  }
-  const [r, b] = await Promise.all([
-    fetch('/fonts/Roboto-Regular.ttf').then(res => {
-      if (!res.ok) throw new Error('Roboto-Regular.ttf nenalezeno v /public/fonts/')
-      return res.arrayBuffer()
-    }),
-    fetch('/fonts/Roboto-Bold.ttf').then(res => {
-      if (!res.ok) throw new Error('Roboto-Bold.ttf nenalezeno v /public/fonts/')
-      return res.arrayBuffer()
-    }),
-  ])
-  fontCache = { regular: toBase64(r), bold: toBase64(b) }
-  return fontCache
+function czk(value: number): string {
+  return value.toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' Kč'
 }
 
-function registerFont(doc: jsPDF, font: { regular: string; bold: string }) {
-  doc.addFileToVFS('Roboto-Regular.ttf', font.regular)
-  doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal', 'Identity-H')
-  doc.addFileToVFS('Roboto-Bold.ttf', font.bold)
-  doc.addFont('Roboto-Bold.ttf', 'Roboto', 'bold', 'Identity-H')
-  doc.setFont('Roboto', 'normal')
+function fmtDate(dateStr: string): string {
+  try { return new Date(dateStr).toLocaleDateString('cs-CZ') } catch { return dateStr }
 }
 
-// ─── Pomocné funkce ───────────────────────────────────────────────────────────
+// ─── pdfmake loader ──────────────────────────────────────────────────────────
 
-/**
- * Nakreslí záhlaví dokumentu.
- * Vrátí Y pozici pro další obsah.
- */
-function drawHeader(
-  doc: jsPDF,
+async function getPdfMake() {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pdfMake = (await import('pdfmake/build/pdfmake' as any)).default as any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pdfFonts = (await import('pdfmake/build/vfs_fonts' as any)).default as any
+  pdfMake.vfs = pdfFonts.pdfMake?.vfs ?? pdfFonts
+  return pdfMake
+}
+
+// ─── Sdílené bloky dokumentu ──────────────────────────────────────────────────
+
+const STYLES: StyleDictionary = {
+  docTitle: { fontSize: 26, bold: true, alignment: 'right' },
+  docNumber: { fontSize: 8.5, color: '#6b7280', alignment: 'right' },
+  companyName: { fontSize: 13, bold: true },
+  companyDetail: { fontSize: 8, color: '#6b7280' },
+  sectionLabel: { fontSize: 7, bold: true, characterSpacing: 1 },
+  partyName: { fontSize: 9.5, bold: true },
+  partyDetail: { fontSize: 8.5, color: '#6b7280' },
+  tableHeader: { fontSize: 8, bold: true, color: '#ffffff' },
+  tableCell: { fontSize: 8.5 },
+  totalLabel: { fontSize: 10, bold: true },
+  totalValue: { fontSize: 10, bold: true },
+  note: { fontSize: 8.5, color: '#6b7280' },
+  stornoText: { fontSize: 8.5, color: '#7f1d1d' },
+}
+
+function headerBlock(
   title: string,
   docLabel: string,
   docValue: string,
-  color: [number, number, number],
+  color: string,
   settings: CompanySettings
-): number {
-  const W = doc.internal.pageSize.getWidth()
-
-  // Barevný pruh nahoře
-  doc.setFillColor(...color)
-  doc.rect(0, 0, W, 7, 'F')
-
-  // Název firmy
-  doc.setFont('Roboto', 'bold')
-  doc.setFontSize(13)
-  doc.setTextColor(...C.text)
-  doc.text(settings.companyName || '', 15, 17)
-
-  // Firemní detaily pod názvem
-  doc.setFont('Roboto', 'normal')
-  doc.setFontSize(8)
-  doc.setTextColor(...C.muted)
-  let y = 22
-  if (settings.address) { doc.text(settings.address, 15, y); y += 4 }
+) {
   const ids: string[] = []
   if (settings.ico) ids.push(`IČO: ${settings.ico}`)
   if (settings.dic) ids.push(`DIČ: ${settings.dic}`)
-  if (ids.length) { doc.text(ids.join('   '), 15, y); y += 4 }
   const contacts: string[] = []
   if (settings.phone) contacts.push(settings.phone)
   if (settings.email) contacts.push(settings.email)
-  if (contacts.length) { doc.text(contacts.join('   '), 15, y) }
 
-  // Název dokumentu vpravo (velký)
-  doc.setFont('Roboto', 'bold')
-  doc.setFontSize(26)
-  doc.setTextColor(...color)
-  doc.text(title, W - 15, 19, { align: 'right' })
-
-  // Číslo dokumentu pod názvem
-  doc.setFont('Roboto', 'normal')
-  doc.setFontSize(8.5)
-  doc.setTextColor(...C.muted)
-  doc.text(`${docLabel}: ${docValue}`, W - 15, 26, { align: 'right' })
-
-  // Oddělovací čára
-  const lineY = 36
-  doc.setDrawColor(...color)
-  doc.setLineWidth(0.4)
-  doc.line(15, lineY, W - 15, lineY)
-
-  return lineY + 7
+  return [
+    // Barevný pruh
+    { canvas: [{ type: 'rect', x: 0, y: 0, w: 525, h: 7, color }], margin: [0, 0, 0, 6] },
+    {
+      columns: [
+        // Levá strana – firma
+        {
+          stack: [
+            { text: settings.companyName || '', style: 'companyName' },
+            ...(settings.address ? [{ text: settings.address, style: 'companyDetail', margin: [0, 1, 0, 0] }] : []),
+            ...(ids.length ? [{ text: ids.join('   '), style: 'companyDetail' }] : []),
+            ...(contacts.length ? [{ text: contacts.join('   '), style: 'companyDetail' }] : []),
+          ],
+          width: '*',
+        },
+        // Pravá strana – název dokumentu
+        {
+          stack: [
+            { text: title, style: 'docTitle', color },
+            { text: `${docLabel}: ${docValue}`, style: 'docNumber', margin: [0, 2, 0, 0] },
+          ],
+          width: 'auto',
+          alignment: 'right',
+        },
+      ],
+    },
+    // Oddělovací čára
+    { canvas: [{ type: 'line', x1: 0, y1: 4, x2: 525, y2: 4, lineWidth: 0.4, lineColor: color }], margin: [0, 4, 0, 6] },
+  ]
 }
 
-/**
- * Nakreslí sekci s informacemi o straně (dodavatel/zákazník).
- * Vrátí nejvyšší Y po sekci.
- */
-function drawPartyBlock(
-  doc: jsPDF,
-  label: string,
-  party: Party,
-  x: number,
-  startY: number,
-  blockWidth: number,
-  color: [number, number, number]
-): number {
-  let y = startY
-
-  // Nadpis bloku
-  doc.setFont('Roboto', 'bold')
-  doc.setFontSize(7)
-  doc.setTextColor(...color)
-  doc.text(label.toUpperCase(), x, y)
-  y += 4.5
-
-  // Jméno/název
-  doc.setFont('Roboto', 'bold')
-  doc.setFontSize(9.5)
-  doc.setTextColor(...C.text)
-  if (party.name) {
-    const nameLines = doc.splitTextToSize(party.name, blockWidth)
-    nameLines.forEach((line: string) => { doc.text(line, x, y); y += 4.5 })
-  }
-
-  // Detaily
-  doc.setFont('Roboto', 'normal')
-  doc.setFontSize(8.5)
-  doc.setTextColor(...C.muted)
-
-  if (party.address) {
-    const addrLines = doc.splitTextToSize(party.address, blockWidth)
-    addrLines.forEach((line: string) => { doc.text(line, x, y); y += 4 })
-  }
-
+function partyBlock(label: string, party: {
+  name: string; address?: string; ico?: string; dic?: string; phone?: string; email?: string
+}, color: string) {
   const ids: string[] = []
   if (party.ico) ids.push(`IČO: ${party.ico}`)
   if (party.dic) ids.push(`DIČ: ${party.dic}`)
-  if (ids.length) { doc.text(ids.join('   '), x, y); y += 4 }
-  if (party.phone) { doc.text(`Tel: ${party.phone}`, x, y); y += 4 }
-  if (party.email) { doc.text(`Email: ${party.email}`, x, y); y += 4 }
 
-  return y
-}
-
-/**
- * Nakreslí patičku stránky.
- */
-function drawFooter(doc: jsPDF, color: [number, number, number]) {
-  const W = doc.internal.pageSize.getWidth()
-  const H = doc.internal.pageSize.getHeight()
-  doc.setFillColor(...color)
-  doc.rect(0, H - 8, W, 8, 'F')
-  doc.setFont('Roboto', 'normal')
-  doc.setFontSize(6.5)
-  doc.setTextColor(...C.white)
-  doc.text('Vygenerováno systémem Weedej ERP', W / 2, H - 3, { align: 'center' })
-}
-
-/**
- * Přidá vodoznak STORNO přes celou stránku.
- */
-function addStornoWatermark(doc: jsPDF, reason?: string, date?: string) {
-  const W = doc.internal.pageSize.getWidth()
-  const H = doc.internal.pageSize.getHeight()
-
-  doc.saveGraphicsState()
-  doc.setGState(new (doc as any).GState({ opacity: 0.1 }))
-  doc.setFont('Roboto', 'bold')
-  doc.setFontSize(72)
-  doc.setTextColor(...C.red)
-  doc.text('STORNO', W / 2, H / 2, { align: 'center', angle: 45 })
-  doc.restoreGraphicsState()
-
-  if (reason || date) {
-    const fy = H - 18
-    doc.setFillColor(...C.redLight)
-    doc.rect(15, fy - 7, W - 30, 12, 'F')
-    doc.setFont('Roboto', 'normal')
-    doc.setFontSize(8.5)
-    doc.setTextColor(...C.redDark)
-    let msg = 'STORNOVÁNO'
-    if (date) msg += ` dne ${new Date(date).toLocaleDateString('cs-CZ')}`
-    if (reason) msg += ` | Důvod: ${reason}`
-    doc.text(msg, W / 2, fy, { align: 'center' })
+  return {
+    stack: [
+      { text: label.toUpperCase(), style: 'sectionLabel', color, margin: [0, 0, 0, 3] },
+      { text: party.name, style: 'partyName', margin: [0, 0, 0, 2] },
+      ...(party.address ? [{ text: party.address, style: 'partyDetail' }] : []),
+      ...(ids.length ? [{ text: ids.join('   '), style: 'partyDetail' }] : []),
+      ...(party.phone ? [{ text: `Tel: ${party.phone}`, style: 'partyDetail' }] : []),
+      ...(party.email ? [{ text: `Email: ${party.email}`, style: 'partyDetail' }] : []),
+    ],
   }
 }
 
-/**
- * Naformátuje číslo jako českou cenu.
- */
-function czk(value: number): string {
-  return `${value.toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Kč`
+function itemsTable(
+  items: Array<{ productName: string; quantity: number; unit: string; price: number }>,
+  headColor: string,
+  headerLabels: string[]
+) {
+  const rows = items.map((item, idx) => [
+    { text: String(idx + 1), style: 'tableCell', alignment: 'center' },
+    { text: item.productName, style: 'tableCell' },
+    { text: `${item.quantity} ${item.unit}`, style: 'tableCell', alignment: 'center' },
+    { text: czk(item.price), style: 'tableCell', alignment: 'right' },
+    { text: czk(item.quantity * item.price), style: 'tableCell', alignment: 'right', bold: true },
+  ])
+
+  return {
+    table: {
+      headerRows: 1,
+      widths: [20, '*', 55, 60, 65],
+      body: [
+        headerLabels.map(l => ({ text: l, style: 'tableHeader', fillColor: headColor })),
+        ...rows,
+      ],
+    },
+    layout: {
+      hLineWidth: () => 0.4,
+      vLineWidth: () => 0.4,
+      hLineColor: () => COLORS.border,
+      vLineColor: () => COLORS.border,
+      fillColor: (_i: number, _node: any, _col: number, row: number) =>
+        row % 2 === 0 ? null : COLORS.light,
+    },
+  }
+}
+
+function totalBox(label: string, value: string, color: string) {
+  return {
+    columns: [
+      { text: '', width: '*' },
+      {
+        table: {
+          widths: [130, 90],
+          body: [[
+            { text: label, fillColor: color, color: COLORS.white, bold: true, fontSize: 10, alignment: 'left', margin: [6, 5, 0, 5] },
+            { text: value, fillColor: color, color: COLORS.white, bold: true, fontSize: 10, alignment: 'right', margin: [0, 5, 6, 5] },
+          ]],
+        },
+        layout: 'noBorders',
+      },
+    ],
+    margin: [0, 6, 0, 0],
+  }
+}
+
+function stornoBlock(reason?: string, date?: string) {
+  let msg = 'STORNOVÁNO'
+  if (date) msg += ` dne ${fmtDate(date)}`
+  if (reason) msg += ` | Důvod: ${reason}`
+  return {
+    table: {
+      widths: ['*'],
+      body: [[{ text: msg, style: 'stornoText', fillColor: COLORS.redLight, alignment: 'center', margin: [0, 4, 0, 4] }]],
+    },
+    layout: 'noBorders',
+    margin: [0, 8, 0, 0],
+  }
+}
+
+function footerFn(color: string) {
+  return ((_currentPage: number, _pageCount: number) => ({
+    stack: [
+      { canvas: [{ type: 'rect', x: 0, y: 0, w: 595, h: 20, color }] },
+      {
+        text: 'Vygenerováno systémem Weedej ERP',
+        fontSize: 6.5,
+        color: COLORS.white,
+        alignment: 'center',
+        absolutePosition: { x: 0, y: 10 },
+      },
+    ],
+    margin: [0, 10, 0, 0],
+  })) as any
+}
+
+function buildDoc(
+  content: any[],
+  color: string,
+  header: any[]
+): TDocumentDefinitions {
+  return {
+    pageSize: 'A4',
+    pageMargins: [40, 20, 40, 30],
+    content: [...header, ...content],
+    footer: footerFn(color),
+    styles: STYLES,
+    defaultStyle: { font: 'Roboto', fontSize: 9 },
+  }
 }
 
 // ─── Veřejné API ──────────────────────────────────────────────────────────────
 
-/**
- * Generuje PDF pro objednávku (Purchase Order).
- */
 export async function generatePurchaseOrderPDF(
   data: PurchaseOrderData,
   settings: CompanySettings
 ): Promise<Blob> {
-  const font = await loadFont()
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
-  const W = doc.internal.pageSize.getWidth()
-  registerFont(doc, font)
+  const pdfMake = await getPdfMake()
+  const color = COLORS.order
 
-  const color = C.order
+  const header = headerBlock('OBJEDNÁVKA', 'Č. objednávky', data.orderNumber, color, settings)
 
-  // Záhlaví
-  let yPos = drawHeader(doc, 'OBJEDNÁVKA', 'Č. objednávky', data.orderNumber, color, settings)
-
-  // Datum objednávky a očekávané dodání
-  doc.setFont('Roboto', 'normal')
-  doc.setFontSize(8.5)
-  doc.setTextColor(...C.muted)
-  doc.text(`Datum objednání: ${new Date(data.orderDate).toLocaleDateString('cs-CZ')}`, 15, yPos)
-  if (data.expectedDate) {
-    doc.text(
-      `Očekávané dodání: ${new Date(data.expectedDate).toLocaleDateString('cs-CZ')}`,
-      W - 15, yPos, { align: 'right' }
-    )
-  }
-  yPos += 8
-
-  // Sekce stran – naše firma vlevo, dodavatel vpravo
-  const ourCompany: Party = {
-    name: settings.companyName || '',
-    address: settings.address,
-    ico: settings.ico,
-    dic: settings.dic,
-    phone: settings.phone,
-    email: settings.email,
-  }
-  const supplier: Party = {
-    name: data.supplierName,
-    address: data.supplierAddress,
-    ico: data.supplierICO,
-    dic: data.supplierDIC,
-    phone: data.supplierPhone,
-    email: data.supplierEmail,
-  }
-
-  const blockW = (W - 30 - 10) / 2
-  const yLeft = drawPartyBlock(doc, 'Odběratel (naše firma)', ourCompany, 15, yPos, blockW, color)
-  const yRight = drawPartyBlock(doc, 'Dodavatel', supplier, 15 + blockW + 10, yPos, blockW, color)
-  yPos = Math.max(yLeft, yRight) + 6
-
-  // Tabulka položek
-  const tableRows = data.items.map((item, idx) => [
-    String(idx + 1),
-    item.productName,
-    `${item.quantity} ${item.unit}`,
-    czk(item.price),
-    czk(item.quantity * item.price),
-  ])
-
-  autoTable(doc, {
-    startY: yPos,
-    head: [['#', 'Zboží / Služba', 'Množství', 'Cena/ks bez DPH', 'Celkem bez DPH']],
-    body: tableRows,
-    theme: 'grid',
-    styles: {
-      fontSize: 8.5,
-      textColor: C.text,
-      cellPadding: 2.5,
+  const content: any[] = [
+    // Datum
+    {
+      text: [
+        { text: `Datum objednání: `, color: COLORS.muted, fontSize: 8.5 },
+        { text: fmtDate(data.orderDate), fontSize: 8.5 },
+        ...(data.expectedDate ? [
+          { text: `     Očekávané dodání: `, color: COLORS.muted, fontSize: 8.5 },
+          { text: fmtDate(data.expectedDate), fontSize: 8.5 },
+        ] : []),
+      ],
+      margin: [0, 0, 0, 10],
     },
-    headStyles: {
-      fillColor: color,
-      textColor: C.white,
-      fontStyle: 'bold',
-      fontSize: 8,
+    // Strany
+    {
+      columns: [
+        partyBlock('Odběratel (naše firma)', {
+          name: settings.companyName || '',
+          address: settings.address, ico: settings.ico, dic: settings.dic,
+          phone: settings.phone, email: settings.email,
+        }, color),
+        { width: 20, text: '' },
+        partyBlock('Dodavatel', {
+          name: data.supplierName, address: data.supplierAddress,
+          ico: data.supplierICO, dic: data.supplierDIC,
+          phone: data.supplierPhone, email: data.supplierEmail,
+        }, color),
+      ],
+      margin: [0, 0, 0, 14],
     },
-    alternateRowStyles: { fillColor: C.light },
-    columnStyles: {
-      0: { halign: 'center', cellWidth: 10 },
-      2: { halign: 'center', cellWidth: 28 },
-      3: { halign: 'right', cellWidth: 36 },
-      4: { halign: 'right', cellWidth: 36 },
-    },
-    margin: { left: 15, right: 15 },
+    // Tabulka
+    itemsTable(data.items, color, ['#', 'Zboží / Služba', 'Množství', 'Cena/ks bez DPH', 'Celkem bez DPH']),
+    // Celkem
+    totalBox('Celkem bez DPH:', czk(data.totalAmount), color),
+    // Poznámka
+    ...(data.note ? [{ text: `Poznámka: ${data.note}`, style: 'note', margin: [0, 8, 0, 0] }] : []),
+    // Storno
+    ...(data.status === 'storno' ? [stornoBlock(data.stornoReason, data.stornoAt)] : []),
+  ]
+
+  const dd = buildDoc(content, color, header)
+  return new Promise<Blob>(resolve => {
+    pdfMake.createPdf(dd).getBlob((blob: Blob) => resolve(blob))
   })
-
-  yPos = (doc as any).lastAutoTable.finalY + 5
-
-  // Celková částka
-  doc.setFillColor(...C.light)
-  doc.rect(W - 15 - 80, yPos, 80, 9, 'F')
-  doc.setFont('Roboto', 'bold')
-  doc.setFontSize(10)
-  doc.setTextColor(...C.text)
-  doc.text('Celkem bez DPH:', W - 15 - 80 + 4, yPos + 6)
-  doc.setTextColor(...color)
-  doc.text(czk(data.totalAmount), W - 15, yPos + 6, { align: 'right' })
-  yPos += 14
-
-  // Poznámka
-  if (data.note) {
-    doc.setFont('Roboto', 'normal')
-    doc.setFontSize(8.5)
-    doc.setTextColor(...C.muted)
-    doc.text(`Poznámka: ${data.note}`, 15, yPos)
-    yPos += 6
-  }
-
-  // STORNO vodoznak
-  if (data.status === 'storno') {
-    addStornoWatermark(doc, data.stornoReason, data.stornoAt)
-  }
-
-  drawFooter(doc, color)
-  return doc.output('blob')
 }
 
-/**
- * Generuje PDF pro příjemku.
- */
 export async function generateReceiptPDF(
   data: ReceiptData,
   settings: CompanySettings
 ): Promise<Blob> {
-  const font = await loadFont()
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
-  const W = doc.internal.pageSize.getWidth()
-  registerFont(doc, font)
+  const pdfMake = await getPdfMake()
+  const color = COLORS.receipt
 
-  const color = C.receipt
+  const header = headerBlock('PŘÍJEMKA', 'Č. příjemky', data.receiptNumber, color, settings)
 
-  // Záhlaví
-  let yPos = drawHeader(doc, 'PŘÍJEMKA', 'Č. příjemky', data.receiptNumber, color, settings)
-
-  // Datum
-  doc.setFont('Roboto', 'normal')
-  doc.setFontSize(8.5)
-  doc.setTextColor(...C.muted)
-  doc.text(`Datum příjmu: ${new Date(data.receiptDate).toLocaleDateString('cs-CZ')}`, 15, yPos)
-  yPos += 8
-
-  // Sekce stran
-  const ourCompany: Party = {
-    name: settings.companyName || '',
-    address: settings.address,
-    ico: settings.ico,
-    dic: settings.dic,
-    phone: settings.phone,
-    email: settings.email,
-  }
-  const supplier: Party = {
-    name: data.supplierName,
-    address: data.supplierAddress,
-    ico: data.supplierICO,
-    dic: data.supplierDIC,
-    phone: data.supplierPhone,
-    email: data.supplierEmail,
-  }
-
-  const blockW = (W - 30 - 10) / 2
-  const yLeft = drawPartyBlock(doc, 'Příjemce (naše firma)', ourCompany, 15, yPos, blockW, color)
-  const yRight = drawPartyBlock(doc, 'Dodavatel', supplier, 15 + blockW + 10, yPos, blockW, color)
-  yPos = Math.max(yLeft, yRight) + 6
-
-  // Tabulka položek
-  const tableRows = data.items.map((item, idx) => [
-    String(idx + 1),
-    item.productName,
-    `${item.quantity} ${item.unit}`,
-    czk(item.price),
-    czk(item.quantity * item.price),
-  ])
-
-  autoTable(doc, {
-    startY: yPos,
-    head: [['#', 'Zboží / Služba', 'Množství', 'Nákupní cena/ks', 'Celkem']],
-    body: tableRows,
-    theme: 'grid',
-    styles: {
-      fontSize: 8.5,
-      textColor: C.text,
-      cellPadding: 2.5,
+  const content: any[] = [
+    {
+      text: [
+        { text: 'Datum příjmu: ', color: COLORS.muted, fontSize: 8.5 },
+        { text: fmtDate(data.receiptDate), fontSize: 8.5 },
+      ],
+      margin: [0, 0, 0, 10],
     },
-    headStyles: {
-      fillColor: color,
-      textColor: C.white,
-      fontStyle: 'bold',
-      fontSize: 8,
+    {
+      columns: [
+        partyBlock('Příjemce (naše firma)', {
+          name: settings.companyName || '',
+          address: settings.address, ico: settings.ico, dic: settings.dic,
+          phone: settings.phone, email: settings.email,
+        }, color),
+        { width: 20, text: '' },
+        partyBlock('Dodavatel', {
+          name: data.supplierName, address: data.supplierAddress,
+          ico: data.supplierICO, dic: data.supplierDIC,
+          phone: data.supplierPhone, email: data.supplierEmail,
+        }, color),
+      ],
+      margin: [0, 0, 0, 14],
     },
-    alternateRowStyles: { fillColor: C.light },
-    columnStyles: {
-      0: { halign: 'center', cellWidth: 10 },
-      2: { halign: 'center', cellWidth: 28 },
-      3: { halign: 'right', cellWidth: 36 },
-      4: { halign: 'right', cellWidth: 36 },
-    },
-    margin: { left: 15, right: 15 },
+    itemsTable(data.items, color, ['#', 'Zboží / Služba', 'Množství', 'Nákupní cena/ks', 'Celkem']),
+    totalBox('Celkem:', czk(data.totalAmount), color),
+    ...(data.note ? [{ text: `Poznámka: ${data.note}`, style: 'note', margin: [0, 8, 0, 0] }] : []),
+    ...(data.status === 'storno' ? [stornoBlock(data.stornoReason, data.stornoAt)] : []),
+  ]
+
+  const dd = buildDoc(content, color, header)
+  return new Promise<Blob>(resolve => {
+    pdfMake.createPdf(dd).getBlob((blob: Blob) => resolve(blob))
   })
-
-  yPos = (doc as any).lastAutoTable.finalY + 5
-
-  // Celková částka
-  doc.setFillColor(...C.light)
-  doc.rect(W - 15 - 80, yPos, 80, 9, 'F')
-  doc.setFont('Roboto', 'bold')
-  doc.setFontSize(10)
-  doc.setTextColor(...C.text)
-  doc.text('Celkem:', W - 15 - 80 + 4, yPos + 6)
-  doc.setTextColor(...color)
-  doc.text(czk(data.totalAmount), W - 15, yPos + 6, { align: 'right' })
-  yPos += 14
-
-  // Poznámka
-  if (data.note) {
-    doc.setFont('Roboto', 'normal')
-    doc.setFontSize(8.5)
-    doc.setTextColor(...C.muted)
-    doc.text(`Poznámka: ${data.note}`, 15, yPos)
-    yPos += 6
-  }
-
-  // STORNO vodoznak
-  if (data.status === 'storno') {
-    addStornoWatermark(doc, data.stornoReason, data.stornoAt)
-  }
-
-  drawFooter(doc, color)
-  return doc.output('blob')
 }
 
-/**
- * Generuje PDF pro výdejku.
- */
 export async function generateDeliveryNotePDF(
   data: DeliveryNoteData,
   settings: CompanySettings
 ): Promise<Blob> {
-  const font = await loadFont()
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
-  const W = doc.internal.pageSize.getWidth()
-  registerFont(doc, font)
+  const pdfMake = await getPdfMake()
+  const color = COLORS.delivery
 
-  const color = C.delivery
+  const header = headerBlock('VÝDEJKA', 'Č. výdejky', data.noteNumber, color, settings)
 
-  // Záhlaví
-  let yPos = drawHeader(doc, 'VÝDEJKA', 'Č. výdejky', data.noteNumber, color, settings)
-
-  // Datum
-  doc.setFont('Roboto', 'normal')
-  doc.setFontSize(8.5)
-  doc.setTextColor(...C.muted)
-  doc.text(`Datum výdeje: ${new Date(data.noteDate).toLocaleDateString('cs-CZ')}`, 15, yPos)
-  yPos += 8
-
-  // Sekce stran
-  const ourCompany: Party = {
-    name: settings.companyName || '',
-    address: settings.address,
-    ico: settings.ico,
-    dic: settings.dic,
-    phone: settings.phone,
-    email: settings.email,
-  }
-  const customer: Party = {
-    name: data.customerName,
-    address: data.customerAddress,
-    ico: data.customerICO,
-    dic: data.customerDIC,
-    phone: data.customerPhone,
-    email: data.customerEmail,
-  }
-
-  const blockW = (W - 30 - 10) / 2
-  const yLeft = drawPartyBlock(doc, 'Vydávající (naše firma)', ourCompany, 15, yPos, blockW, color)
-  const yRight = drawPartyBlock(doc, 'Odběratel', customer, 15 + blockW + 10, yPos, blockW, color)
-  yPos = Math.max(yLeft, yRight) + 6
-
-  // Tabulka položek
-  const tableRows = data.items.map((item, idx) => [
-    String(idx + 1),
-    item.productName,
-    `${item.quantity} ${item.unit}`,
-    czk(item.price),
-    czk(item.quantity * item.price),
-  ])
-
-  autoTable(doc, {
-    startY: yPos,
-    head: [['#', 'Zboží / Služba', 'Množství', 'Cena/ks', 'Celkem']],
-    body: tableRows,
-    theme: 'grid',
-    styles: {
-      fontSize: 8.5,
-      textColor: C.text,
-      cellPadding: 2.5,
+  const content: any[] = [
+    {
+      text: [
+        { text: 'Datum výdeje: ', color: COLORS.muted, fontSize: 8.5 },
+        { text: fmtDate(data.noteDate), fontSize: 8.5 },
+      ],
+      margin: [0, 0, 0, 10],
     },
-    headStyles: {
-      fillColor: color,
-      textColor: C.white,
-      fontStyle: 'bold',
-      fontSize: 8,
+    {
+      columns: [
+        partyBlock('Vydávající (naše firma)', {
+          name: settings.companyName || '',
+          address: settings.address, ico: settings.ico, dic: settings.dic,
+          phone: settings.phone, email: settings.email,
+        }, color),
+        { width: 20, text: '' },
+        partyBlock('Odběratel', {
+          name: data.customerName, address: data.customerAddress,
+          ico: data.customerICO, dic: data.customerDIC,
+          phone: data.customerPhone, email: data.customerEmail,
+        }, color),
+      ],
+      margin: [0, 0, 0, 14],
     },
-    alternateRowStyles: { fillColor: C.light },
-    columnStyles: {
-      0: { halign: 'center', cellWidth: 10 },
-      2: { halign: 'center', cellWidth: 28 },
-      3: { halign: 'right', cellWidth: 36 },
-      4: { halign: 'right', cellWidth: 36 },
-    },
-    margin: { left: 15, right: 15 },
+    itemsTable(data.items, color, ['#', 'Zboží / Služba', 'Množství', 'Cena/ks', 'Celkem']),
+    totalBox('Celkem:', czk(data.totalAmount), color),
+    ...(data.note ? [{ text: `Poznámka: ${data.note}`, style: 'note', margin: [0, 8, 0, 0] }] : []),
+    ...(data.status === 'storno' ? [stornoBlock(data.stornoReason, data.stornoAt)] : []),
+  ]
+
+  const dd = buildDoc(content, color, header)
+  return new Promise<Blob>(resolve => {
+    pdfMake.createPdf(dd).getBlob((blob: Blob) => resolve(blob))
   })
-
-  yPos = (doc as any).lastAutoTable.finalY + 5
-
-  // Celková částka
-  doc.setFillColor(...C.light)
-  doc.rect(W - 15 - 80, yPos, 80, 9, 'F')
-  doc.setFont('Roboto', 'bold')
-  doc.setFontSize(10)
-  doc.setTextColor(...C.text)
-  doc.text('Celkem:', W - 15 - 80 + 4, yPos + 6)
-  doc.setTextColor(...color)
-  doc.text(czk(data.totalAmount), W - 15, yPos + 6, { align: 'right' })
-  yPos += 14
-
-  // Poznámka
-  if (data.note) {
-    doc.setFont('Roboto', 'normal')
-    doc.setFontSize(8.5)
-    doc.setTextColor(...C.muted)
-    doc.text(`Poznámka: ${data.note}`, 15, yPos)
-    yPos += 6
-  }
-
-  // STORNO vodoznak
-  if (data.status === 'storno') {
-    addStornoWatermark(doc, data.stornoReason, data.stornoAt)
-  }
-
-  drawFooter(doc, color)
-  return doc.output('blob')
 }
 
-/**
- * Otevře PDF blob v nové záložce prohlížeče.
- */
 export function openPDFInNewTab(blob: Blob) {
   const url = URL.createObjectURL(blob)
   window.open(url, '_blank')
