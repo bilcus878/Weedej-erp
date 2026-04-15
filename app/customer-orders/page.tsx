@@ -42,6 +42,8 @@ interface CustomerOrderItem {
   unit: string
   price: number
   vatRate: number // DPH sazba z produktu
+  vatAmount?: number
+  priceWithVat?: number
   product?: Product
 }
 
@@ -72,6 +74,8 @@ interface CustomerOrder {
   orderDate: string
   status: string
   totalAmount: number
+  totalAmountWithoutVat?: number
+  totalVatAmount?: number
   paidAt?: string
   shippedAt?: string
   note?: string
@@ -1834,22 +1838,30 @@ export default function CustomerOrdersPage() {
                             const fakeTransaction = {
                               id: order.id,
                               transactionCode: order.issuedInvoice?.invoiceNumber || order.orderNumber,
-                              totalAmount: order.totalAmount,
+                              totalAmount: Number(order.totalAmount),
+                              totalAmountWithoutVat: Number(order.totalAmountWithoutVat ?? 0),
+                              totalVatAmount: Number(order.totalVatAmount ?? 0),
                               paymentType: order.issuedInvoice?.paymentType || 'transfer',
                               status: order.status,
                               transactionDate: order.orderDate,
                               customer: order.customer || null,
                               customerName: order.customerName || null,
+                              customerAddress: order.customerAddress,
+                              customerPhone: order.customerPhone,
+                              customerEmail: order.customerEmail,
                               items: order.items.map(item => ({
                                 id: item.id || '',
-                                quantity: item.quantity,
+                                quantity: Number(item.quantity),
                                 unit: item.unit,
-                                price: item.price,
+                                price: Number(item.price),
+                                vatRate: Number(item.vatRate ?? 0),
+                                vatAmount: Number(item.vatAmount ?? 0),
+                                priceWithVat: Number(item.priceWithVat ?? item.price),
                                 product: item.product || { id: '', name: item.productName || '' }
                               }))
                             }
 
-                            generateInvoicePDF(fakeTransaction as any, settings)
+                            await generateInvoicePDF(fakeTransaction as any, settings)
                           } catch (error) {
                             console.error('Chyba při generování PDF:', error)
                             alert('Nepodařilo se vygenerovat PDF')

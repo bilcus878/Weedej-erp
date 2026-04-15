@@ -574,7 +574,7 @@ export default function ReceiptsPage() {
     }
   }
 
-  function handleDownloadPDF(receiptId: string) {
+  async function handleDownloadPDF(receiptId: string) {
     const receipt = receipts.find(r => r.id === receiptId)
     if (!receipt) return
 
@@ -602,7 +602,9 @@ export default function ReceiptsPage() {
         stornoAt: receipt.stornoAt
       }
 
-      const pdfBlob = generateReceiptPDF(pdfData)
+      const settingsRes = await fetch('/api/settings')
+      const settings = await settingsRes.json()
+      const pdfBlob = await generateReceiptPDF(pdfData, settings)
       openPDFInNewTab(pdfBlob)
     } catch (error: any) {
       console.error('Chyba při generování PDF:', error)

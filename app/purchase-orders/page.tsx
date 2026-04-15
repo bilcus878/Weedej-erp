@@ -524,7 +524,7 @@ export default function PurchaseOrdersPage() {
   }
 
 
-  function handleDownloadPDF(orderId: string) {
+  async function handleDownloadPDF(orderId: string) {
     const order = orders.find(o => o.id === orderId)
     if (!order) return
 
@@ -552,7 +552,9 @@ export default function PurchaseOrdersPage() {
         stornoAt: order.stornoAt
       }
 
-      const pdfBlob = generatePurchaseOrderPDF(pdfData)
+      const settingsRes = await fetch('/api/settings')
+      const settings = await settingsRes.json()
+      const pdfBlob = await generatePurchaseOrderPDF(pdfData, settings)
       openPDFInNewTab(pdfBlob)
     } catch (error: any) {
       console.error('Chyba při generování PDF:', error)

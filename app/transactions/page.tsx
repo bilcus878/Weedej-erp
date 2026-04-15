@@ -338,7 +338,7 @@ export default function TransactionsPage() {
       const settings = await settingsRes.json()
 
       // Vygeneruj PDF
-      generateInvoicePDF(transaction as any, settings)
+      await generateInvoicePDF(transaction as any, settings)
     } catch (error) {
       console.error('Chyba při generování PDF:', error)
       alert('Nepodařilo se vygenerovat PDF faktury')

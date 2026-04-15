@@ -687,7 +687,7 @@ export default function TransactionsPage() {
       console.log('Volám generateInvoicePDF s daty:', { transaction, settings })
 
       // Vygeneruj PDF
-      generateInvoicePDF(transaction, settings)
+      await generateInvoicePDF(transaction, settings)
 
       console.log('PDF úspěšně vygenerováno')
     } catch (error) {

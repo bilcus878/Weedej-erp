@@ -479,7 +479,7 @@ export default function DeliveryNotesPage() {
   }
 
 
-  function handleDownloadPDF(noteId: string) {
+  async function handleDownloadPDF(noteId: string) {
     const note = deliveryNotes.find(n => n.id === noteId)
     if (!note) return
 
@@ -491,6 +491,8 @@ export default function DeliveryNotesPage() {
         customerAddress: (note.customerOrder as any)?.customerAddress,
         customerEmail: (note.customerOrder as any)?.customerEmail,
         customerPhone: (note.customerOrder as any)?.customerPhone,
+        customerICO: (note.customerOrder as any)?.customer?.ico,
+        customerDIC: (note.customerOrder as any)?.customer?.dic,
         items: note.items.map(item => ({
           productName: item.product?.name || item.productName || 'Neznámý produkt',
           quantity: Number(item.quantity),
@@ -504,7 +506,9 @@ export default function DeliveryNotesPage() {
         status: note.status
       }
 
-      const pdfBlob = generateDeliveryNotePDF(pdfData)
+      const settingsRes = await fetch('/api/settings')
+      const settings = await settingsRes.json()
+      const pdfBlob = await generateDeliveryNotePDF(pdfData, settings)
       openPDFInNewTab(pdfBlob)
     } catch (error: any) {
       console.error('Chyba při generování PDF:', error)

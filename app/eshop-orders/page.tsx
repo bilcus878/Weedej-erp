@@ -355,7 +355,7 @@ export default function EshopOrdersPage() {
         }))
       }
 
-      generateInvoicePDF(invoiceForPDF as any, settings)
+      await generateInvoicePDF(invoiceForPDF as any, settings)
     } catch (error) {
       console.error('Chyba při generování PDF:', error)
       alert('Nepodařilo se vygenerovat PDF')
