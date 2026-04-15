@@ -89,9 +89,9 @@ async function loadFont(): Promise<{ regular: string; bold: string }> {
 
 function registerFont(doc: jsPDF, font: { regular: string; bold: string }) {
   doc.addFileToVFS('Roboto-Regular.ttf', font.regular)
-  doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal')
+  doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal', 'Identity-H')
   doc.addFileToVFS('Roboto-Bold.ttf', font.bold)
-  doc.addFont('Roboto-Bold.ttf', 'Roboto', 'bold')
+  doc.addFont('Roboto-Bold.ttf', 'Roboto', 'bold', 'Identity-H')
   doc.setFont('Roboto', 'normal')
 }
 
