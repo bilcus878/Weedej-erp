@@ -98,8 +98,13 @@ function fmtDate(dateStr: string): string {
 
 async function getPdfMake() {
   const pdfMake = (await import('pdfmake/build/pdfmake' as any)).default as any
-  const pdfFonts = (await import('pdfmake/build/vfs_fonts' as any)).default as any
-  pdfMake.vfs = pdfFonts.pdfMake?.vfs ?? pdfFonts
+  const vfs = (await import('pdfmake/build/vfs_fonts' as any)).default as any
+  // pdfmake 0.3.x: virtualfs.writeFileSync expects Buffer (base64 → Buffer)
+  for (const [name, data] of Object.entries(vfs) as [string, string][]) {
+    if (!pdfMake.virtualfs.existsSync(name)) {
+      pdfMake.virtualfs.writeFileSync(name, Buffer.from(data, 'base64'))
+    }
+  }
   return pdfMake
 }
 
@@ -334,9 +339,7 @@ export async function generatePurchaseOrderPDF(
   ]
 
   const dd = buildDoc(content, color, header)
-  return new Promise<Blob>(resolve => {
-    pdfMake.createPdf(dd).getBlob((blob: Blob) => resolve(blob))
-  })
+  return pdfMake.createPdf(dd).getBlob() as Promise<Blob>
 }
 
 export async function generateReceiptPDF(
@@ -379,9 +382,7 @@ export async function generateReceiptPDF(
   ]
 
   const dd = buildDoc(content, color, header)
-  return new Promise<Blob>(resolve => {
-    pdfMake.createPdf(dd).getBlob((blob: Blob) => resolve(blob))
-  })
+  return pdfMake.createPdf(dd).getBlob() as Promise<Blob>
 }
 
 export async function generateDeliveryNotePDF(
@@ -424,9 +425,7 @@ export async function generateDeliveryNotePDF(
   ]
 
   const dd = buildDoc(content, color, header)
-  return new Promise<Blob>(resolve => {
-    pdfMake.createPdf(dd).getBlob((blob: Blob) => resolve(blob))
-  })
+  return pdfMake.createPdf(dd).getBlob() as Promise<Blob>
 }
 
 export function openPDFInNewTab(blob: Blob, filename = 'dokument.pdf') {

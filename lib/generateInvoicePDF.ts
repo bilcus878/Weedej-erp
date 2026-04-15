@@ -73,8 +73,13 @@ function fmtDate(d: string): string {
 
 async function getPdfMake(): Promise<any> {
   const pdfMake = (await import('pdfmake/build/pdfmake' as any)).default as any
-  const pdfFonts = (await import('pdfmake/build/vfs_fonts' as any)).default as any
-  pdfMake.vfs = pdfFonts.pdfMake?.vfs ?? pdfFonts
+  const vfs = (await import('pdfmake/build/vfs_fonts' as any)).default as any
+  // pdfmake 0.3.x: virtualfs.writeFileSync expects Buffer (base64 → Buffer)
+  for (const [name, data] of Object.entries(vfs) as [string, string][]) {
+    if (!pdfMake.virtualfs.existsSync(name)) {
+      pdfMake.virtualfs.writeFileSync(name, Buffer.from(data, 'base64'))
+    }
+  }
   return pdfMake
 }
 
@@ -446,18 +451,14 @@ export async function generateInvoicePDF(
     defaultStyle: { font: 'Roboto', fontSize: 9 },
   }
 
-  return new Promise<void>(resolve => {
-    pdfMake.createPdf(dd).getBlob((blob: Blob) => {
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.target = '_blank'
-      a.download = `faktura-${invoice.transactionCode}.pdf`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      setTimeout(() => URL.revokeObjectURL(url), 10000)
-      resolve()
-    })
-  })
+  const blob: Blob = await (pdfMake.createPdf(dd).getBlob() as Promise<Blob>)
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.target = '_blank'
+  a.download = `faktura-${invoice.transactionCode}.pdf`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(url), 10000)
 }
