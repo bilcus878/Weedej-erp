@@ -19,7 +19,6 @@ import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { getNextDocumentNumber } from '@/lib/documentNumbering'
 import { createIssuedInvoiceFromCustomerOrder } from '@/lib/createIssuedInvoice'
-import { createDeliveryNoteFromCustomerOrder } from '@/lib/createDeliveryNote'
 import { verifyApiKey, corsHeaders, handleOptions } from '@/lib/apiKeyAuth'
 import { createReservations } from '@/lib/reservationManagement'
 
@@ -275,17 +274,6 @@ export async function POST(request: NextRequest) {
   } catch (err: any) {
     // Soft failure — order exists, invoice can be created manually
     console.error(`[ERP /api/orders] Invoice generation failed for orderId=${createdOrder.id}:`, err?.message)
-  }
-
-  // ── Create draft výdejka (očekávaný vydej) — SYNCHRONNÍ před return ────────
-  // DŮLEŽITÉ: Musí být awaited PŘED return — na Vercel serverless se funkce ukončí
-  // hned po odeslání response a fire-and-forget async kód se nedokončí → draft by nevznikl.
-  try {
-    await createDeliveryNoteFromCustomerOrder(createdOrder.id)
-    console.log(`[ERP /api/orders] Draft výdejka (očekávaný vydej) vytvořena pro orderId=${createdOrder.id}`)
-  } catch (err: any) {
-    // Soft failure — objednávka existuje, draft lze vytvořit ručně
-    console.error(`[ERP /api/orders] Výdejka creation failed for orderId=${createdOrder.id}:`, err?.message)
   }
 
   // ── Return — PDF je on-demand přes /api/invoices/[id]/pdf ─────────────────
