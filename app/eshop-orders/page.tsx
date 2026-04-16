@@ -850,49 +850,6 @@ export default function EshopOrdersPage() {
                         </div>
                       </div>
 
-                      {/* ── Očekávané vydeje (draft) ── */}
-                      {(() => {
-                        const drafts = order.deliveryNotes?.filter(dn => dn.status === 'draft') ?? []
-                        if (drafts.length === 0) return null
-                        return (
-                          <div className="border border-blue-200 rounded-lg overflow-hidden">
-                            <h4 className="font-bold text-sm text-gray-900 px-4 py-2.5 bg-blue-50 border-b border-blue-200 flex items-center gap-2">
-                              <Package className="w-4 h-4 text-blue-600" />
-                              Očekávané vydeje ({drafts.length})
-                            </h4>
-                            <div className="text-sm">
-                              <div className="grid grid-cols-[1.5fr_1fr_0.8fr_auto] gap-3 px-4 py-2 bg-gray-50 font-semibold text-gray-700 border-b text-xs">
-                                <div>Číslo</div>
-                                <div>Datum</div>
-                                <div className="text-center">Položek</div>
-                                <div className="w-4" />
-                              </div>
-                              {drafts.map(dn => (
-                                <Link
-                                  key={dn.id}
-                                  href={`/delivery-notes?highlight=${dn.id}`}
-                                  className="grid grid-cols-[1.5fr_1fr_0.8fr_auto] gap-3 px-4 py-3 bg-white hover:bg-blue-50 transition-colors items-center border-b border-gray-100 last:border-b-0"
-                                  onClick={e => e.stopPropagation()}
-                                >
-                                  <div className="flex items-center gap-1.5 font-medium text-blue-600 hover:underline">
-                                    {dn.deliveryNumber}
-                                  </div>
-                                  <div className="text-gray-700">
-                                    {new Date(dn.deliveryDate).toLocaleDateString('cs-CZ')}
-                                  </div>
-                                  <div className="text-gray-700 text-center">
-                                    {dn.items.length}
-                                  </div>
-                                  <div className="flex justify-end">
-                                    <ExternalLink className="w-4 h-4 text-blue-500" />
-                                  </div>
-                                </Link>
-                              ))}
-                            </div>
-                          </div>
-                        )
-                      })()}
-
                       {/* ── Výdejky (vyskladněno) ── */}
                       {(() => {
                         const active = order.deliveryNotes?.filter(dn => dn.status === 'active') ?? []
@@ -1005,12 +962,17 @@ export default function EshopOrdersPage() {
                                 PDF
                               </button>
 
-                              {/* Expedovat — probíhá přes Očekávaný vydej → Vyskladnit */}
-                              {order.status === 'paid' && !order.deliveryNotes?.some(dn => dn.status === 'draft') && (
-                                <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
+                              {/* Expedovat — probíhá přes Výdejky → Očekávané výdejky */}
+                              {(order.status === 'paid' || order.status === 'processing') && !order.deliveryNotes?.some(dn => dn.status === 'active') && (
+                                <Link
+                                  href="/delivery-notes"
+                                  className="flex items-center gap-2 px-3 py-2 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors"
+                                  onClick={e => e.stopPropagation()}
+                                >
                                   <Package className="w-4 h-4 text-blue-500 flex-shrink-0" />
-                                  <span className="text-xs text-blue-700">Vyskladni z očekávaného vydeje výše</span>
-                                </div>
+                                  <span className="text-xs text-blue-700">Vyskladnit v Očekávaných výdejkách</span>
+                                  <ExternalLink className="w-3 h-3 text-blue-400" />
+                                </Link>
                               )}
 
                               {/* Označit jako doručeno */}
