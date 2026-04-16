@@ -277,14 +277,18 @@ export async function POST(request: NextRequest) {
     console.error(`[ERP /api/orders] Invoice generation failed for orderId=${createdOrder.id}:`, err?.message)
   }
 
-  // ── Create draft výdejka (warehouse release) — fire-and-forget ──────────
-  // Uses the same function as the "Připravit k expedici" button — includes
-  // productId on each item so warehouse processing correctly deducts stock.
-  createDeliveryNoteFromCustomerOrder(createdOrder.id).catch((err: any) => {
+  // ── Create draft výdejka (očekávaný vydej) — SYNCHRONNÍ před return ────────
+  // DŮLEŽITÉ: Musí být awaited PŘED return — na Vercel serverless se funkce ukončí
+  // hned po odeslání response a fire-and-forget async kód se nedokončí → draft by nevznikl.
+  try {
+    await createDeliveryNoteFromCustomerOrder(createdOrder.id)
+    console.log(`[ERP /api/orders] Draft výdejka (očekávaný vydej) vytvořena pro orderId=${createdOrder.id}`)
+  } catch (err: any) {
+    // Soft failure — objednávka existuje, draft lze vytvořit ručně
     console.error(`[ERP /api/orders] Výdejka creation failed for orderId=${createdOrder.id}:`, err?.message)
-  })
+  }
 
-  // ── Return immediately — PDF is fetched on-demand via /api/invoices/[id]/pdf ─
+  // ── Return — PDF je on-demand přes /api/invoices/[id]/pdf ─────────────────
   // Generating the PDF synchronously (pdfmake) adds 3-6s and risks webhook timeout.
   // The e-shop stores invoicePdfUrl and the customer can download the PDF on demand.
   const erpUrl = process.env.ERP_PUBLIC_URL || process.env.NEXTAUTH_URL || ''
