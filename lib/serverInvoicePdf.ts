@@ -397,11 +397,11 @@ let _printer: any = null
 
 function getPrinter() {
   if (_printer) return _printer
-  // pdfmake main export is the Node.js PdfPrinter class
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  // pdfmake main export is the Node.js PdfPrinter class — require() needed (no ESM export)
+  /* eslint-disable */
   const PdfPrinter = require('pdfmake')
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const vfsFonts = require('pdfmake/build/vfs_fonts').pdfMake.vfs as Record<string, string>
+  /* eslint-enable */
 
   const fonts = {
     Roboto: {
