@@ -152,12 +152,32 @@ export async function PATCH(
       return NextResponse.json({ id: existing.id, status: 'shipped' })
     }
 
-    // ── Ostatní přechody (delivered, cancelled) — jen aktualizuj status ───
+    // ── Ostatní přechody (delivered, cancelled) — aktualizuj status ─────
     const updated = await prisma.customerOrder.update({
       where: { id: params.id },
       data: { status },
-      select: { id: true, orderNumber: true, status: true, shippedAt: true, updatedAt: true },
+      select: { id: true, orderNumber: true, status: true, shippedAt: true, updatedAt: true, eshopOrderId: true },
     })
+
+    // Pro 'delivered': notifikuj e-shop (fire-and-forget, HMAC signed)
+    if (status === 'delivered' && existing.eshopOrderId) {
+      const eshopUrl = process.env.ESHOP_URL?.replace(/\/$/, '')
+      const secret   = process.env.ERP_WEBHOOK_SECRET
+      if (eshopUrl && secret) {
+        const payload   = JSON.stringify({
+          eshopOrderId:   existing.eshopOrderId,
+          erpOrderNumber: existing.orderNumber,
+          deliveredAt:    new Date().toISOString(),
+        })
+        const signature = `sha256=${require('crypto').createHmac('sha256', secret).update(payload).digest('hex')}`
+        fetch(`${eshopUrl}/api/webhooks/erp/order-delivered`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json', 'X-ERP-Signature': signature },
+          body:    payload,
+          signal:  AbortSignal.timeout(8_000),
+        }).catch((err: any) => console.warn('[EshopOrders] order-delivered webhook failed:', err?.message))
+      }
+    }
 
     return NextResponse.json(updated)
   } catch (error) {
