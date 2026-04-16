@@ -208,8 +208,11 @@ export async function POST(request: NextRequest) {
             create: resolvedItems.map(item => {
               const price        = item.unitPriceCzk
               const vatRate      = item.vatRate
-              const vatAmount    = Math.round(price * vatRate) / 100
-              const priceWithVat = Math.round((price + vatAmount) * 100) / 100
+              // Compute gross first (price × (1 + vatRate/100)), then derive vatAmount.
+              // Bottom-up approach (price + round(price×vatRate/100)) loses a halér for
+              // most per-gram prices (e.g. 82.64 → 99.99 instead of 100.00).
+              const priceWithVat = Math.round(price * (1 + vatRate / 100) * 100) / 100
+              const vatAmount    = Math.round((priceWithVat - price) * 100) / 100
               return {
                 productId:       item.productId,   // null for unlinked items
                 productName:     item.name,

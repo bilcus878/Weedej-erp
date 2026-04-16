@@ -807,10 +807,12 @@ export default function DeliveryNotesPage() {
                             const ordered = Number(item.quantity)
                             const remaining = ordered - shipped
                             const unitPrice = Number(item.price || 0)
-                            const itemVatRate = Number(item.vatRate || item.product?.vatRate || DEFAULT_VAT_RATE)
+                            const itemVatRate = Number(item.vatRate ?? item.product?.vatRate ?? DEFAULT_VAT_RATE)
                             const isItemNonVat = isNonVatPayer(itemVatRate)
-                            const vatPerUnit = isItemNonVat ? 0 : unitPrice * itemVatRate / 100
-                            const priceWithVat = unitPrice + vatPerUnit
+                            // Use stored priceWithVat/vatAmount — avoids double-rounding that makes
+                            // e.g. 82.64 Kč/g render as 99.99 instead of 100.00
+                            const vatPerUnit = isItemNonVat ? 0 : Number(item.vatAmount ?? (unitPrice * itemVatRate / 100))
+                            const priceWithVat = isItemNonVat ? unitPrice : Number(item.priceWithVat ?? (unitPrice + vatPerUnit))
                             const total = ordered * (isVatPayer ? priceWithVat : unitPrice)
 
                             return isVatPayer ? (
@@ -883,10 +885,10 @@ export default function DeliveryNotesPage() {
                             <div className="text-[13px] text-center">
                               {formatPrice(order.items.reduce((sum, item) => {
                                 const unitPrice = Number(item.price || 0)
-                                const itemVatRate = Number(item.vatRate || item.product?.vatRate || DEFAULT_VAT_RATE)
+                                const itemVatRate = Number(item.vatRate ?? item.product?.vatRate ?? DEFAULT_VAT_RATE)
                                 const isItemNonVat = isNonVatPayer(itemVatRate)
-                                const vatPerUnit = isItemNonVat ? 0 : unitPrice * itemVatRate / 100
-                                const priceWithVat = unitPrice + vatPerUnit
+                                const vatPerUnit = isItemNonVat ? 0 : Number(item.vatAmount ?? (unitPrice * itemVatRate / 100))
+                                const priceWithVat = isItemNonVat ? unitPrice : Number(item.priceWithVat ?? (unitPrice + vatPerUnit))
                                 return sum + (Number(item.quantity) * (isVatPayer ? priceWithVat : unitPrice))
                               }, 0))}
                             </div>
