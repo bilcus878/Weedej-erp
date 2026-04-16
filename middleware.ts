@@ -15,9 +15,13 @@ export default withAuth(
   }
 )
 
-// Chráníme vše KROMĚ: přihlašovací stránky, auth API, externího API pro eshop, Next.js assetů
+// Chráníme vše KROMĚ: přihlašovací stránky, auth API, externích API endpointů, Next.js assetů
+// api/orders      — e-shop → ERP order sync (API key auth)
+// api/invoices    — invoice PDF download (API key auth)
+// api/cron        — cron jobs (CRON_SECRET auth)
+// api/external    — původní externí API
 export const config = {
   matcher: [
-    '/((?!login|api/auth|api/external|_next/static|_next/image|favicon\\.ico).*)',
+    '/((?!login|api/auth|api/external|api/orders|api/invoices|api/cron|_next/static|_next/image|favicon\\.ico).*)',
   ],
 }
