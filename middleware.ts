@@ -1,13 +1,28 @@
 import { withAuth } from 'next-auth/middleware'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+
+// Paths that use their own auth (API key / CRON_SECRET) — skip NextAuth
+const PUBLIC_API_PREFIXES = [
+  '/api/external/',
+  '/api/orders',
+  '/api/invoices/',
+  '/api/cron/',
+]
 
 export default withAuth(
-  function middleware() {
+  function middleware(req: NextRequest) {
     return NextResponse.next()
   },
   {
     callbacks: {
-      authorized: ({ token }) => !!token,
+      authorized: ({ token, req }) => {
+        const path = req.nextUrl.pathname
+        // Allow public API paths through without a session token
+        if (PUBLIC_API_PREFIXES.some(p => path === p || path.startsWith(p))) {
+          return true
+        }
+        return !!token
+      },
     },
     pages: {
       signIn: '/login',
@@ -15,13 +30,9 @@ export default withAuth(
   }
 )
 
-// Chráníme vše KROMĚ: přihlašovací stránky, auth API, externích API endpointů, Next.js assetů
-// api/orders      — e-shop → ERP order sync (API key auth)
-// api/invoices    — invoice PDF download (API key auth)
-// api/cron        — cron jobs (CRON_SECRET auth)
-// api/external    — původní externí API
+// Run middleware on everything except static assets and auth routes
 export const config = {
   matcher: [
-    '/((?!login|api/auth|api/external|api/orders|api/invoices|api/cron|_next/static|_next/image|favicon\\.ico).*)',
+    '/((?!_next/static|_next/image|favicon\\.ico).*)',
   ],
 }
