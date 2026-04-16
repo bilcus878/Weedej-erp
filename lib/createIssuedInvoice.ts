@@ -143,11 +143,11 @@ export async function createIssuedInvoiceFromCustomerOrder(
         totalAmount: order.totalAmount,
         totalAmountWithoutVat: order.totalAmountWithoutVat || order.totalAmount,
         totalVatAmount: order.totalVatAmount || 0,
-        paymentType: paymentDetails?.paymentType || 'transfer', // E-shop objednávky typicky převodem
+        paymentType: paymentDetails?.paymentType || 'transfer',
         variableSymbol: paymentDetails?.variableSymbol || null,
         constantSymbol: paymentDetails?.constantSymbol || null,
         specificSymbol: paymentDetails?.specificSymbol || null,
-        paymentStatus: order.status === 'paid' ? 'paid' : 'unpaid',
+        paymentStatus: (order.source === 'eshop' || ['paid', 'processing'].includes(order.status)) ? 'paid' : 'unpaid',
         status: 'active',
         // Sleva - zkopíruj z objednávky
         discountType: order.discountType || null,

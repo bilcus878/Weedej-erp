@@ -193,7 +193,7 @@ export async function POST(request: NextRequest) {
         data: {
           orderNumber,
           source:             'eshop',
-          status:             'processing',   // paid + ERP received = processing
+          status:             'paid',          // Stripe payment confirmed before sync
           paidAt,
           eshopOrderId:       body.eshopOrderId,
           paymentReference:   body.paymentReference,
