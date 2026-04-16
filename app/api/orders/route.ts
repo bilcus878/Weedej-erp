@@ -27,9 +27,9 @@ export const dynamic = 'force-dynamic'
 // ─── Zod schema ──────────────────────────────────────────────────────────────
 
 const AddressSchema = z.object({
-  street:  z.string().min(1),
-  city:    z.string().min(1),
-  zip:     z.string().min(1),
+  street:  z.string().default('Neuvedena'),    // optional — pickup orders have no address
+  city:    z.string().default(''),
+  zip:     z.string().default(''),
   country: z.string().default('CZ'),
 })
 
