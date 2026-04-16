@@ -101,9 +101,9 @@ function getStatusBadge(status: string) {
       )
     case 'shipped':
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
           <Truck className="w-3 h-3" />
-          Expedováno
+          Odesláno
         </span>
       )
     case 'delivered':
@@ -473,7 +473,7 @@ export default function EshopOrdersPage() {
             >
               {filterStatus === 'all' && <span>Vše</span>}
               {filterStatus === 'paid' && <span className="text-yellow-700">Zaplaceno</span>}
-              {filterStatus === 'shipped' && <span className="text-blue-700">Expedováno</span>}
+              {filterStatus === 'shipped' && <span className="text-purple-700">Odesláno</span>}
               {filterStatus === 'delivered' && <span className="text-green-700">Doručeno</span>}
               {filterStatus === 'cancelled' && <span className="text-red-700">Zrušeno</span>}
             </div>
@@ -483,7 +483,7 @@ export default function EshopOrdersPage() {
                 {[
                   { value: 'all', label: 'Vše', color: '' },
                   { value: 'paid', label: 'Zaplaceno', color: 'text-yellow-700' },
-                  { value: 'shipped', label: 'Expedováno', color: 'text-blue-700' },
+                  { value: 'shipped', label: 'Odesláno', color: 'text-purple-700' },
                   { value: 'delivered', label: 'Doručeno', color: 'text-green-700' },
                   { value: 'cancelled', label: 'Zrušeno', color: 'text-red-700' },
                 ].map(opt => (
@@ -894,7 +894,7 @@ export default function EshopOrdersPage() {
                                   className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                   <Truck className="w-3.5 h-3.5" />
-                                  {processingStatus === order.id ? 'Zpracovává se...' : 'Expedovat'}
+                                  {processingStatus === order.id ? 'Zpracovává se...' : 'Odeslat'}
                                 </button>
                               )}
 
