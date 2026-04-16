@@ -220,6 +220,33 @@ export async function POST(request: Request) {
 
     console.log(`✓ Výdejka ${result.deliveryNumber} byla vytvořena a zpracována`)
 
+    // ── Webhook: notifikuj e-shop pokud je objednávka z e-shopu ────────────
+    // Záchranná síť — primárně eshop objednávky jdou přes delivery-notes/[id]/process,
+    // ale pokud by se sem dostaly (starší objednávky bez draftu), webhook musí odejít.
+    if (order.source === 'eshop' && order.eshopOrderId) {
+      const finalOrder = await prisma.customerOrder.findUnique({
+        where: { id: order.id },
+        include: { issuedInvoice: { select: { id: true } } },
+      })
+      if (finalOrder?.status === 'shipped') {
+        const erpUrl = process.env.ERP_PUBLIC_URL || process.env.NEXTAUTH_URL || ''
+        import('@/lib/eshopWebhook').then(({ enqueueOrderShippedWebhook }) =>
+          enqueueOrderShippedWebhook(order.id, {
+            eshopOrderId:   order.eshopOrderId!,
+            erpOrderNumber: order.orderNumber,
+            shippedAt:      new Date().toISOString(),
+            trackingNumber: null,
+            carrier:        null,
+            invoiceUrl:     finalOrder.issuedInvoice?.id
+              ? `${erpUrl}/api/invoices/${finalOrder.issuedInvoice.id}/pdf`
+              : null,
+          })
+        ).catch((err: any) =>
+          console.error(`[Webhook] Failed to enqueue for orderId=${order.id}:`, err?.message)
+        )
+      }
+    }
+
     return NextResponse.json(result)
   } catch (error) {
     console.error('Chyba při vytváření výdejky z objednávky:', error)
