@@ -274,12 +274,9 @@ export async function POST(
     ) {
       try {
         const { enqueueOrderShippedWebhook } = await import('@/lib/eshopWebhook')
-        const erpUrl      = process.env.ERP_PUBLIC_URL || process.env.NEXTAUTH_URL || ''
-        const invoiceUrl  = finalOrder.issuedInvoice
-          ? `${erpUrl}/api/invoices/${(finalOrder as any).issuedInvoice?.id}/pdf`
-          : null
+        const erpUrl = process.env.ERP_PUBLIC_URL || process.env.NEXTAUTH_URL || ''
 
-        // Reload to get invoice id
+        // Reload order to get linked invoice id (not in finalOrder select)
         const orderWithInvoice = await prisma.customerOrder.findUnique({
           where: { id: finalOrder.id },
           include: { issuedInvoice: { select: { id: true } } },
