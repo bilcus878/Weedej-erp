@@ -19,7 +19,6 @@ import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { getNextDocumentNumber } from '@/lib/documentNumbering'
 import { createIssuedInvoiceFromCustomerOrder } from '@/lib/createIssuedInvoice'
-import { generateInvoicePdfBase64 } from '@/lib/serverInvoicePdf'
 import { verifyApiKey, corsHeaders, handleOptions } from '@/lib/apiKeyAuth'
 import { createReservations } from '@/lib/reservationManagement'
 
@@ -276,90 +275,49 @@ export async function POST(request: NextRequest) {
     console.error(`[ERP /api/orders] Invoice generation failed for orderId=${createdOrder.id}:`, err?.message)
   }
 
-  // ── Create expected výdejka (warehouse release) ───────────────────────────
-  try {
-    await createExpectedVydejka(createdOrder)
-    console.log(`[ERP /api/orders] Výdejka created for orderId=${createdOrder.id}`)
-  } catch (err: any) {
+  // ── Create expected výdejka (warehouse release) — fire-and-forget ────────
+  // Run asynchronously so it doesn't block the HTTP response.
+  createExpectedVydejka(createdOrder).catch((err: any) => {
     console.error(`[ERP /api/orders] Výdejka creation failed for orderId=${createdOrder.id}:`, err?.message)
-  }
-
-  // ── Reload with issuedInvoice for response ────────────────────────────────
-  const fullOrder = await prisma.customerOrder.findUniqueOrThrow({
-    where: { id: createdOrder.id },
-    include: { issuedInvoice: { include: { items: true } } },
   })
 
-  return buildSuccessResponse(fullOrder, origin, 201)
+  // ── Return immediately — PDF is fetched on-demand via /api/invoices/[id]/pdf ─
+  // Generating the PDF synchronously (pdfmake) adds 3-6s and risks webhook timeout.
+  // The e-shop stores invoicePdfUrl and the customer can download the PDF on demand.
+  const erpUrl = process.env.ERP_PUBLIC_URL || process.env.NEXTAUTH_URL || ''
+  const invoicePdfUrl = invoice ? `${erpUrl}/api/invoices/${invoice.id}/pdf` : null
+
+  return NextResponse.json(
+    {
+      erpOrderNumber:   createdOrder.orderNumber,
+      invoiceNumber:    invoice?.invoiceNumber ?? null,
+      invoicePdfBase64: null,   // Not generated here — use invoicePdfUrl for on-demand PDF
+      invoicePdfUrl,
+    },
+    { status: 201, headers: corsHeaders(origin) }
+  )
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-async function buildSuccessResponse(
+/**
+ * Returns order data for idempotent duplicate requests.
+ * PDF is NOT generated here — fetched on-demand via /api/invoices/[id]/pdf.
+ */
+function buildSuccessResponse(
   order: any,
   origin: string | null,
   status = 200,
 ) {
   const invoice = order.issuedInvoice
   const erpUrl  = process.env.ERP_PUBLIC_URL || process.env.NEXTAUTH_URL || ''
-
-  let invoicePdfBase64: string | null = null
-  let invoicePdfUrl:    string | null = null
-
-  if (invoice) {
-    invoicePdfUrl = `${erpUrl}/api/invoices/${invoice.id}/pdf`
-
-    // Generate PDF server-side for inline attachment in e-shop email
-    try {
-      const settings = await prisma.settings.findUnique({ where: { id: 'default' } })
-      if (settings) {
-        invoicePdfBase64 = await generateInvoicePdfBase64(
-          {
-            invoiceNumber:        invoice.invoiceNumber,
-            invoiceDate:          invoice.invoiceDate.toISOString(),
-            duzp:                 invoice.invoiceDate.toISOString(),  // payment = DUZP
-            totalAmount:          Number(invoice.totalAmount),
-            totalAmountWithoutVat: Number(invoice.totalAmountWithoutVat),
-            totalVatAmount:       Number(invoice.totalVatAmount),
-            paymentType:          invoice.paymentType,
-            customerName:         invoice.customerName ?? undefined,
-            customerAddress:      invoice.customerAddress ?? undefined,
-            customerEmail:        invoice.customerEmail ?? undefined,
-            customerPhone:        invoice.customerPhone ?? undefined,
-            customerICO:          invoice.customerIco ?? undefined,
-            customerDIC:          invoice.customerDic ?? undefined,
-            items: (invoice.items ?? []).map((item: any) => ({
-              productName:  item.productName,
-              quantity:     Number(item.quantity),
-              unit:         item.unit,
-              price:        Number(item.price),
-              vatRate:      Number(item.vatRate),
-              vatAmount:    Number(item.vatAmount),
-              priceWithVat: Number(item.priceWithVat),
-            })),
-          },
-          {
-            companyName:  settings.companyName,
-            ico:          settings.ico,
-            dic:          settings.dic,
-            address:      settings.address,
-            phone:        settings.phone,
-            email:        settings.email,
-            bankAccount:  settings.bankAccount,
-            isVatPayer:   settings.isVatPayer,
-          }
-        )
-      }
-    } catch (pdfErr: any) {
-      console.error(`[ERP /api/orders] PDF generation failed for invoiceId=${invoice.id}:`, pdfErr?.message)
-    }
-  }
+  const invoicePdfUrl = invoice ? `${erpUrl}/api/invoices/${invoice.id}/pdf` : null
 
   return NextResponse.json(
     {
-      erpOrderNumber:  order.orderNumber,
-      invoiceNumber:   invoice?.invoiceNumber ?? null,
-      invoicePdfBase64,
+      erpOrderNumber:   order.orderNumber,
+      invoiceNumber:    invoice?.invoiceNumber ?? null,
+      invoicePdfBase64: null,
       invoicePdfUrl,
     },
     { status, headers: corsHeaders(origin) }
