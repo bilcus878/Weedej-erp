@@ -189,7 +189,6 @@ export default function EshopOrdersPage() {
   // Stavy zpracování
   const [processingInvoice, setProcessingInvoice] = useState<string | null>(null)
   const [processingStatus, setProcessingStatus] = useState<string | null>(null)
-  const [processingDelivery, setProcessingDelivery] = useState<string | null>(null)
 
   // Filtry
   const [filterNumber, setFilterNumber] = useState('')
@@ -354,34 +353,6 @@ export default function EshopOrdersPage() {
       alert('Chyba při aktualizaci statusu')
     } finally {
       setProcessingStatus(null)
-    }
-  }
-
-  async function handleProcessDeliveryNote(deliveryNoteId: string, items: EshopDeliveryNoteItem[]) {
-    setProcessingDelivery(deliveryNoteId)
-    try {
-      const res = await fetch(`/api/delivery-notes/${deliveryNoteId}/process`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          items: items
-            .filter(item => item.id)
-            .map(item => ({
-              id: item.id,
-              shippedQuantity: Number(item.quantity),
-            })),
-        }),
-      })
-      if (!res.ok) {
-        const err = await res.json()
-        alert(err.error || 'Nepodařilo se zpracovat výdejku')
-        return
-      }
-      await fetchData()
-    } catch {
-      alert('Chyba při zpracování výdejky')
-    } finally {
-      setProcessingDelivery(null)
     }
   }
 
@@ -894,21 +865,18 @@ export default function EshopOrdersPage() {
                                 <div>Číslo</div>
                                 <div>Datum</div>
                                 <div className="text-center">Položek</div>
-                                <div className="w-28" />
+                                <div className="w-4" />
                               </div>
                               {drafts.map(dn => (
-                                <div
+                                <Link
                                   key={dn.id}
-                                  className="grid grid-cols-[1.5fr_1fr_0.8fr_auto] gap-3 px-4 py-3 bg-white items-center border-b border-gray-100 last:border-b-0"
+                                  href={`/delivery-notes?highlight=${dn.id}`}
+                                  className="grid grid-cols-[1.5fr_1fr_0.8fr_auto] gap-3 px-4 py-3 bg-white hover:bg-blue-50 transition-colors items-center border-b border-gray-100 last:border-b-0"
+                                  onClick={e => e.stopPropagation()}
                                 >
-                                  <Link
-                                    href={`/delivery-notes?highlight=${dn.id}`}
-                                    className="flex items-center gap-1.5 font-medium text-blue-600 hover:underline"
-                                    onClick={e => e.stopPropagation()}
-                                  >
+                                  <div className="flex items-center gap-1.5 font-medium text-blue-600 hover:underline">
                                     {dn.deliveryNumber}
-                                    <ExternalLink className="w-3 h-3" />
-                                  </Link>
+                                  </div>
                                   <div className="text-gray-700">
                                     {new Date(dn.deliveryDate).toLocaleDateString('cs-CZ')}
                                   </div>
@@ -916,21 +884,9 @@ export default function EshopOrdersPage() {
                                     {dn.items.length}
                                   </div>
                                   <div className="flex justify-end">
-                                    <button
-                                      onClick={e => {
-                                        e.stopPropagation()
-                                        if (confirm(`Vyskladnit všechny položky výdejky ${dn.deliveryNumber}?`)) {
-                                          handleProcessDeliveryNote(dn.id, dn.items)
-                                        }
-                                      }}
-                                      disabled={processingDelivery === dn.id}
-                                      className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                      <Truck className="w-3.5 h-3.5" />
-                                      {processingDelivery === dn.id ? 'Zpracovává se...' : 'Vyskladnit'}
-                                    </button>
+                                    <ExternalLink className="w-4 h-4 text-blue-500" />
                                   </div>
-                                </div>
+                                </Link>
                               ))}
                             </div>
                           </div>
