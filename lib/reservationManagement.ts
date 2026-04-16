@@ -40,40 +40,40 @@ export async function createReservations(
 /**
  * Zruší všechny rezervace pro danou objednávku
  * Volá se když je objednávka zrušena (status = 'cancelled')
+ * @param tx Transakční klient — VŽDY předej tx pokud voláno uvnitř transakce
  */
-export async function cancelReservations(customerOrderId: string) {
-  const result = await prisma.reservation.updateMany({
+export async function cancelReservations(customerOrderId: string, tx?: any) {
+  const client = tx || prisma
+  return client.reservation.updateMany({
     where: {
       customerOrderId,
-      status: 'active'
+      status: 'active',
     },
     data: {
       status: 'cancelled',
-      cancelledAt: new Date()
-    }
+      cancelledAt: new Date(),
+    },
   })
-
-  return result
 }
 
 /**
  * Splní rezervace (označí je jako fulfilled)
  * Volá se když je objednávka odeslána (status = 'shipped')
  * V tu chvíli se vytvoří výdejka, která reálně vyskladní zboží
+ * @param tx Transakční klient — VŽDY předej tx pokud voláno uvnitř transakce
  */
-export async function fulfillReservations(customerOrderId: string) {
-  const result = await prisma.reservation.updateMany({
+export async function fulfillReservations(customerOrderId: string, tx?: any) {
+  const client = tx || prisma
+  return client.reservation.updateMany({
     where: {
       customerOrderId,
-      status: 'active'
+      status: 'active',
     },
     data: {
       status: 'fulfilled',
-      fulfilledAt: new Date()
-    }
+      fulfilledAt: new Date(),
+    },
   })
-
-  return result
 }
 
 /**

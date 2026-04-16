@@ -21,6 +21,7 @@ import { getNextDocumentNumber } from '@/lib/documentNumbering'
 import { createIssuedInvoiceFromCustomerOrder } from '@/lib/createIssuedInvoice'
 import { generateInvoicePdfBase64 } from '@/lib/serverInvoicePdf'
 import { verifyApiKey, corsHeaders, handleOptions } from '@/lib/apiKeyAuth'
+import { createReservations } from '@/lib/reservationManagement'
 
 export const dynamic = 'force-dynamic'
 
@@ -163,6 +164,23 @@ export async function POST(request: NextRequest) {
   const totalVatAmount = Math.round((body.totalCzk - totalAmountWithoutVat) * 100) / 100
   const totalAmount = body.totalCzk
 
+  // ── Resolve ERP product IDs from SKUs (before transaction — reads only) ──
+  // sku = erpProductId sent by e-shop when product is linked to ERP catalogue.
+  // Unlinked / manual items have no sku → productId stays null → no reservation.
+  const resolvedItems = await Promise.all(
+    body.items.map(async item => {
+      let productId: string | null = null
+      if (item.sku) {
+        const product = await prisma.product.findUnique({
+          where:  { id: item.sku },
+          select: { id: true },
+        })
+        productId = product?.id ?? null
+      }
+      return { ...item, productId }
+    })
+  )
+
   let createdOrder: any
 
   try {
@@ -187,15 +205,16 @@ export async function POST(request: NextRequest) {
           totalVatAmount,
           note:               `Platba: ${body.paymentReference}`,
           items: {
-            create: body.items.map(item => {
-              const price       = item.unitPriceCzk
-              const vatRate     = item.vatRate
-              const vatAmount   = Math.round(price * vatRate) / 100
+            create: resolvedItems.map(item => {
+              const price        = item.unitPriceCzk
+              const vatRate      = item.vatRate
+              const vatAmount    = Math.round(price * vatRate) / 100
               const priceWithVat = Math.round((price + vatAmount) * 100) / 100
               return {
-                productName:   item.name,
-                quantity:      item.quantity,
-                unit:          'ks',
+                productId:       item.productId,   // null for unlinked items
+                productName:     item.name,
+                quantity:        item.quantity,
+                unit:            'ks',
                 price,
                 vatRate,
                 vatAmount,
@@ -207,6 +226,24 @@ export async function POST(request: NextRequest) {
         },
         include: { items: true },
       })
+
+      // ── Reserve stock atomically within the same transaction ─────────────
+      // Only items with a linked ERP productId are reservable.
+      // Unlinked / manual items are skipped — no reservation created.
+      const reservableItems = order.items
+        .filter(i => i.productId !== null)
+        .map(i => ({
+          productId: i.productId as string,
+          quantity:  Number(i.quantity),
+          unit:      i.unit,
+        }))
+
+      if (reservableItems.length > 0) {
+        await createReservations(order.id, reservableItems, tx)
+        console.log(
+          `[ERP /api/orders] Reserved stock for ${reservableItems.length} item(s) on orderId=${order.id}`
+        )
+      }
 
       return order
     })

@@ -57,8 +57,8 @@ export async function POST(
         }
       })
 
-      // 2. Zruš všechny aktivní rezervace
-      await cancelReservations(params.id)
+      // 2. Zruš všechny aktivní rezervace — atomicky ve stejné transakci
+      await cancelReservations(params.id, tx)
 
       return updatedOrder
     })
