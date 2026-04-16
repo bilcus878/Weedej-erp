@@ -122,7 +122,17 @@ export async function PATCH(
         })
       })
 
-      // 5. Webhook do e-shopu — fire-and-forget
+      // 5a. Stock webhook — notifikuj e-shop o změně skladu (fire-and-forget)
+      const affectedProductIds = draftNote.items
+        .map((i: any) => i.productId)
+        .filter((id: any): id is string => Boolean(id))
+      if (affectedProductIds.length > 0) {
+        import('@/lib/eshopStockWebhook').then(({ notifyEshopStockUpdate }) =>
+          notifyEshopStockUpdate(affectedProductIds)
+        ).catch(() => {})
+      }
+
+      // 5b. Order-shipped webhook do e-shopu — fire-and-forget
       if (existing.eshopOrderId) {
         const erpUrl     = process.env.ERP_PUBLIC_URL || process.env.NEXTAUTH_URL || ''
         const invoiceId  = existing.issuedInvoice?.id ?? null

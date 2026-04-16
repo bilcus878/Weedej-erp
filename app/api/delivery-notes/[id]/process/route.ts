@@ -247,6 +247,17 @@ export async function POST(
       return { success: true }
     })
 
+    // ── Stock webhook: notifikuj e-shop o změně skladu ──────────────────────
+    // Collect ERP product IDs of dispatched items (fire-and-forget)
+    const affectedProductIds = body.items
+      .map(i => deliveryNote.items.find(di => di.id === i.id)?.productId)
+      .filter((id): id is string => Boolean(id))
+    if (affectedProductIds.length > 0) {
+      import('@/lib/eshopStockWebhook').then(({ notifyEshopStockUpdate }) =>
+        notifyEshopStockUpdate(affectedProductIds)
+      ).catch(() => {})
+    }
+
     // Načti aktualizovanou výdejku
     const updated = await prisma.deliveryNote.findUnique({
       where: { id: params.id },

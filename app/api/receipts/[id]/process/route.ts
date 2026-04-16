@@ -378,6 +378,17 @@ export async function POST(
       return { success: true }
     })
 
+    // ── Stock webhook: notifikuj e-shop o změně skladu ──────────────────────
+    // Collect ERP product IDs of received items (fire-and-forget)
+    const affectedProductIds = body.items
+      .map(i => receipt.items.find(ri => ri.id === i.id)?.productId)
+      .filter((id): id is string => Boolean(id))
+    if (affectedProductIds.length > 0) {
+      import('@/lib/eshopStockWebhook').then(({ notifyEshopStockUpdate }) =>
+        notifyEshopStockUpdate(affectedProductIds)
+      ).catch(() => {})
+    }
+
     // Načti aktualizovanou příjemku S objednávkou
     const updated = await prisma.receipt.findUnique({
       where: { id: params.id },

@@ -38,6 +38,7 @@ const ItemSchema = z.object({
   sku:          z.string().optional(),
   name:         z.string().min(1),
   quantity:     z.number().positive(),
+  unit:         z.string().optional().default('ks'),  // ERP base unit (g, ml, ks…)
   unitPriceCzk: z.number().nonnegative(),   // CZK, excl. VAT
   vatRate:      z.number().nonnegative().default(21),
 })
@@ -214,7 +215,7 @@ export async function POST(request: NextRequest) {
                 productId:       item.productId,   // null for unlinked items
                 productName:     item.name,
                 quantity:        item.quantity,
-                unit:            'ks',
+                unit:            item.unit,
                 price,
                 vatRate,
                 vatAmount,
