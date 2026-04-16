@@ -54,6 +54,18 @@ export async function POST(
       )
     }
 
+    // Pokud už existuje draft výdejka, není potřeba vytvářet novou
+    // (e-shop sync ji vytváří automaticky při přijetí objednávky)
+    const existingDraft = order.deliveryNotes.find((dn: any) => dn.status === 'draft')
+    if (existingDraft) {
+      return NextResponse.json({
+        success: true,
+        message: `Výdejka ${existingDraft.deliveryNumber} již existuje — přejdi na výdejky`,
+        deliveryNote: existingDraft,
+        order,
+      })
+    }
+
     // Vytvoř výdejku pomocí helper funkce
     const { createDeliveryNoteFromCustomerOrder } = await import('@/lib/createDeliveryNote')
     const deliveryNote = await createDeliveryNoteFromCustomerOrder(order.id)

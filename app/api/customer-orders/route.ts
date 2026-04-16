@@ -13,6 +13,7 @@ export const dynamic = 'force-dynamic'
 export async function GET() {
   try {
     const orders = await prisma.customerOrder.findMany({
+      where: { source: { not: 'eshop' } }, // Eshop objednávky jsou na /eshop-orders
       include: {
         customer: true,
         items: {

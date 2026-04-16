@@ -19,6 +19,7 @@ import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { getNextDocumentNumber } from '@/lib/documentNumbering'
 import { createIssuedInvoiceFromCustomerOrder } from '@/lib/createIssuedInvoice'
+import { createDeliveryNoteFromCustomerOrder } from '@/lib/createDeliveryNote'
 import { verifyApiKey, corsHeaders, handleOptions } from '@/lib/apiKeyAuth'
 import { createReservations } from '@/lib/reservationManagement'
 
@@ -275,9 +276,10 @@ export async function POST(request: NextRequest) {
     console.error(`[ERP /api/orders] Invoice generation failed for orderId=${createdOrder.id}:`, err?.message)
   }
 
-  // ── Create expected výdejka (warehouse release) — fire-and-forget ────────
-  // Run asynchronously so it doesn't block the HTTP response.
-  createExpectedVydejka(createdOrder).catch((err: any) => {
+  // ── Create draft výdejka (warehouse release) — fire-and-forget ──────────
+  // Uses the same function as the "Připravit k expedici" button — includes
+  // productId on each item so warehouse processing correctly deducts stock.
+  createDeliveryNoteFromCustomerOrder(createdOrder.id).catch((err: any) => {
     console.error(`[ERP /api/orders] Výdejka creation failed for orderId=${createdOrder.id}:`, err?.message)
   })
 
@@ -324,33 +326,3 @@ function buildSuccessResponse(
   )
 }
 
-/**
- * Creates an expected (draft) delivery note for warehouse workers.
- * They will mark it as dispatched, which triggers the shipped webhook.
- */
-async function createExpectedVydejka(order: any) {
-  const { getNextDocumentNumber: getNum } = await import('@/lib/documentNumbering')
-
-  await prisma.$transaction(async (tx) => {
-    const deliveryNumber = await getNum('delivery-note', tx)
-
-    await tx.deliveryNote.create({
-      data: {
-        deliveryNumber,
-        customerOrderId: order.id,
-        customerName:    order.customerName,
-        deliveryDate:    new Date(),
-        status:          'draft',   // warehouse worker processes this
-        note:            `Očekávaná výdejka pro eshop objednávku ${order.orderNumber}`,
-        items: {
-          create: order.items.map((item: any) => ({
-            productName:     item.productName,
-            quantity:        item.quantity,
-            orderedQuantity: item.quantity,
-            unit:            item.unit,
-          })),
-        },
-      },
-    })
-  })
-}
