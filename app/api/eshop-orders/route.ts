@@ -32,6 +32,27 @@ export async function GET() {
         EshopUser: {
           select: { id: true, email: true, name: true, phone: true }
         },
+        deliveryNotes: {
+          select: {
+            id: true,
+            deliveryNumber: true,
+            deliveryDate: true,
+            status: true,
+            processedAt: true,
+            items: {
+              select: {
+                id: true,
+                quantity: true,
+                unit: true,
+                productName: true,
+                product: {
+                  select: { id: true, name: true, price: true }
+                }
+              }
+            }
+          },
+          orderBy: { createdAt: 'asc' }
+        },
       },
       orderBy: { orderDate: 'desc' }
     })

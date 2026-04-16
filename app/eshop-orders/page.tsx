@@ -48,6 +48,23 @@ interface EshopOrderItem {
   } | null
 }
 
+interface EshopDeliveryNoteItem {
+  id: string
+  quantity: number
+  unit: string
+  productName?: string | null
+  product?: { id: string; name: string; price: number } | null
+}
+
+interface EshopDeliveryNote {
+  id: string
+  deliveryNumber: string
+  deliveryDate: string
+  status: string
+  processedAt?: string | null
+  items: EshopDeliveryNoteItem[]
+}
+
 interface IssuedInvoiceSummary {
   id: string
   invoiceNumber: string
@@ -86,6 +103,7 @@ interface EshopOrder {
   items: EshopOrderItem[]
   issuedInvoice?: IssuedInvoiceSummary | null
   EshopUser?: EshopUser | null
+  deliveryNotes?: EshopDeliveryNote[]
 }
 
 // ─── Pomocné funkce ──────────────────────────────────────────────────────────
@@ -822,6 +840,75 @@ export default function EshopOrdersPage() {
                           </div>
                         </div>
                       </div>
+
+                      {/* ── Výdejky ── */}
+                      {order.deliveryNotes && order.deliveryNotes.length > 0 && (
+                        <div className="border border-gray-200 rounded-lg overflow-hidden">
+                          <h4 className="font-bold text-sm text-gray-900 px-4 py-2.5 bg-gray-100 border-b border-gray-200 flex items-center gap-2">
+                            <Package className="w-4 h-4 text-indigo-600" />
+                            Výdejky ({order.deliveryNotes.length})
+                          </h4>
+                          <div className="text-sm">
+                            {/* Hlavička */}
+                            <div className="grid grid-cols-[1.5fr_1fr_1fr_0.8fr_1fr_auto] gap-3 px-4 py-2 bg-gray-50 font-semibold text-gray-700 border-b text-xs">
+                              <div>Číslo výdejky</div>
+                              <div>Datum</div>
+                              <div>Status</div>
+                              <div className="text-center">Položek</div>
+                              <div className="text-right">Hodnota</div>
+                              <div className="w-4" />
+                            </div>
+                            {order.deliveryNotes.map(dn => {
+                              const dnTotal = dn.items.reduce((sum, item) => {
+                                return sum + Number(item.quantity) * Number(item.product?.price || 0)
+                              }, 0)
+                              return (
+                                <Link
+                                  key={dn.id}
+                                  href={`/delivery-notes?highlight=${dn.id}`}
+                                  className="grid grid-cols-[1.5fr_1fr_1fr_0.8fr_1fr_auto] gap-3 px-4 py-3 bg-white hover:bg-indigo-50 transition-colors items-center"
+                                  onClick={e => e.stopPropagation()}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-medium text-indigo-600 hover:underline text-sm">
+                                      {dn.deliveryNumber}
+                                    </span>
+                                  </div>
+                                  <div className="text-gray-700 text-sm">
+                                    {new Date(dn.deliveryDate).toLocaleDateString('cs-CZ')}
+                                  </div>
+                                  <div>
+                                    {dn.status === 'draft' && (
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                        Připravena
+                                      </span>
+                                    )}
+                                    {dn.status === 'active' && (
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                        Vyskladněno
+                                      </span>
+                                    )}
+                                    {dn.status === 'storno' && (
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                        Storno
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="text-gray-700 text-sm text-center">
+                                    {dn.items.length}
+                                  </div>
+                                  <div className="font-semibold text-gray-900 text-sm text-right">
+                                    {dnTotal.toLocaleString('cs-CZ')} Kč
+                                  </div>
+                                  <div className="flex justify-end">
+                                    <ExternalLink className="w-4 h-4 text-indigo-500" />
+                                  </div>
+                                </Link>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
 
                       {/* ── Faktura a akce ── */}
                       <div className="border border-gray-200 rounded-lg overflow-hidden">
