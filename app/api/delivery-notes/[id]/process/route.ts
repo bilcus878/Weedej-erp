@@ -263,6 +263,43 @@ export async function POST(
 
     console.log(`✓ Výdejka ${deliveryNote.deliveryNumber} byla zpracována a vyskladněna`)
 
+    // ── Webhook: notifikuj e-shop pokud je objednávka z e-shopu ────────────
+    // Fire-and-forget — nesmí blokovat odpověď skladu
+    const finalOrder = updated?.customerOrder
+    if (
+      finalOrder &&
+      finalOrder.source === 'eshop' &&
+      finalOrder.eshopOrderId &&
+      finalOrder.status === 'shipped'
+    ) {
+      try {
+        const { enqueueOrderShippedWebhook } = await import('@/lib/eshopWebhook')
+        const erpUrl      = process.env.ERP_PUBLIC_URL || process.env.NEXTAUTH_URL || ''
+        const invoiceUrl  = finalOrder.issuedInvoice
+          ? `${erpUrl}/api/invoices/${(finalOrder as any).issuedInvoice?.id}/pdf`
+          : null
+
+        // Reload to get invoice id
+        const orderWithInvoice = await prisma.customerOrder.findUnique({
+          where: { id: finalOrder.id },
+          include: { issuedInvoice: { select: { id: true } } },
+        })
+        const invoiceId = orderWithInvoice?.issuedInvoice?.id ?? null
+
+        await enqueueOrderShippedWebhook(finalOrder.id, {
+          eshopOrderId:   finalOrder.eshopOrderId,
+          erpOrderNumber: finalOrder.orderNumber,
+          shippedAt:      (finalOrder.shippedAt ?? new Date()).toISOString(),
+          trackingNumber: finalOrder.trackingNumber ?? null,
+          carrier:        finalOrder.carrier ?? null,
+          invoiceUrl:     invoiceId ? `${erpUrl}/api/invoices/${invoiceId}/pdf` : null,
+        })
+      } catch (webhookErr) {
+        // Log order ID only (GDPR: no PII)
+        console.error(`[Webhook] Failed to enqueue for orderId=${finalOrder.id}:`, (webhookErr as any)?.message)
+      }
+    }
+
     // Vrať výdejku
     return NextResponse.json({
       deliveryNote: updated,

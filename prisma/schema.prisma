@@ -461,12 +461,16 @@ model CustomerOrder {
   eshopUserId           String?
   stripePaymentIntent   String?
   stripeSessionId       String?             @unique
+  trackingNumber        String?
+  carrier               String?
+  paymentReference      String?
   customer              Customer?           @relation(fields: [customerId], references: [id])
   EshopUser             EshopUser?          @relation(fields: [eshopUserId], references: [id])
   items                 CustomerOrderItem[]
   deliveryNotes         DeliveryNote[]
   issuedInvoice         IssuedInvoice?
   reservations          Reservation[]
+  webhookLogs           EshopWebhookLog[]
 
   @@index([orderNumber])
   @@index([customerId])
@@ -476,6 +480,7 @@ model CustomerOrder {
   @@index([eshopUserId])
   @@index([source])
   @@index([stripeSessionId])
+  @@index([eshopOrderId])
 }
 
 model CustomerOrderItem {
@@ -851,4 +856,32 @@ model ApiKey {
   updatedAt  DateTime  @updatedAt
 
   @@index([key])
+}
+
+// ========== WEBHOOK LOGY (ERP → E-SHOP) ==========
+model EshopWebhookLog {
+  id              String        @id @default(uuid())
+  customerOrderId String
+  eshopOrderId    String
+  erpOrderNumber  String
+  event           String        @default("order-shipped")
+  targetUrl       String
+  payload         String        // JSON stringified (no PII)
+  payloadHash     String        // SHA-256 of payload for tamper detection
+  attemptCount    Int           @default(0)
+  lastAttemptAt   DateTime?
+  lastHttpStatus  Int?
+  lastError       String?
+  nextRetryAt     DateTime?
+  // pending | delivered | retrying | dead
+  status          String        @default("pending")
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  customerOrder   CustomerOrder @relation(fields: [customerOrderId], references: [id], onDelete: Cascade)
+
+  @@index([customerOrderId])
+  @@index([eshopOrderId])
+  @@index([status])
+  @@index([nextRetryAt])
 }
