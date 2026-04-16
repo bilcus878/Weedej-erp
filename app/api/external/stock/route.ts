@@ -27,11 +27,13 @@ export async function GET(request: NextRequest) {
     const idsParam = searchParams.get('ids')
     const ids = idsParam ? idsParam.split(',').filter(Boolean) : null
 
+    // When specific IDs are provided by the caller (e-shop), trust those IDs —
+    // do NOT additionally filter by eshopActive. The caller knows what it wants.
+    // Without specific IDs (browsing all stock), return only eshopActive products.
     const products = await prisma.product.findMany({
-      where: {
-        eshopActive: true,
-        ...(ids ? { id: { in: ids } } : {}),
-      },
+      where: ids
+        ? { id: { in: ids } }
+        : { eshopActive: true },
       select: {
         id: true,
         name: true,
