@@ -166,15 +166,22 @@ function buildDocDefinition(
 
   // Items table
   const itemRows = invoice.items.map((item, idx) => {
-    const name      = item.productName || '(Neznámý produkt)'
-    const qty       = `${item.quantity} ${item.unit}`
-    const unitNet   = item.price ?? 0
-    const vatRate   = item.vatRate ?? 0
-    const lineNet   = unitNet * item.quantity
-    const vatAmt    = item.vatAmount ?? (lineNet * vatRate / 100)
-    const lineGross = item.priceWithVat != null
+    const name        = item.productName || '(Neznámý produkt)'
+    const qty         = `${item.quantity} ${item.unit}`
+    const unitNet     = item.price ?? 0
+    const vatRate     = item.vatRate ?? 0
+    const lineNet     = unitNet * item.quantity
+    // vatAmount is stored per-unit; multiply to get line total
+    const vatPerUnit  = item.vatAmount != null ? item.vatAmount : (unitNet * vatRate / 100)
+    const lineVat     = vatPerUnit * item.quantity
+    // backward-compat: old records stored row total in priceWithVat instead of per-unit price
+    const rawLineGross = item.priceWithVat != null
       ? item.priceWithVat * item.quantity
-      : lineNet + vatAmt
+      : lineNet + lineVat
+    const lineGross   = rawLineGross > invoice.totalAmount * 1.05
+      ? (item.priceWithVat ?? (lineNet + lineVat))
+      : rawLineGross
+    const vatAmt      = lineGross - lineNet
 
     if (isVatPayer) {
       return [
@@ -229,11 +236,18 @@ function buildDocDefinition(
   if (isVatPayer) {
     const vatByRate: Record<number, { base: number; vat: number; total: number }> = {}
     invoice.items.forEach(item => {
-      const rate      = item.vatRate ?? 0
-      const unitNet   = item.price ?? 0
-      const lineNet   = unitNet * item.quantity
-      const vatAmt    = item.vatAmount ?? (lineNet * rate / 100)
-      const lineGross = item.priceWithVat != null ? item.priceWithVat * item.quantity : lineNet + vatAmt
+      const rate        = item.vatRate ?? 0
+      const unitNet     = item.price ?? 0
+      const lineNet     = unitNet * item.quantity
+      const vatPerUnit  = item.vatAmount != null ? item.vatAmount : (unitNet * rate / 100)
+      const lineVat     = vatPerUnit * item.quantity
+      const rawLineGross = item.priceWithVat != null
+        ? item.priceWithVat * item.quantity
+        : lineNet + lineVat
+      const lineGross   = rawLineGross > invoice.totalAmount * 1.05
+        ? (item.priceWithVat ?? (lineNet + lineVat))
+        : rawLineGross
+      const vatAmt      = lineGross - lineNet
       if (!vatByRate[rate]) vatByRate[rate] = { base: 0, vat: 0, total: 0 }
       vatByRate[rate].base  += lineNet
       vatByRate[rate].vat   += vatAmt
