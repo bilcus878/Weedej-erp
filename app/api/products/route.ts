@@ -79,7 +79,7 @@ export async function POST(request: Request) {
     const { name, price, purchasePrice, unit, categoryId, vatRate } = body
 
     // Validace
-    if (!name || !price || !unit) {
+    if (!name || price == null || !unit) {
       return NextResponse.json(
         { error: 'Chybí povinná pole (name, price, unit)' },
         { status: 400 }
