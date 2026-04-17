@@ -183,6 +183,7 @@ export default function TransactionsPage() {
     quantity: string
     unit: string
     pricePerUnit: string  // Cena za jednotku
+    priceSource: 'catalog' | 'eshop' | 'sumup' | 'manual'
   }>>([])
 
   useEffect(() => {
@@ -445,7 +446,6 @@ export default function TransactionsPage() {
 
   // Přidat položku do transakce
   function handleAddItem() {
-    // Přidá nový prázdný řádek
     setTransactionItems([
       ...transactionItems,
       {
@@ -455,6 +455,7 @@ export default function TransactionsPage() {
         quantity: '',
         unit: 'ks',
         pricePerUnit: '',
+        priceSource: 'catalog',
       }
     ])
   }
@@ -464,30 +465,65 @@ export default function TransactionsPage() {
     setTransactionItems(transactionItems.filter((_, i) => i !== index))
   }
 
+  // Načti cenu z eshop varianty
+  async function loadEshopPrice(productId: string, source: 'eshop' | 'sumup'): Promise<number | null> {
+    try {
+      const res = await fetch(`/api/products/${productId}/eshop-variants`)
+      if (!res.ok) return null
+      const variants: { price: number; isDefault: boolean; isSumup: boolean; isActive: boolean }[] = await res.json()
+      if (source === 'sumup') return variants.find(v => v.isSumup)?.price ?? null
+      return variants.find(v => v.isDefault && v.isActive)?.price
+        ?? variants.find(v => v.isActive)?.price
+        ?? null
+    } catch {
+      return null
+    }
+  }
+
   // Aktualizovat položku
-  function updateTransactionItem(index: number, field: string, value: any) {
+  async function updateTransactionItem(index: number, field: string, value: any) {
     const newItems = [...transactionItems]
     newItems[index] = { ...newItems[index], [field]: value }
 
-    // Auto-update unit a cenu když se vybere produkt z katalogu
+    // Změna produktu: auto-doplň jednotku a cenu dle zvoleného zdroje
     if (field === 'productId' && value) {
       const product = products.find(p => p.id === value)
       if (product) {
         newItems[index].unit = product.unit
-        newItems[index].pricePerUnit = product.price.toString()
+        const src = newItems[index].priceSource
+        if (src === 'catalog') {
+          newItems[index].pricePerUnit = product.price.toString()
+        } else if (src === 'eshop' || src === 'sumup') {
+          const price = await loadEshopPrice(value, src)
+          if (price !== null) newItems[index].pricePerUnit = price.toString()
+        }
       }
     }
 
-    // Když se mění isManual, vyčisti data
+    // Změna zdroje ceny: přenačti cenu
+    if (field === 'priceSource') {
+      const productId = newItems[index].productId
+      const product = products.find(p => p.id === productId)
+      if (value === 'catalog' && product) {
+        newItems[index].pricePerUnit = product.price.toString()
+      } else if ((value === 'eshop' || value === 'sumup') && productId) {
+        const price = await loadEshopPrice(productId, value)
+        if (price !== null) newItems[index].pricePerUnit = price.toString()
+      } else if (value === 'manual') {
+        newItems[index].pricePerUnit = ''
+      }
+    }
+
+    // Přepnutí manuální/katalogová položka
     if (field === 'isManual') {
       if (value) {
-        // Přepnout na manuální - vyčisti productId
         newItems[index].productId = ''
         newItems[index].productName = ''
+        newItems[index].priceSource = 'manual'
         newItems[index].pricePerUnit = ''
       } else {
-        // Přepnout na katalog - vyčisti productName
         newItems[index].productName = ''
+        newItems[index].priceSource = 'catalog'
       }
     }
 
@@ -523,6 +559,7 @@ export default function TransactionsPage() {
       quantity: '',
       unit: 'ks',
       pricePerUnit: '',
+      priceSource: 'catalog',
     }])
     setShowForm(true)
   }
@@ -545,7 +582,8 @@ export default function TransactionsPage() {
       quantity: item.quantity.toString(),
       unit: item.unit || 'ks',
       pricePerUnit: item.price?.toString() || '0',
-    })))
+      priceSource: item.product ? 'catalog' : 'manual',
+    } as const)))
     setShowForm(true)
   }
 
@@ -850,13 +888,20 @@ export default function TransactionsPage() {
     <div className="space-y-6">
       {/* Hlavička */}
       <div className="bg-gradient-to-r from-slate-50 to-emerald-50 border-l-4 border-emerald-500 rounded-lg shadow-sm py-4 px-6 mb-6">
-        <div className="text-center">
+        <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-emerald-600">
             Vystavené faktury
             <span className="text-sm font-normal text-gray-600 ml-3">
               (Zobrazeno <span className="font-semibold text-emerald-600">{filteredInvoices.length}</span> z <span className="font-semibold text-gray-700">{transactions.length}</span>)
             </span>
           </h1>
+          <button
+            onClick={handleOpenForm}
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm rounded-lg flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Nová faktura
+          </button>
         </div>
       </div>
 
@@ -1749,6 +1794,307 @@ export default function TransactionsPage() {
             </>
           )}
       </div>
+
+      {/* Modal: vytvoření / úprava faktury */}
+      {showForm && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-emerald-600 to-emerald-700 text-white px-6 py-4 rounded-t-lg flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <FileText className="w-6 h-6" />
+                <div>
+                  <h3 className="text-lg font-bold">{editingTransaction ? 'Upravit fakturu' : 'Nová faktura'}</h3>
+                  <p className="text-sm text-emerald-200">Ruční vystavení faktury</p>
+                </div>
+              </div>
+              <button onClick={() => { setShowForm(false); setEditingTransaction(null) }} className="text-white/80 hover:text-white">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <form onSubmit={handleAddTransaction} className="flex-1 overflow-y-auto p-6 space-y-5">
+
+              {/* Meta: číslo, datum, platba */}
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Číslo faktury</label>
+                  <input
+                    type="text"
+                    value={formData.invoiceNumber}
+                    onChange={e => setFormData(f => ({ ...f, invoiceNumber: e.target.value }))}
+                    placeholder="FA-2025-001"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Datum vystavení</label>
+                  <input
+                    type="date"
+                    value={formData.date}
+                    onChange={e => setFormData(f => ({ ...f, date: e.target.value }))}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Způsob platby</label>
+                  <select
+                    value={formData.paymentType}
+                    onChange={e => setFormData(f => ({ ...f, paymentType: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  >
+                    <option value="cash">Hotovost</option>
+                    <option value="card">Karta</option>
+                    <option value="transfer">Převod</option>
+                    <option value="sumup">SumUp</option>
+                    <option value="other">Jiný</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Zákazník */}
+              <div>
+                <div className="flex items-center gap-3 mb-2">
+                  <label className="text-sm font-medium text-gray-700">Odběratel</label>
+                  <label className="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isCustomerManual}
+                      onChange={e => setIsCustomerManual(e.target.checked)}
+                      className="rounded"
+                    />
+                    Zadat ručně
+                  </label>
+                </div>
+                {isCustomerManual ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    <input
+                      type="text"
+                      value={customerName}
+                      onChange={e => setCustomerName(e.target.value)}
+                      placeholder="Název / jméno"
+                      className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500"
+                    />
+                    <input
+                      type="text"
+                      value={customerAddress}
+                      onChange={e => setCustomerAddress(e.target.value)}
+                      placeholder="Adresa"
+                      className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500"
+                    />
+                    <input
+                      type="text"
+                      value={customerICO}
+                      onChange={e => setCustomerICO(e.target.value)}
+                      placeholder="IČO"
+                      className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500"
+                    />
+                    <input
+                      type="text"
+                      value={customerDIC}
+                      onChange={e => setCustomerDIC(e.target.value)}
+                      placeholder="DIČ"
+                      className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+                ) : (
+                  <select
+                    value={formData.customerId}
+                    onChange={e => setFormData(f => ({ ...f, customerId: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  >
+                    <option value="">— Bez odběratele —</option>
+                    {customers.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              {/* Položky */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-semibold text-gray-700">Položky faktury</h4>
+                  <button
+                    type="button"
+                    onClick={handleAddItem}
+                    className="px-3 py-1 bg-emerald-100 text-emerald-700 text-xs rounded hover:bg-emerald-200 flex items-center gap-1"
+                  >
+                    <Plus className="w-3 h-3" />
+                    Přidat položku
+                  </button>
+                </div>
+
+                {/* Hlavička sloupců */}
+                <div className="grid grid-cols-[2.5fr_0.8fr_0.7fr_1.2fr_1fr_auto_auto] gap-2 px-2 mb-1 text-xs font-semibold text-gray-500">
+                  <div>Produkt / název</div>
+                  <div className="text-center">Množství</div>
+                  <div className="text-center">Jedn.</div>
+                  <div className="text-center">Zdroj ceny</div>
+                  <div className="text-center">Cena bez DPH</div>
+                  <div className="w-8"></div>
+                  <div className="w-8"></div>
+                </div>
+
+                <div className="space-y-2">
+                  {transactionItems.map((item, index) => (
+                    <div key={index} className="grid grid-cols-[2.5fr_0.8fr_0.7fr_1.2fr_1fr_auto_auto] gap-2 items-center">
+
+                      {/* Produkt nebo manuální název */}
+                      {item.isManual ? (
+                        <input
+                          type="text"
+                          value={item.productName || ''}
+                          onChange={e => updateTransactionItem(index, 'productName', e.target.value)}
+                          placeholder="Název položky..."
+                          className="px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-emerald-500"
+                        />
+                      ) : (
+                        <select
+                          value={item.productId}
+                          onChange={e => updateTransactionItem(index, 'productId', e.target.value)}
+                          className="px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-emerald-500"
+                        >
+                          <option value="">— Vybrat produkt —</option>
+                          {products.map(p => (
+                            <option key={p.id} value={p.id}>{p.name}</option>
+                          ))}
+                        </select>
+                      )}
+
+                      {/* Množství */}
+                      <input
+                        type="number"
+                        step="0.001"
+                        min="0"
+                        value={item.quantity}
+                        onChange={e => updateTransactionItem(index, 'quantity', e.target.value)}
+                        placeholder="0"
+                        className="px-2 py-1.5 border border-gray-300 rounded text-sm text-center focus:ring-1 focus:ring-emerald-500"
+                      />
+
+                      {/* Jednotka */}
+                      <select
+                        value={item.unit}
+                        onChange={e => updateTransactionItem(index, 'unit', e.target.value)}
+                        className="px-1 py-1.5 border border-gray-300 rounded text-sm text-center focus:ring-1 focus:ring-emerald-500"
+                      >
+                        <option value="ks">ks</option>
+                        <option value="g">g</option>
+                        <option value="ml">ml</option>
+                        <option value="kg">kg</option>
+                        <option value="l">l</option>
+                      </select>
+
+                      {/* Zdroj ceny — jen pro katalogové položky */}
+                      {item.isManual ? (
+                        <div className="px-2 py-1.5 text-xs text-gray-400 text-center">ruční vstup</div>
+                      ) : (
+                        <select
+                          value={item.priceSource}
+                          onChange={e => updateTransactionItem(index, 'priceSource', e.target.value as 'catalog' | 'eshop' | 'sumup' | 'manual')}
+                          className="px-1 py-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-emerald-500"
+                        >
+                          <option value="catalog">Katalog</option>
+                          <option value="eshop">Eshop</option>
+                          <option value="sumup">SumUp</option>
+                          <option value="manual">Ručně</option>
+                        </select>
+                      )}
+
+                      {/* Cena bez DPH */}
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={item.pricePerUnit}
+                        onChange={e => updateTransactionItem(index, 'pricePerUnit', e.target.value)}
+                        readOnly={!item.isManual && item.priceSource !== 'manual'}
+                        placeholder="0.00"
+                        className={`px-2 py-1.5 border rounded text-sm text-center focus:ring-1 focus:ring-emerald-500 ${
+                          !item.isManual && item.priceSource !== 'manual'
+                            ? 'border-gray-200 bg-gray-50 text-gray-600'
+                            : 'border-gray-300'
+                        }`}
+                      />
+
+                      {/* Přepnout manuální/katalog */}
+                      <button
+                        type="button"
+                        onClick={() => updateTransactionItem(index, 'isManual', !item.isManual)}
+                        title={item.isManual ? 'Přepnout na katalog' : 'Zadat ručně'}
+                        className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded text-xs"
+                      >
+                        {item.isManual ? '📋' : '✏️'}
+                      </button>
+
+                      {/* Odebrat */}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveItem(index)}
+                        className="w-8 h-8 flex items-center justify-center text-red-400 hover:text-red-600 hover:bg-red-50 rounded"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+
+                  {transactionItems.length === 0 && (
+                    <p className="text-sm text-gray-400 text-center py-4">
+                      Žádné položky — klikni „Přidat položku"
+                    </p>
+                  )}
+                </div>
+
+                {/* Celkem */}
+                {transactionItems.length > 0 && (() => {
+                  const total = transactionItems.reduce((sum, item) => {
+                    return sum + (parseFloat(item.quantity || '0') * parseFloat(item.pricePerUnit || '0'))
+                  }, 0)
+                  return (
+                    <div className="mt-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-right">
+                      <span className="text-gray-600">Celkem bez DPH: </span>
+                      <span className="font-bold text-emerald-700">{total.toLocaleString('cs-CZ', { minimumFractionDigits: 2 })} Kč</span>
+                    </div>
+                  )
+                })()}
+              </div>
+
+              {/* Poznámka */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Poznámka</label>
+                <input
+                  type="text"
+                  value={note}
+                  onChange={e => setNote(e.target.value)}
+                  placeholder="Volitelná poznámka k faktuře..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                />
+              </div>
+
+              {/* Tlačítka */}
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                <button
+                  type="button"
+                  onClick={() => { setShowForm(false); setEditingTransaction(null) }}
+                  className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm rounded-lg"
+                >
+                  Zrušit
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm rounded-lg flex items-center gap-2"
+                >
+                  <FileText className="w-4 h-4" />
+                  {editingTransaction ? 'Uložit změny' : 'Vystavit fakturu'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Modal pro vystavení dobropisu */}
       {showCreditNoteModal && creditNoteInvoice && (
