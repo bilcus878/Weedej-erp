@@ -265,9 +265,11 @@ export default function DeliveryNotesPage() {
     if (filterMinValue) {
       const minVal = parseFloat(filterMinValue)
       filtered = filtered.filter(dn => {
-        const total = dn.items.reduce((sum, item) =>
-          sum + (item.quantity * (item.product?.price || 0)), 0
-        )
+        const total = dn.items.reduce((sum, item) => {
+          const hasSavedPrice = item.price != null && item.priceWithVat != null
+          const p = hasSavedPrice ? Number(item.priceWithVat) : Number(item.product?.price || 0)
+          return sum + (Number(item.quantity) * p)
+        }, 0)
         return total >= minVal
       })
     }
@@ -502,15 +504,29 @@ export default function DeliveryNotesPage() {
         customerPhone: (note.customerOrder as any)?.customerPhone,
         customerICO: (note.customerOrder as any)?.customer?.ico,
         customerDIC: (note.customerOrder as any)?.customer?.dic,
-        items: note.items.map(item => ({
-          productName: item.product?.name || item.productName || 'Neznámý produkt',
-          quantity: Number(item.quantity),
-          unit: item.unit,
-          price: Number(item.product?.price || 0)
-        })),
-        totalAmount: note.items.reduce((sum, item) =>
-          sum + (Number(item.quantity) * Number(item.product?.price || 0)), 0
-        ),
+        items: note.items.map(item => {
+          const hasSavedPrice = item.price != null && item.priceWithVat != null
+          const unitPrice = hasSavedPrice ? Number(item.price) : Number(item.product?.price || 0)
+          const itemVatRate = hasSavedPrice ? Number(item.vatRate ?? DEFAULT_VAT_RATE) : Number((item.product as any)?.vatRate || DEFAULT_VAT_RATE)
+          const isItemNonVat = isNonVatPayer(itemVatRate)
+          const vatPerUnit = hasSavedPrice ? Number(item.vatAmount ?? 0) : (isItemNonVat ? 0 : unitPrice * itemVatRate / 100)
+          const priceWithVatPerUnit = hasSavedPrice ? Number(item.priceWithVat) : (unitPrice + vatPerUnit)
+          return {
+            productName: item.product?.name || item.productName || 'Neznámý produkt',
+            quantity: Number(item.quantity),
+            unit: item.unit,
+            price: isVatPayer ? priceWithVatPerUnit : unitPrice,
+          }
+        }),
+        totalAmount: note.items.reduce((sum, item) => {
+          const hasSavedPrice = item.price != null && item.priceWithVat != null
+          const unitPrice = hasSavedPrice ? Number(item.price) : Number(item.product?.price || 0)
+          const itemVatRate = hasSavedPrice ? Number(item.vatRate ?? DEFAULT_VAT_RATE) : Number((item.product as any)?.vatRate || DEFAULT_VAT_RATE)
+          const isItemNonVat = isNonVatPayer(itemVatRate)
+          const vatPerUnit = hasSavedPrice ? Number(item.vatAmount ?? 0) : (isItemNonVat ? 0 : unitPrice * itemVatRate / 100)
+          const priceWithVatPerUnit = hasSavedPrice ? Number(item.priceWithVat) : (unitPrice + vatPerUnit)
+          return sum + (Number(item.quantity) * (isVatPayer ? priceWithVatPerUnit : unitPrice))
+        }, 0),
         note: note.note,
         status: note.status
       }
@@ -1232,14 +1248,15 @@ export default function DeliveryNotesPage() {
                     onClick={() => toggleExpanded(note.id)}
                   >
                     <p className="text-sm font-bold text-gray-900">
-                      {note.items.length > 0 && note.items[0].product ? (
+                      {note.items.length > 0 ? (
                         formatPrice(note.items.reduce((sum, item) => {
-                          const unitPrice = Number(item.product?.price || 0)
-                          const itemVatRate = Number((item.product as any)?.vatRate || DEFAULT_VAT_RATE)
+                          const hasSavedPrice = item.price != null && item.priceWithVat != null
+                          const unitPrice = hasSavedPrice ? Number(item.price) : Number(item.product?.price || 0)
+                          const itemVatRate = hasSavedPrice ? Number(item.vatRate ?? DEFAULT_VAT_RATE) : Number((item.product as any)?.vatRate || DEFAULT_VAT_RATE)
                           const isItemNonVat = isNonVatPayer(itemVatRate)
-                          const vatPerUnit = isItemNonVat ? 0 : unitPrice * itemVatRate / 100
-                          const priceWithVat = isVatPayer ? (unitPrice + vatPerUnit) : unitPrice
-                          return sum + (Number(item.quantity) * priceWithVat)
+                          const vatPerUnit = hasSavedPrice ? Number(item.vatAmount ?? 0) : (isItemNonVat ? 0 : unitPrice * itemVatRate / 100)
+                          const priceWithVatPerUnit = hasSavedPrice ? Number(item.priceWithVat) : (unitPrice + vatPerUnit)
+                          return sum + (Number(item.quantity) * (isVatPayer ? priceWithVatPerUnit : unitPrice))
                         }, 0))
                       ) : '-'}
                     </p>
@@ -1675,11 +1692,12 @@ export default function DeliveryNotesPage() {
                     <tbody>
                       {processingNoteItems.map((item, idx) => {
                         const shipped = shippedQuantities[item.id!] || 0
-                        const unitPrice = Number(item.product?.price || 0)
-                        const itemVatRate = Number((item.product as any)?.vatRate || DEFAULT_VAT_RATE)
+                        const hasSavedPrice = item.price != null && item.priceWithVat != null
+                        const unitPrice = hasSavedPrice ? Number(item.price) : Number(item.product?.price || 0)
+                        const itemVatRate = hasSavedPrice ? Number(item.vatRate ?? DEFAULT_VAT_RATE) : Number((item.product as any)?.vatRate || DEFAULT_VAT_RATE)
                         const isItemNonVat = isNonVatPayer(itemVatRate)
-                        const vatPerUnit = isItemNonVat ? 0 : unitPrice * itemVatRate / 100
-                        const priceWithVat = unitPrice + vatPerUnit
+                        const vatPerUnit = hasSavedPrice ? Number(item.vatAmount ?? 0) : (isItemNonVat ? 0 : unitPrice * itemVatRate / 100)
+                        const priceWithVat = hasSavedPrice ? Number(item.priceWithVat) : (unitPrice + vatPerUnit)
                         const total = shipped * (isVatPayer ? priceWithVat : unitPrice)
 
                         return isVatPayer ? (
@@ -1811,11 +1829,12 @@ export default function DeliveryNotesPage() {
                           {formatPrice(
                             processingNoteItems.reduce((sum, item) => {
                               const shipped = shippedQuantities[item.id!] || 0
-                              const unitPrice = Number(item.product?.price || 0)
-                              const itemVatRate = Number((item.product as any)?.vatRate || DEFAULT_VAT_RATE)
+                              const hasSavedPrice = item.price != null && item.priceWithVat != null
+                              const unitPrice = hasSavedPrice ? Number(item.price) : Number(item.product?.price || 0)
+                              const itemVatRate = hasSavedPrice ? Number(item.vatRate ?? DEFAULT_VAT_RATE) : Number((item.product as any)?.vatRate || DEFAULT_VAT_RATE)
                               const isItemNonVat = isNonVatPayer(itemVatRate)
-                              const vatPerUnit = isItemNonVat ? 0 : unitPrice * itemVatRate / 100
-                              const priceWithVat = unitPrice + vatPerUnit
+                              const vatPerUnit = hasSavedPrice ? Number(item.vatAmount ?? 0) : (isItemNonVat ? 0 : unitPrice * itemVatRate / 100)
+                              const priceWithVat = hasSavedPrice ? Number(item.priceWithVat) : (unitPrice + vatPerUnit)
                               return sum + (shipped * (isVatPayer ? priceWithVat : unitPrice))
                             }, 0)
                           )}

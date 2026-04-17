@@ -10,7 +10,7 @@ import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import { formatPrice, formatQuantity, formatDate } from '@/lib/utils'
 import { isNonVatPayer } from '@/lib/vatCalculation'
-import { ArrowLeft, ChevronDown, ChevronUp, ChevronRight, Edit2, Eye, RefreshCw } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronUp, ChevronRight, Edit2, RefreshCw } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -64,7 +64,7 @@ interface Product {
   unit: string
 }
 
-type SortField = 'productName' | 'category' | 'physicalStock' | 'totalPurchaseValue' | 'totalSalesValue'
+type SortField = 'productName' | 'category' | 'physicalStock' | 'reservedStock' | 'availableStock' | 'expectedQuantity'
 type SortDirection = 'asc' | 'desc'
 
 export default function InventoryPage() {
@@ -78,9 +78,6 @@ export default function InventoryPage() {
   const [categories, setCategories] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [isVatPayer, setIsVatPayer] = useState(true)
-
-  // Rozbalené produkty v hlavním přehledu
-  const [expandedProducts, setExpandedProducts] = useState<Set<string>>(new Set())
 
   // Detail produktu - skladové pohyby
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null)
@@ -96,8 +93,9 @@ export default function InventoryPage() {
   const [filterCategory, setFilterCategory] = useState('')
   const [filterCategoryDropdownOpen, setFilterCategoryDropdownOpen] = useState(false)
   const [filterMinStock, setFilterMinStock] = useState('')
-  const [filterMinPurchaseValue, setFilterMinPurchaseValue] = useState('')
-  const [filterMinSalesValue, setFilterMinSalesValue] = useState('')
+  const [filterMinReserved, setFilterMinReserved] = useState('')
+  const [filterMinAvailable, setFilterMinAvailable] = useState('')
+  const [filterMinExpected, setFilterMinExpected] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterStatusDropdownOpen, setFilterStatusDropdownOpen] = useState(false)
 
@@ -274,16 +272,6 @@ export default function InventoryPage() {
     }
   }
 
-  function toggleProduct(productId: string) {
-    const newExpanded = new Set(expandedProducts)
-    if (newExpanded.has(productId)) {
-      newExpanded.delete(productId)
-    } else {
-      newExpanded.add(productId)
-    }
-    setExpandedProducts(newExpanded)
-  }
-
   function toggleMovement(movementId: string) {
     const newExpanded = new Set(expandedMovements)
     if (newExpanded.has(movementId)) {
@@ -374,13 +362,17 @@ export default function InventoryPage() {
       const minStock = parseFloat(filterMinStock)
       filtered = filtered.filter(item => item.physicalStock >= minStock)
     }
-    if (filterMinPurchaseValue) {
-      const minValue = parseFloat(filterMinPurchaseValue)
-      filtered = filtered.filter(item => item.totalPurchaseValue >= minValue)
+    if (filterMinReserved) {
+      const minValue = parseFloat(filterMinReserved)
+      filtered = filtered.filter(item => item.reservedStock >= minValue)
     }
-    if (filterMinSalesValue) {
-      const minValue = parseFloat(filterMinSalesValue)
-      filtered = filtered.filter(item => item.totalSalesValue >= minValue)
+    if (filterMinAvailable) {
+      const minValue = parseFloat(filterMinAvailable)
+      filtered = filtered.filter(item => item.availableStock >= minValue)
+    }
+    if (filterMinExpected) {
+      const minValue = parseFloat(filterMinExpected)
+      filtered = filtered.filter(item => item.expectedQuantity >= minValue)
     }
     if (filterStatus !== 'all') {
       filtered = filtered.filter(item => item.stockStatus === filterStatus)
@@ -396,7 +388,7 @@ export default function InventoryPage() {
       if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1
       return 0
     })
-  }, [summary, sortField, sortDirection, filterName, filterCategory, filterMinStock, filterMinPurchaseValue, filterMinSalesValue, filterStatus])
+  }, [summary, sortField, sortDirection, filterName, filterCategory, filterMinStock, filterMinReserved, filterMinAvailable, filterMinExpected, filterStatus])
 
   // Filtrování pohybů
   const filteredMovements = useMemo(() => {
@@ -418,20 +410,6 @@ export default function InventoryPage() {
     return filtered
   }, [stockMovements, filterDate, filterType, filterMinQuantity, filterNote])
 
-  // Statistiky
-  const warehouseTotals = useMemo(() => {
-    return filteredAndSortedSummary.reduce(
-      (totals, item) => {
-        const itemIsNonVat = isNonVatPayer(item.vatRate)
-        const vatMultiplier = (isVatPayer && !itemIsNonVat) ? (1 + item.vatRate / 100) : 1
-        return {
-          totalPurchaseValue: totals.totalPurchaseValue + item.totalPurchaseValue * vatMultiplier,
-          totalSalesValue: totals.totalSalesValue + item.totalSalesValue * vatMultiplier,
-        }
-      },
-      { totalPurchaseValue: 0, totalSalesValue: 0 }
-    )
-  }, [filteredAndSortedSummary, isVatPayer])
 
   function SortIcon({ field }: { field: SortField }) {
     if (sortField !== field) return null
@@ -775,8 +753,8 @@ export default function InventoryPage() {
       </div>
 
       {/* Filtry - 6 sloupců */}
-      <div className="grid grid-cols-[auto_1fr_1fr_1fr_1fr_1fr_1fr] items-center gap-4 px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg">
-        <button onClick={() => { setFilterName(''); setFilterCategory(''); setFilterMinStock(''); setFilterMinPurchaseValue(''); setFilterMinSalesValue(''); setFilterStatus('all') }} className="w-8 h-8 bg-gray-200 hover:bg-gray-300 text-gray-600 text-xs rounded flex items-center justify-center" title="Vymazat filtry">✕</button>
+      <div className="grid grid-cols-[auto_1fr_1fr_1fr_1fr_1fr_1fr_1fr] items-center gap-4 px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg">
+        <button onClick={() => { setFilterName(''); setFilterCategory(''); setFilterMinStock(''); setFilterMinReserved(''); setFilterMinAvailable(''); setFilterMinExpected(''); setFilterStatus('all') }} className="w-8 h-8 bg-gray-200 hover:bg-gray-300 text-gray-600 text-xs rounded flex items-center justify-center" title="Vymazat filtry">✕</button>
         <input type="text" value={filterName} onChange={(e) => setFilterName(e.target.value)} placeholder="Produkt..." className="px-2 py-1.5 border border-gray-300 rounded text-xs text-center focus:ring-1 focus:ring-purple-500" />
         <div ref={filterCategoryRef} className="relative">
           <div onClick={() => setFilterCategoryDropdownOpen(!filterCategoryDropdownOpen)} className="px-2 py-1.5 border border-gray-300 rounded text-xs text-center cursor-pointer bg-white hover:border-purple-500 truncate">
@@ -790,8 +768,9 @@ export default function InventoryPage() {
           )}
         </div>
         <input type="number" value={filterMinStock} onChange={(e) => setFilterMinStock(e.target.value)} placeholder="≥ Skladem" className="px-2 py-1.5 border border-gray-300 rounded text-xs text-center focus:ring-1 focus:ring-purple-500" />
-        <input type="number" value={filterMinPurchaseValue} onChange={(e) => setFilterMinPurchaseValue(e.target.value)} placeholder="≥ Nákup" className="px-2 py-1.5 border border-gray-300 rounded text-xs text-center focus:ring-1 focus:ring-purple-500" />
-        <input type="number" value={filterMinSalesValue} onChange={(e) => setFilterMinSalesValue(e.target.value)} placeholder="≥ Prodej" className="px-2 py-1.5 border border-gray-300 rounded text-xs text-center focus:ring-1 focus:ring-purple-500" />
+        <input type="number" value={filterMinReserved} onChange={(e) => setFilterMinReserved(e.target.value)} placeholder="≥ Rezerv." className="px-2 py-1.5 border border-gray-300 rounded text-xs text-center focus:ring-1 focus:ring-purple-500" />
+        <input type="number" value={filterMinAvailable} onChange={(e) => setFilterMinAvailable(e.target.value)} placeholder="≥ Dostup." className="px-2 py-1.5 border border-gray-300 rounded text-xs text-center focus:ring-1 focus:ring-purple-500" />
+        <input type="number" value={filterMinExpected} onChange={(e) => setFilterMinExpected(e.target.value)} placeholder="≥ Očekáv." className="px-2 py-1.5 border border-gray-300 rounded text-xs text-center focus:ring-1 focus:ring-purple-500" />
         <div ref={filterStatusRef} className="relative">
           <div onClick={() => setFilterStatusDropdownOpen(!filterStatusDropdownOpen)} className="px-2 py-1.5 border border-gray-300 rounded text-xs text-center cursor-pointer bg-white hover:border-purple-500">
             {filterStatus === 'all' && 'Status'}
@@ -819,125 +798,55 @@ export default function InventoryPage() {
         ) : (
           <>
             {/* Hlavička */}
-            <div className="grid grid-cols-[auto_1fr_1fr_1fr_1fr_1fr_1fr] items-center gap-4 px-4 py-3 bg-gray-100 border-b rounded-t-lg text-xs font-semibold text-gray-700">
+            <div className="grid grid-cols-[auto_1fr_1fr_1fr_1fr_1fr_1fr_1fr] items-center gap-4 px-4 py-3 bg-gray-100 border-b rounded-t-lg text-xs font-semibold text-gray-700">
               <div className="w-8"></div>
               <div className="text-left cursor-pointer hover:text-purple-600" onClick={() => handleSort('productName')}>Produkt <SortIcon field="productName" /></div>
               <div className="text-center cursor-pointer hover:text-purple-600" onClick={() => handleSort('category')}>Kategorie <SortIcon field="category" /></div>
               <div className="text-center cursor-pointer hover:text-purple-600" onClick={() => handleSort('physicalStock')}>Skladem <SortIcon field="physicalStock" /></div>
-              <div className="text-center cursor-pointer hover:text-purple-600" onClick={() => handleSort('totalPurchaseValue')}>
-                {isVatPayer ? 'Nákup s DPH' : 'Nákupní hodnota'} <SortIcon field="totalPurchaseValue" />
-              </div>
-              <div className="text-center cursor-pointer hover:text-purple-600" onClick={() => handleSort('totalSalesValue')}>
-                {isVatPayer ? 'Prodej s DPH' : 'Prodejní hodnota'} <SortIcon field="totalSalesValue" />
-              </div>
+              <div className="text-center cursor-pointer hover:text-purple-600" onClick={() => handleSort('reservedStock')}>Rezervováno <SortIcon field="reservedStock" /></div>
+              <div className="text-center cursor-pointer hover:text-purple-600" onClick={() => handleSort('availableStock')}>Dostupné <SortIcon field="availableStock" /></div>
+              <div className="text-center cursor-pointer hover:text-purple-600" onClick={() => handleSort('expectedQuantity')}>Očekáváno <SortIcon field="expectedQuantity" /></div>
               <div className="text-center">Status</div>
             </div>
 
             {/* Data */}
             <div className="divide-y divide-gray-100">
-              {filteredAndSortedSummary.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((item) => {
-                const isExpanded = expandedProducts.has(item.productId)
-
-                return (
-                  <div key={item.productId} id={`product-${item.productId}`} className={`${highlightId === item.productId ? 'border-2 border-purple-500 bg-purple-50' : isExpanded ? 'bg-gray-50' : ''}`}>
-                    {/* Hlavní řádek */}
-                    <div className="grid grid-cols-[auto_1fr_1fr_1fr_1fr_1fr_1fr] items-center gap-4 px-4 py-3 cursor-pointer hover:bg-purple-50 transition-colors" onClick={() => toggleProduct(item.productId)}>
-                      <div className="w-8">
-                        {isExpanded ? <ChevronDown className="h-5 w-5 text-gray-400" /> : <ChevronRight className="h-5 w-5 text-gray-400" />}
-                      </div>
-                      <div className="text-left text-sm font-medium text-gray-900 truncate">{item.productName}</div>
-                      <div className="text-center text-sm text-gray-600 truncate">{item.category?.name || '-'}</div>
-                      <div className={`text-center text-sm font-semibold ${item.stockStatus === 'empty' ? 'text-red-600' : item.stockStatus === 'low' ? 'text-orange-600' : 'text-green-600'}`}>{formatQuantity(item.physicalStock, item.unit)}</div>
-                      <div className="text-center text-sm font-semibold text-gray-900">
-                        {(() => {
-                          const itemIsNonVat = isNonVatPayer(item.vatRate)
-                          const vatMultiplier = (isVatPayer && !itemIsNonVat) ? (1 + item.vatRate / 100) : 1
-                          return formatPrice(item.totalPurchaseValue * vatMultiplier)
-                        })()}
-                      </div>
-                      <div className="text-center text-sm font-semibold text-gray-900">
-                        {(() => {
-                          const itemIsNonVat = isNonVatPayer(item.vatRate)
-                          const vatMultiplier = (isVatPayer && !itemIsNonVat) ? (1 + item.vatRate / 100) : 1
-                          return formatPrice(item.totalSalesValue * vatMultiplier)
-                        })()}
-                      </div>
-                      <div className="text-center">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${item.stockStatus === 'empty' ? 'bg-red-100 text-red-800' : item.stockStatus === 'low' ? 'bg-orange-100 text-orange-800' : 'bg-green-100 text-green-800'}`}>
-                          {item.stockStatus === 'empty' ? 'Vyprodáno' : item.stockStatus === 'low' ? 'Nízký' : 'OK'}
-                        </span>
-                      </div>
+              {filteredAndSortedSummary.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((item) => (
+                <div key={item.productId} id={`product-${item.productId}`} className={`${highlightId === item.productId ? 'border-2 border-purple-500 bg-purple-50' : ''}`}>
+                  <div className="grid grid-cols-[auto_1fr_1fr_1fr_1fr_1fr_1fr_1fr] items-center gap-4 px-4 py-3 cursor-pointer hover:bg-purple-50 transition-colors" onClick={() => setSelectedProductId(item.productId)}>
+                    <div className="w-8">
+                      <ChevronRight className="h-5 w-5 text-gray-400" />
                     </div>
-
-                    {/* Rozbalený detail */}
-                    {isExpanded && (
-                      <div className="border-t p-4 bg-gray-50 space-y-3">
-                        {/* Rozcestník - ceny + tlačítko */}
-                        <div className="p-3 bg-blue-50 border border-blue-200 rounded">
-                          <div className="flex items-center justify-between">
-                            <div className="text-sm">
-                              {isVatPayer && !isNonVatPayer(item.vatRate) ? (
-                                <>
-                                  <div><span className="text-gray-500">Ø Nákup bez DPH:</span> <span className="font-semibold text-gray-700">{formatPrice(item.avgPurchasePrice)}</span></div>
-                                  <div><span className="text-gray-600">Ø Nákup s DPH ({item.vatRate}%):</span> <span className="font-bold text-gray-900">{formatPrice(item.avgPurchasePrice * (1 + item.vatRate / 100))}</span></div>
-                                </>
-                              ) : (
-                                <><span className="text-gray-600">Ø Nákupní cena:</span> <span className="font-bold text-gray-900">{formatPrice(item.avgPurchasePrice)}</span></>
-                              )}
-                            </div>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); setSelectedProductId(item.productId) }}
-                              className="px-5 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white text-sm font-semibold rounded-lg shadow-md hover:shadow-lg hover:from-blue-600 hover:to-blue-700 transform hover:scale-105 transition-all duration-200 flex items-center gap-2"
-                            >
-                              <Eye className="h-4 w-4" />
-                              <span>Skladové pohyby</span>
-                            </button>
-                            <div className="text-sm text-right">
-                              {isVatPayer && !isNonVatPayer(item.vatRate) ? (
-                                <>
-                                  <div><span className="text-gray-500">Prodej bez DPH:</span> <span className="font-semibold text-gray-700">{formatPrice(item.price)}</span></div>
-                                  <div><span className="text-gray-600">Prodej s DPH ({item.vatRate}%):</span> <span className="font-bold text-gray-900">{formatPrice(Number(item.price) * (1 + item.vatRate / 100))}</span></div>
-                                </>
-                              ) : (
-                                <><span className="text-gray-600">Prodejní cena:</span> <span className="font-bold text-gray-900">{formatPrice(item.price)}</span></>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Skladové stavy */}
-                        <div className="grid grid-cols-3 gap-3">
-                          <div className="p-3 bg-orange-50 border border-orange-200 rounded text-center">
-                            <div className="text-xs text-gray-500 mb-1">Rezervováno</div>
-                            <div className="text-lg font-bold text-orange-600">
-                              {item.reservedStock > 0 ? formatQuantity(item.reservedStock, item.unit) : '-'}
-                            </div>
-                          </div>
-                          <div className="p-3 bg-green-50 border border-green-200 rounded text-center">
-                            <div className="text-xs text-gray-500 mb-1">Dostupné</div>
-                            <div className="text-lg font-bold text-green-600">{formatQuantity(item.availableStock, item.unit)}</div>
-                          </div>
-                          <div className="p-3 bg-blue-50 border border-blue-200 rounded text-center">
-                            <div className="text-xs text-gray-500 mb-1">Očekáváno</div>
-                            <div className="text-lg font-bold text-blue-600">
-                              {item.expectedQuantity > 0 ? `+${formatQuantity(item.expectedQuantity, item.unit)}` : '-'}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                    <div className="text-left text-sm font-medium text-gray-900 truncate">{item.productName}</div>
+                    <div className="text-center text-sm text-gray-600 truncate">{item.category?.name || '-'}</div>
+                    <div className={`text-center text-sm font-semibold ${item.stockStatus === 'empty' ? 'text-red-600' : item.stockStatus === 'low' ? 'text-orange-600' : 'text-green-600'}`}>{formatQuantity(item.physicalStock, item.unit)}</div>
+                    <div className="text-center text-sm font-semibold text-orange-600">
+                      {item.reservedStock > 0 ? formatQuantity(item.reservedStock, item.unit) : '-'}
+                    </div>
+                    <div className="text-center text-sm font-semibold text-green-600">
+                      {formatQuantity(item.availableStock, item.unit)}
+                    </div>
+                    <div className="text-center text-sm font-semibold text-blue-600">
+                      {item.expectedQuantity > 0 ? `+${formatQuantity(item.expectedQuantity, item.unit)}` : '-'}
+                    </div>
+                    <div className="text-center">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${item.stockStatus === 'empty' ? 'bg-red-100 text-red-800' : item.stockStatus === 'low' ? 'bg-orange-100 text-orange-800' : 'bg-green-100 text-green-800'}`}>
+                        {item.stockStatus === 'empty' ? 'Vyprodáno' : item.stockStatus === 'low' ? 'Nízký' : 'OK'}
+                      </span>
+                    </div>
                   </div>
-                )
-              })}
+                </div>
+              ))}
 
               {/* Součet */}
-              <div className="grid grid-cols-[auto_1fr_1fr_1fr_1fr_1fr_1fr] items-center gap-4 px-4 py-3 bg-gray-100 font-bold border-t-2 border-gray-300">
+              <div className="grid grid-cols-[auto_1fr_1fr_1fr_1fr_1fr_1fr_1fr] items-center gap-4 px-4 py-3 bg-gray-100 font-bold border-t-2 border-gray-300">
                 <div className="w-8"></div>
                 <div className="text-left text-sm">Celkem ({filteredAndSortedSummary.length})</div>
                 <div></div>
                 <div></div>
-                <div className="text-center text-sm text-gray-900">{formatPrice(warehouseTotals.totalPurchaseValue)}</div>
-                <div className="text-center text-sm text-gray-900">{formatPrice(warehouseTotals.totalSalesValue)}</div>
+                <div></div>
+                <div></div>
+                <div></div>
                 <div></div>
               </div>
             </div>

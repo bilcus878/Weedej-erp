@@ -1149,7 +1149,9 @@ export default function TransactionsPage() {
                                   // Pokud productName obsahuje " — " (eshop varianta), zobraz "2×3 g" místo "2 ks"
                                   const storedName  = item.productName || ''
                                   const variantPart = storedName.includes(' — ') ? storedName.split(' — ').slice(1).join(' — ') : null
-                                  const qtyDisplay  = variantPart ? `${qty}×${variantPart}` : formatQuantity(qty, item.unit)
+                                  const qtyDisplay  = variantPart
+                                    ? (/^\d+[xX]/.test(variantPart) ? variantPart : `${qty}x${variantPart}`)
+                                    : formatQuantity(qty, item.unit)
                                   const unitPrice   = Number(item.price ?? catalogProduct?.price ?? 0)
                                   const itemVatRate = Number(item.vatRate ?? catalogProduct?.vatRate ?? DEFAULT_VAT_RATE)
                                   const isItemNonVat = isNonVatPayer(itemVatRate)
