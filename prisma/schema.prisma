@@ -419,6 +419,12 @@ model DeliveryNoteItem {
   orderedQuantity Decimal?       @db.Decimal(10, 3)
   unit            String
   inventoryItemId String?
+  // Cena uložená v momentě vytvoření výdejky — zdroj pravdy je faktura
+  price           Decimal?       @db.Decimal(10, 2)   // bez DPH / ks
+  priceWithVat    Decimal?       @db.Decimal(10, 2)   // s DPH / ks
+  vatAmount       Decimal?       @db.Decimal(10, 2)   // DPH / ks
+  vatRate         Decimal?       @db.Decimal(5, 2)    // sazba DPH
+  priceSource     String?        // "invoice" | "order_item" | "product" | "manual"
   createdAt       DateTime       @default(now())
   deliveryNote    DeliveryNote   @relation(fields: [deliveryNoteId], references: [id], onDelete: Cascade)
   inventoryItem   InventoryItem? @relation(fields: [inventoryItemId], references: [id])
@@ -838,6 +844,7 @@ model EshopVariant {
   variantUnit  String?  // Jednotka varianty: "g" | "ml" | "ks" — null zdědí Product.unit
   isDefault    Boolean  @default(false)
   isActive     Boolean  @default(true)
+  isSumup      Boolean  @default(false) // true = tato varianta je napojena na SumUp sync
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

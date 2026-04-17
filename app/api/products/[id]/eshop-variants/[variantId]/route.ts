@@ -17,7 +17,7 @@ export async function PATCH(
 
   const { id, variantId } = await params
   const body = await req.json()
-  const { name, price, variantValue, variantUnit, isDefault, isActive } = body
+  const { name, price, variantValue, variantUnit, isDefault, isActive, isSumup } = body
 
   const ALLOWED_UNITS = ['g', 'ml', 'ks']
   if (variantUnit !== undefined && variantUnit !== null && !ALLOWED_UNITS.includes(variantUnit)) {
@@ -31,6 +31,13 @@ export async function PATCH(
       data: { isDefault: false },
     })
   }
+  // Pokud se nastavuje jako SumUp, odeber SumUp příznak ostatním
+  if (isSumup) {
+    await prisma.eshopVariant.updateMany({
+      where: { productId: id, id: { not: variantId } },
+      data: { isSumup: false },
+    })
+  }
 
   const variant = await prisma.eshopVariant.update({
     where: { id: variantId },
@@ -41,6 +48,7 @@ export async function PATCH(
       ...(variantUnit !== undefined && { variantUnit: variantUnit ?? null }),
       ...(isDefault !== undefined && { isDefault }),
       ...(isActive !== undefined && { isActive }),
+      ...(isSumup !== undefined && { isSumup }),
     },
   })
 

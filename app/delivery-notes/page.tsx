@@ -25,10 +25,17 @@ interface DeliveryNoteItem {
   orderedQuantity?: number
   unit: string
   inventoryItemId?: string
+  // Ceny uložené při vytvoření výdejky (zdroj: faktura → objednávka → produkt)
+  price?: number | null
+  priceWithVat?: number | null
+  vatAmount?: number | null
+  vatRate?: number | null
+  priceSource?: string | null
   product?: {
     id: string
     name: string
     price: number
+    vatRate?: number
   }
 }
 
@@ -1355,18 +1362,27 @@ export default function DeliveryNotesPage() {
 
                           {/* Řádky položek */}
                           {note.items.map((item, i: number) => {
-                            const unitPrice = Number(item.product?.price || 0)
-                            const itemVatRate = Number((item.product as any)?.vatRate || DEFAULT_VAT_RATE)
-                            const isItemNonVat = isNonVatPayer(itemVatRate)
-                            const vatPerUnit = isItemNonVat ? 0 : unitPrice * itemVatRate / 100
-                            const priceWithVatPerUnit = unitPrice + vatPerUnit
+                            // Priorita: uložená cena z výdejky (= z faktury) → aktuální cena produktu
+                            const hasSavedPrice = item.price != null && item.priceWithVat != null
+                            const unitPrice       = hasSavedPrice ? Number(item.price) : Number(item.product?.price || 0)
+                            const itemVatRate     = hasSavedPrice ? Number(item.vatRate ?? DEFAULT_VAT_RATE) : Number(item.product?.vatRate || DEFAULT_VAT_RATE)
+                            const isItemNonVat    = isNonVatPayer(itemVatRate)
+                            const vatPerUnit      = hasSavedPrice ? Number(item.vatAmount ?? 0) : (isItemNonVat ? 0 : unitPrice * itemVatRate / 100)
+                            const priceWithVatPerUnit = hasSavedPrice ? Number(item.priceWithVat) : (unitPrice + vatPerUnit)
                             const totalWithoutVat = Number(item.quantity) * unitPrice
-                            const totalWithVat = Number(item.quantity) * priceWithVatPerUnit
+                            const totalWithVat    = Number(item.quantity) * priceWithVatPerUnit
+
+                            const sourceLabel = !hasSavedPrice
+                              ? <span title="Cena z aktuálního katalogu — může se lišit od faktury" className="ml-1 text-amber-500 text-xs">⚠</span>
+                              : item.priceSource === 'invoice'
+                                ? <span title="Cena ze zaúčtované faktury" className="ml-1 text-green-600 text-xs">✓</span>
+                                : null
 
                             return isVatPayer ? (
                               <div key={i} className={`grid grid-cols-[3fr_1fr_1fr_0.5fr_1fr_0.5fr_1fr_1fr] gap-2 px-4 py-2 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'} text-xs`}>
-                                <div className="font-medium text-gray-900">
+                                <div className="font-medium text-gray-900 flex items-center">
                                   {item.product?.name || item.productName || '(Neznámé)'}
+                                  {sourceLabel}
                                 </div>
                                 <div className="text-center">
                                   {item.productId && item.inventoryItemId ? (
@@ -1402,8 +1418,9 @@ export default function DeliveryNotesPage() {
                               </div>
                             ) : (
                               <div key={i} className={`grid grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-4 px-4 py-3 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                                <div className="font-medium text-gray-900">
+                                <div className="font-medium text-gray-900 flex items-center">
                                   {item.product?.name || item.productName || '(Neznámé)'}
+                                  {sourceLabel}
                                 </div>
                                 <div className="text-center">
                                   {item.productId && item.inventoryItemId ? (
@@ -1436,12 +1453,13 @@ export default function DeliveryNotesPage() {
                             <div className={isVatPayer ? 'col-span-7' : 'col-span-4'}>{isVatPayer ? 'Celková částka s DPH' : 'Celková částka'}</div>
                             <div className="text-center">
                               {formatPrice(note.items.reduce((sum, item) => {
-                                const unitPrice = Number(item.product?.price || 0)
-                                const itemVatRate = Number((item.product as any)?.vatRate || DEFAULT_VAT_RATE)
-                                const isItemNonVat = isNonVatPayer(itemVatRate)
-                                const vatPerUnit = isItemNonVat ? 0 : unitPrice * itemVatRate / 100
-                                const priceWithVat = isVatPayer ? (unitPrice + vatPerUnit) : unitPrice
-                                return sum + (Number(item.quantity) * priceWithVat)
+                                const hasSaved = item.price != null && item.priceWithVat != null
+                                const unitPrice   = hasSaved ? Number(item.price) : Number(item.product?.price || 0)
+                                const itemVatRate = hasSaved ? Number(item.vatRate ?? DEFAULT_VAT_RATE) : Number(item.product?.vatRate || DEFAULT_VAT_RATE)
+                                const isNonVat    = isNonVatPayer(itemVatRate)
+                                const vatPer      = hasSaved ? Number(item.vatAmount ?? 0) : (isNonVat ? 0 : unitPrice * itemVatRate / 100)
+                                const withVat     = hasSaved ? Number(item.priceWithVat) : (unitPrice + vatPer)
+                                return sum + Number(item.quantity) * (isVatPayer ? withVat : unitPrice)
                               }, 0))}
                             </div>
                           </div>

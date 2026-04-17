@@ -43,6 +43,7 @@ interface EshopVariant {
   variantUnit?: string | null   // Jednotka: "g" | "ml" | "ks"
   isDefault: boolean
   isActive: boolean
+  isSumup: boolean              // true = napojeno na SumUp sync
 }
 
 interface EshopVariantForm {
@@ -52,6 +53,7 @@ interface EshopVariantForm {
   variantUnit: 'g' | 'ml' | 'ks' | ''
   isDefault: boolean
   isActive: boolean
+  isSumup: boolean
 }
 
 type SortField = 'name' | 'category' | 'price' | 'purchasePrice'
@@ -499,7 +501,7 @@ export default function ProductsPage() {
   // ─── Eshop Variants ────────────────────────────────────────────────────────
 
   const emptyVariantForm = (): EshopVariantForm => ({
-    name: '', price: '', variantValue: '', variantUnit: '', isDefault: false, isActive: true,
+    name: '', price: '', variantValue: '', variantUnit: '', isDefault: false, isActive: true, isSumup: false,
   })
 
   async function fetchEshopVariants(productId: string) {
@@ -543,6 +545,7 @@ export default function ProductsPage() {
           variantUnit: form.variantUnit || null,
           isDefault: form.isDefault,
           isActive: form.isActive,
+          isSumup: form.isSumup,
         }),
       })
       if (!res.ok) throw new Error('Chyba při ukládání varianty')
@@ -567,6 +570,7 @@ export default function ProductsPage() {
         variantUnit: (variant.variantUnit as 'g' | 'ml' | 'ks' | '') ?? '',
         isDefault: variant.isDefault,
         isActive: variant.isActive,
+        isSumup: variant.isSumup,
       },
     }))
   }
@@ -1285,6 +1289,7 @@ export default function ProductsPage() {
                                   <th className="px-3 py-2 text-right font-medium">Cena (Kč)</th>
                                   <th className="px-3 py-2 text-right font-medium">Množství</th>
                                   <th className="px-3 py-2 text-center font-medium">Výchozí</th>
+                                  <th className="px-3 py-2 text-center font-medium">SumUp</th>
                                   <th className="px-3 py-2 text-center font-medium">Aktivní</th>
                                   <th className="px-3 py-2 text-center font-medium">Akce</th>
                                 </tr>
@@ -1299,6 +1304,9 @@ export default function ProductsPage() {
                                     </td>
                                     <td className="px-3 py-2 text-center">
                                       {v.isDefault ? <span className="text-emerald-600 font-semibold">✓</span> : <span className="text-gray-300">—</span>}
+                                    </td>
+                                    <td className="px-3 py-2 text-center">
+                                      {v.isSumup ? <span title="Napojena na SumUp sync" className="text-orange-500 font-semibold">S</span> : <span className="text-gray-300">—</span>}
                                     </td>
                                     <td className="px-3 py-2 text-center">
                                       {v.isActive ? <span className="text-emerald-600">✓</span> : <span className="text-red-400">✗</span>}
@@ -1384,7 +1392,7 @@ export default function ProductsPage() {
                                 <option value="ks">ks</option>
                               </select>
                             </div>
-                            <div className="col-span-2 flex items-center gap-3 pb-1">
+                            <div className="col-span-3 flex items-center gap-3 pb-1 flex-wrap">
                               <label className="flex items-center gap-1 text-xs cursor-pointer" onClick={(e) => e.stopPropagation()}>
                                 <input
                                   type="checkbox"
@@ -1393,6 +1401,15 @@ export default function ProductsPage() {
                                   className="accent-emerald-600"
                                 />
                                 Výchozí
+                              </label>
+                              <label className="flex items-center gap-1 text-xs cursor-pointer" title="Napojena na SumUp sync — cena se synchronizuje s pokladnou" onClick={(e) => e.stopPropagation()}>
+                                <input
+                                  type="checkbox"
+                                  checked={variantForms[product.id]?.isSumup ?? false}
+                                  onChange={(e) => setVariantForms((prev) => ({ ...prev, [product.id]: { ...(prev[product.id] || emptyVariantForm()), isSumup: e.target.checked } }))}
+                                  className="accent-orange-500"
+                                />
+                                <span className="text-orange-600">SumUp</span>
                               </label>
                               <label className="flex items-center gap-1 text-xs cursor-pointer" onClick={(e) => e.stopPropagation()}>
                                 <input

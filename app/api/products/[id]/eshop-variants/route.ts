@@ -34,7 +34,7 @@ export async function POST(
 
   const { id } = await params
   const body = await req.json()
-  const { name, price, variantValue, variantUnit, isDefault, isActive } = body
+  const { name, price, variantValue, variantUnit, isDefault, isActive, isSumup } = body
 
   if (!name || price === undefined) {
     return NextResponse.json({ error: 'Chybí název nebo cena' }, { status: 400 })
@@ -52,16 +52,24 @@ export async function POST(
       data: { isDefault: false },
     })
   }
+  // Pokud je to SumUp varianta, odeber SumUp příznak ostatním (jen jedna SumUp varianta na produkt)
+  if (isSumup) {
+    await prisma.eshopVariant.updateMany({
+      where: { productId: id },
+      data: { isSumup: false },
+    })
+  }
 
   const variant = await prisma.eshopVariant.create({
     data: {
-      productId: id,
+      productId:    id,
       name,
-      price: parseFloat(String(price)),
+      price:        parseFloat(String(price)),
       variantValue: variantValue ? parseFloat(String(variantValue)) : null,
-      variantUnit: variantUnit ?? null,
-      isDefault: isDefault ?? false,
-      isActive: isActive ?? true,
+      variantUnit:  variantUnit ?? null,
+      isDefault:    isDefault ?? false,
+      isActive:     isActive ?? true,
+      isSumup:      isSumup ?? false,
     },
   })
 

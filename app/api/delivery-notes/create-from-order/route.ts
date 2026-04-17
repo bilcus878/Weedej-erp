@@ -1,6 +1,9 @@
 // API Endpoint pro vytvoření a zpracování výdejky z objednávky zákazníka
 // URL: /api/delivery-notes/create-from-order
 // Workflow: Vytvoří výdejku, nastaví status "active", odečte ze skladu, aktualizuje shippedQuantity
+//
+// CENY: výdejka vždy přebírá ceny z faktury (IssuedInvoiceItem) — §28 ZDPH.
+// Fallback: CustomerOrderItem → Product.price (jen pokud faktura ještě neexistuje).
 
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
@@ -26,54 +29,34 @@ export async function POST(request: Request) {
     const body: CreateDeliveryNoteRequest = await request.json()
     const { customerOrderId, items } = body
 
-    // Validace
     if (!customerOrderId) {
-      return NextResponse.json(
-        { error: 'Chybí ID objednávky' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Chybí ID objednávky' }, { status: 400 })
     }
-
     if (!items || items.length === 0) {
-      return NextResponse.json(
-        { error: 'Chybí položky k vyskladnění' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Chybí položky k vyskladnění' }, { status: 400 })
     }
 
-    // Načti objednávku
+    // Načti objednávku včetně faktury (source of truth pro ceny)
     const order = await prisma.customerOrder.findUnique({
       where: { id: customerOrderId },
       include: {
-        items: {
-          include: {
-            product: true
-          }
+        items: { include: { product: true } },
+        reservations: { where: { status: 'active' } },
+        issuedInvoice: {
+          include: { items: true },
         },
-        reservations: {
-          where: { status: 'active' }
-        }
-      }
+      },
     })
 
     if (!order) {
-      return NextResponse.json(
-        { error: 'Objednávka nenalezena' },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: 'Objednávka nenalezena' }, { status: 404 })
     }
 
     // Kontrola dostupnosti skladu
     const { canDeliverQuantity } = await import('@/lib/stockCalculation')
-
     for (const item of items) {
       if (item.productId && item.quantity > 0) {
-        const stockCheck = await canDeliverQuantity(
-          item.productId,
-          item.quantity,
-          false // nepovolujeme záporný sklad
-        )
-
+        const stockCheck = await canDeliverQuantity(item.productId, item.quantity, false)
         if (!stockCheck.canDeliver) {
           return NextResponse.json(
             { error: stockCheck.message || 'Nedostatečný sklad' },
@@ -83,149 +66,167 @@ export async function POST(request: Request) {
       }
     }
 
+    // Sestav cenový index: productId → cena z faktury nebo objednávky
+    // Priorita: faktura (IssuedInvoiceItem) > objednávka (CustomerOrderItem) > produkt (Product.price)
+    type PriceRecord = {
+      price: number
+      priceWithVat: number
+      vatAmount: number
+      vatRate: number
+      source: 'invoice' | 'order_item' | 'product'
+    }
+    const priceIndex = new Map<string, PriceRecord>()
+
+    // 1. Z faktury — absolutní priorita (§28 ZDPH — faktura je zdroj pravdy)
+    if (order.issuedInvoice) {
+      for (const inv of order.issuedInvoice.items) {
+        if (inv.productId) {
+          priceIndex.set(inv.productId, {
+            price:        Number(inv.price),
+            priceWithVat: Number(inv.priceWithVat),
+            vatAmount:    Number(inv.vatAmount),
+            vatRate:      Number(inv.vatRate),
+            source:       'invoice',
+          })
+        }
+      }
+    }
+
+    // 2. Z objednávky — pokud faktura pro daný produkt chybí
+    for (const oi of order.items) {
+      if (oi.productId && !priceIndex.has(oi.productId)) {
+        priceIndex.set(oi.productId, {
+          price:        Number(oi.price),
+          priceWithVat: Number(oi.priceWithVat),
+          vatAmount:    Number(oi.vatAmount),
+          vatRate:      Number(oi.vatRate),
+          source:       'order_item',
+        })
+      }
+    }
+
+    // 3. Z produktu — fallback (aktuální cena, pokud nic jiného není k dispozici)
+    for (const item of items) {
+      if (item.productId && !priceIndex.has(item.productId)) {
+        const orderItem = order.items.find(oi => oi.productId === item.productId)
+        const product   = orderItem?.product
+        if (product) {
+          const vatRate     = Number(product.vatRate ?? 21)
+          const price       = Number(product.price)
+          const priceWithVat = Math.round(price * (1 + vatRate / 100) * 100) / 100
+          const vatAmount    = Math.round((priceWithVat - price) * 100) / 100
+          priceIndex.set(item.productId, { price, priceWithVat, vatAmount, vatRate, source: 'product' })
+        }
+      }
+    }
+
     // Zpracování v transakci
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Vygeneruj číslo výdejky
       const deliveryNumber = await getNextDocumentNumber('delivery-note', tx)
 
-      // 2. Vytvoř výdejku se statusem "active" (rovnou vyskladněná)
       const deliveryNote = await tx.deliveryNote.create({
         data: {
           deliveryNumber,
           customerOrderId: order.id,
-          customerId: order.customerId,
-          customerName: order.customerName,
-          deliveryDate: new Date(),
-          status: 'active', // ✅ Rovnou active (vyskladněno)
-          processedAt: new Date(),
-          note: null, // Poznámka se nevyplňuje automaticky
+          customerId:      order.customerId,
+          customerName:    order.customerName,
+          deliveryDate:    new Date(),
+          status:          'active',
+          processedAt:     new Date(),
+          note:            null,
           items: {
             create: items.map(item => {
-              // Najdi odpovídající položku v objednávce pro získání původního množství
-              const orderItem = order.items.find(
-                oi => oi.productId === item.productId
-              )
+              const orderItem = order.items.find(oi => oi.productId === item.productId)
+              const p = item.productId ? priceIndex.get(item.productId) : undefined
 
               return {
-                productId: item.productId,
-                productName: item.productName,
-                quantity: item.quantity, // Vyskladněné množství
-                orderedQuantity: orderItem ? Number(orderItem.quantity) : null, // Původně objednané množství
-                unit: item.unit
+                productId:       item.productId,
+                productName:     item.productName,
+                quantity:        item.quantity,
+                orderedQuantity: orderItem ? Number(orderItem.quantity) : null,
+                unit:            item.unit,
+                // Ceny z faktury — zdroj pravdy
+                price:           p?.price        ?? null,
+                priceWithVat:    p?.priceWithVat ?? null,
+                vatAmount:       p?.vatAmount    ?? null,
+                vatRate:         p?.vatRate      ?? null,
+                priceSource:     p?.source       ?? null,
               }
-            })
-          }
+            }),
+          },
         },
-        include: {
-          items: true
-        }
+        include: { items: true },
       })
 
-      // 2b. Vytvoř záporné InventoryItems pro vyskladnění a propoj je s DeliveryNoteItems
+      // Vytvoř záporné InventoryItems a propoj s DeliveryNoteItems
       for (const deliveryItem of deliveryNote.items) {
         if (deliveryItem.productId) {
-          // Vytvoř záporný inventoryItem pro vyskladnění
           const inventoryItem = await tx.inventoryItem.create({
             data: {
-              productId: deliveryItem.productId,
-              quantity: -Number(deliveryItem.quantity), // ZÁPORNÉ množství = vyskladnění
-              unit: deliveryItem.unit,
-              purchasePrice: 0, // Při vyskladnění neřešíme nákupní cenu
-              date: new Date(),
-              note: null // Poznámka není potřeba - výdejka se zobrazuje v detailu
-            }
+              productId:     deliveryItem.productId,
+              quantity:      -Number(deliveryItem.quantity),
+              unit:          deliveryItem.unit,
+              purchasePrice: 0,
+              date:          new Date(),
+              note:          null,
+            },
           })
-
-          // Propoj DeliveryNoteItem s InventoryItem
           await tx.deliveryNoteItem.update({
             where: { id: deliveryItem.id },
-            data: {
-              inventoryItemId: inventoryItem.id
-            }
+            data:  { inventoryItemId: inventoryItem.id },
           })
         }
       }
 
-      // 3. Aktualizuj shippedQuantity u položek objednávky
+      // Aktualizuj shippedQuantity
       for (const deliveryItem of items) {
-        // Najdi odpovídající položku v objednávce
-        const orderItem = order.items.find(
-          oi => oi.productId === deliveryItem.productId
-        )
-
+        const orderItem = order.items.find(oi => oi.productId === deliveryItem.productId)
         if (orderItem) {
-          // Přičti vyskladněné množství k celkovému shippedQuantity
           const newShippedQty = Number(orderItem.shippedQuantity || 0) + Number(deliveryItem.quantity)
-
           await tx.customerOrderItem.update({
             where: { id: orderItem.id },
-            data: {
-              shippedQuantity: newShippedQty
-            }
+            data:  { shippedQuantity: newShippedQty },
           })
         }
       }
 
-      // 4. Zkontroluj, jestli jsou VŠECHNY položky KOMPLETNĚ vyskladněny
-      // POZOR: Pokud je objednávka STORNO, NESMÍME měnit status!
+      // Zkontroluj kompletnost expedice
       if (order.status !== 'storno') {
         const allOrderItems = await tx.customerOrderItem.findMany({
-          where: { customerOrderId: order.id }
+          where: { customerOrderId: order.id },
         })
-
-        const allFullyShipped = allOrderItems.every(item =>
-          Number(item.shippedQuantity || 0) >= Number(item.quantity)
+        const allFullyShipped = allOrderItems.every(
+          item => Number(item.shippedQuantity || 0) >= Number(item.quantity)
         )
 
         if (allFullyShipped) {
-          // Všechny položky jsou vyskladněny → změň status na "shipped"
           await tx.customerOrder.update({
             where: { id: order.id },
-            data: {
-              status: 'shipped',
-              shippedAt: new Date()
-            }
+            data:  { status: 'shipped', shippedAt: new Date() },
           })
-
-          // Uvolni rezervace
           await tx.reservation.updateMany({
-            where: {
-              customerOrderId: order.id,
-              status: 'active'
-            },
-            data: {
-              status: 'fulfilled',
-              fulfilledAt: new Date()
-            }
+            where: { customerOrderId: order.id, status: 'active' },
+            data:  { status: 'fulfilled', fulfilledAt: new Date() },
           })
-
-          console.log(`✓ Objednávka ${order.orderNumber} - KOMPLETNĚ vyskladněna → status: shipped`)
+          console.log(`✓ Objednávka ${order.orderNumber} — KOMPLETNĚ vyskladněna → shipped`)
         } else {
-          // Částečně vyskladněno → status "processing"
           await tx.customerOrder.update({
             where: { id: order.id },
-            data: {
-              status: 'processing'
-            }
+            data:  { status: 'processing' },
           })
-
-          console.log(`✓ Objednávka ${order.orderNumber} - částečně vyskladněna → status: processing`)
+          console.log(`✓ Objednávka ${order.orderNumber} — částečně vyskladněna → processing`)
         }
-      } else {
-        console.log(`⚠ Objednávka ${order.orderNumber} je STORNO - status se NEAKTUALIZUJE`)
       }
 
       return deliveryNote
     })
 
-    console.log(`✓ Výdejka ${result.deliveryNumber} byla vytvořena a zpracována`)
+    console.log(`✓ Výdejka ${result.deliveryNumber} vytvořena`)
 
-    // ── Webhook: notifikuj e-shop pokud je objednávka z e-shopu ────────────
-    // Záchranná síť — primárně eshop objednávky jdou přes delivery-notes/[id]/process,
-    // ale pokud by se sem dostaly (starší objednávky bez draftu), webhook musí odejít.
+    // Webhook: notifikuj e-shop
     if (order.source === 'eshop' && order.eshopOrderId) {
       const finalOrder = await prisma.customerOrder.findUnique({
-        where: { id: order.id },
+        where:   { id: order.id },
         include: { issuedInvoice: { select: { id: true } } },
       })
       if (finalOrder?.status === 'shipped') {
@@ -252,8 +253,8 @@ export async function POST(request: Request) {
     console.error('Chyba při vytváření výdejky z objednávky:', error)
     return NextResponse.json(
       {
-        error: 'Nepodařilo se vytvořit výdejku',
-        details: error instanceof Error ? error.message : 'Neznámá chyba'
+        error:   'Nepodařilo se vytvořit výdejku',
+        details: error instanceof Error ? error.message : 'Neznámá chyba',
       },
       { status: 500 }
     )

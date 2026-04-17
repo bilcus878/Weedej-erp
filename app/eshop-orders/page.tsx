@@ -791,12 +791,18 @@ export default function EshopOrdersPage() {
                         {/* Řádky položek */}
                         {order.items.map((item, i) => {
                           const productName = item.productName || item.product?.name || 'Produkt'
-                          const qty = Number(item.quantity)
-                          const unitPrice = Number(item.price)
-                          const vatRate = Number(item.vatRate)
-                          const vatPerUnit = Number(item.vatAmount)
+                          const qty          = Number(item.quantity)
+                          const unitPrice    = Number(item.price)
+                          const vatRate      = Number(item.vatRate)
+                          const vatPerUnit   = Number(item.vatAmount)
                           const priceWithVat = Number(item.priceWithVat)
-                          const rowTotal = priceWithVat * qty
+                          // Ochrana před starými daty: rowTotal nemůže přesáhnout totalAmount objednávky
+                          // (stará data měla priceWithVat = cena balení, nikoli cena/ks → násobení bylo chybné)
+                          const rawRowTotal  = priceWithVat * qty
+                          const orderTotal   = Number(order.totalAmount)
+                          const rowTotal     = rawRowTotal > orderTotal * 1.05
+                            ? priceWithVat   // starý záznam: priceWithVat je už celková cena řádku
+                            : rawRowTotal
 
                           return (
                             <div
