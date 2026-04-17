@@ -1118,7 +1118,7 @@ export default function TransactionsPage() {
                           <p className="text-red-600 mt-6 mb-6">Faktura nemá žádné položky!</p>
                         ) : (
                           <div className="mt-6 mb-6 border border-gray-200 rounded-lg overflow-hidden">
-                            <h4 className="font-bold text-base text-gray-900 px-4 py-3 bg-gray-100 border-b border-gray-200">Položky ({transaction.items.filter((item: any) => item.productId !== null).length})</h4>
+                            <h4 className="font-bold text-base text-gray-900 px-4 py-3 bg-gray-100 border-b border-gray-200">Položky ({transaction.items.filter((item: any) => item.productId !== null || item.productName === 'Doprava').length})</h4>
                             <div className="text-sm">
                               {/* Hlavička - různá pro plátce a neplátce DPH */}
                               {isVatPayer ? (
@@ -1142,79 +1142,115 @@ export default function TransactionsPage() {
 
                               {/* Řádky položek */}
                               {transaction.items
-                                // ✅ VYFILTRUJ SLEVU: položky s productId=null jsou slevy (zobrazují se samostatně níže)
                                 .filter((item: any) => item.productId !== null)
                                 .map((item: any, i: number) => {
-                                // Najdi produkt v katalogu
-                                const catalogProduct = products.find(p => p.id === item.product?.id)
-                                const unitPrice = Number(item.price || catalogProduct?.price || 0)
-                                const itemVatRate = Number(item.vatRate || catalogProduct?.vatRate || DEFAULT_VAT_RATE)
-                                const isItemNonVat = isNonVatPayer(itemVatRate)
+                                  const catalogProduct = products.find(p => p.id === item.product?.id)
+                                  const qty         = Number(item.quantity)
+                                  const unitPrice   = Number(item.price ?? catalogProduct?.price ?? 0)
+                                  const itemVatRate = Number(item.vatRate ?? catalogProduct?.vatRate ?? DEFAULT_VAT_RATE)
+                                  const isItemNonVat = isNonVatPayer(itemVatRate)
 
-                                // Výpočty DPH
-                                const vatPerUnit = isItemNonVat ? 0 : unitPrice * itemVatRate / 100
-                                const priceWithVatPerUnit = unitPrice + vatPerUnit
-                                const totalWithoutVat = Number(item.quantity) * unitPrice
-                                const totalVat = Number(item.quantity) * vatPerUnit
-                                const totalWithVat = totalWithoutVat + totalVat
+                                  // Preferuj uložené hodnoty (stejný přístup jako eshop-orders)
+                                  const vatPerUnit     = item.vatAmount != null
+                                    ? Number(item.vatAmount)
+                                    : (isItemNonVat ? 0 : unitPrice * itemVatRate / 100)
+                                  const priceWithVatPU = item.priceWithVat != null
+                                    ? Number(item.priceWithVat)
+                                    : unitPrice + vatPerUnit
 
-                                return isVatPayer ? (
-                                  <div key={item.id} className={`grid grid-cols-[3fr_repeat(6,1fr)] gap-2 px-4 py-2 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'} text-xs`}>
-                                    <div className="font-medium text-gray-900">
-                                      {item.product?.name || item.productName}
-                                      {item.productName && <span className="text-xs ml-1 text-gray-500">(ruční)</span>}
+                                  // Backward-compat: staré záznamy mají priceWithVat = celková cena řádku
+                                  const rawRowTotal = priceWithVatPU * qty
+                                  const rowTotal = rawRowTotal > Number(transaction.totalAmount) * 1.05
+                                    ? priceWithVatPU
+                                    : rawRowTotal
+
+                                  return isVatPayer ? (
+                                    <div key={item.id} className={`grid grid-cols-[3fr_repeat(6,1fr)] gap-2 px-4 py-2 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'} text-xs`}>
+                                      <div className="font-medium text-gray-900">
+                                        {item.product?.name || item.productName}
+                                        {item.productName && !item.product?.name && <span className="text-xs ml-1 text-gray-400">(ruční)</span>}
+                                      </div>
+                                      <div className="text-center text-gray-600">{formatQuantity(qty, item.unit)}</div>
+                                      <div className="text-center text-gray-500">{isItemNonVat ? '-' : `${itemVatRate}%`}</div>
+                                      <div className="text-center text-gray-600">{formatPrice(unitPrice)}</div>
+                                      <div className="text-center text-gray-500">{isItemNonVat ? '-' : formatPrice(vatPerUnit)}</div>
+                                      <div className="text-center text-gray-700">{formatPrice(priceWithVatPU)}</div>
+                                      <div className="text-center font-semibold text-gray-900">{formatPrice(rowTotal)}</div>
                                     </div>
-                                    <div className="text-center text-gray-600">{formatQuantity(item.quantity, item.unit)}</div>
-                                    <div className="text-center text-gray-500">{isItemNonVat ? '-' : `${itemVatRate}%`}</div>
-                                    <div className="text-center text-gray-600">{formatPrice(unitPrice)}</div>
-                                    <div className="text-center text-gray-500">{isItemNonVat ? '-' : formatPrice(vatPerUnit)}</div>
-                                    <div className="text-center text-gray-700">{formatPrice(priceWithVatPerUnit)}</div>
-                                    <div className="text-center font-semibold text-gray-900">{formatPrice(totalWithVat)}</div>
-                                  </div>
-                                ) : (
-                                  <div key={item.id} className={`grid grid-cols-[2fr_1fr_1fr_1fr] gap-3 px-4 py-2 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                                    <div className="font-medium text-gray-900">
-                                      {item.product?.name || item.productName}
-                                      {item.productName && <span className="text-xs ml-1 text-gray-500">(ruční)</span>}
+                                  ) : (
+                                    <div key={item.id} className={`grid grid-cols-[2fr_1fr_1fr_1fr] gap-3 px-4 py-2 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                                      <div className="font-medium text-gray-900">
+                                        {item.product?.name || item.productName}
+                                        {item.productName && !item.product?.name && <span className="text-xs ml-1 text-gray-400">(ruční)</span>}
+                                      </div>
+                                      <div className="text-right text-gray-600">{formatQuantity(qty, item.unit)}</div>
+                                      <div className="text-right text-gray-600">{formatPrice(priceWithVatPU)}</div>
+                                      <div className="text-right font-semibold text-gray-900">{formatPrice(rowTotal)}</div>
                                     </div>
-                                    <div className="text-right text-gray-600">{formatQuantity(item.quantity, item.unit)}</div>
-                                    <div className="text-right text-gray-600">{formatPrice(unitPrice)}</div>
-                                    <div className="text-right font-semibold text-gray-900">{formatPrice(totalWithoutVat)}</div>
-                                  </div>
-                                )
+                                  )
                               })}
 
-                              {/* Mezisoučet a Sleva */}
+                              {/* Mezisoučet / Doprava / Sleva */}
                               {(() => {
-                                // Mezisoučet = suma katalogových položek (productId !== null)
-                                const catalogTotal = transaction.items
+                                const colGrid  = isVatPayer ? 'grid-cols-[3fr_repeat(6,1fr)]' : 'grid-cols-[2fr_1fr_1fr_1fr]'
+                                const labelSpan = isVatPayer ? 'col-span-6' : 'col-span-3'
+
+                                // Katalogové položky (productId !== null) — stejný rowTotal výpočet jako výše
+                                const catalogSubtotal = transaction.items
                                   .filter((item: any) => item.productId !== null)
                                   .reduce((sum: number, item: any) => {
-                                    return sum + (Number(item.priceWithVat || item.price || 0) * Number(item.quantity || 1))
+                                    const pwv = item.priceWithVat != null
+                                      ? Number(item.priceWithVat)
+                                      : (Number(item.price ?? 0) * (1 + Number(item.vatRate ?? DEFAULT_VAT_RATE) / 100))
+                                    const raw = pwv * Number(item.quantity)
+                                    return sum + (raw > Number(transaction.totalAmount) * 1.05 ? pwv : raw)
                                   }, 0)
 
-                                // Sleva = položky s productId = null
-                                const discountItem = transaction.items.find((item: any) => item.productId === null)
-                                const totalDiscount = discountItem
-                                  ? (Number(discountItem.priceWithVat) || Number(discountItem.price) || 0) * Number(discountItem.quantity || 1)
+                                // Rozlišení: doprava vs. sleva podle názvu
+                                const nullItems    = transaction.items.filter((item: any) => item.productId === null)
+                                const shippingItem = nullItems.find((item: any) =>
+                                  /(doprav|shipping)/i.test(item.productName || '')
+                                )
+                                const discountItem = nullItems.find((item: any) =>
+                                  !/(doprav|shipping)/i.test(item.productName || '')
+                                )
+
+                                const shippingTotal = shippingItem
+                                  ? Number(shippingItem.priceWithVat ?? shippingItem.price ?? 0) * Number(shippingItem.quantity ?? 1)
+                                  : 0
+                                const discountTotal = discountItem
+                                  ? Number(discountItem.priceWithVat ?? discountItem.price ?? 0) * Number(discountItem.quantity ?? 1)
                                   : 0
 
-                                // Zobraz mezisoučet a slevu pouze pokud existuje sleva
-                                if (totalDiscount === 0) return null
+                                if (shippingTotal === 0 && discountTotal === 0) return null
 
                                 return (
                                   <>
-                                    {/* Mezisoučet */}
-                                    <div className={`grid ${isVatPayer ? 'grid-cols-[3fr_repeat(6,1fr)]' : 'grid-cols-[2fr_1fr_1fr_1fr]'} gap-2 px-4 py-2 bg-gray-50 border-t text-sm`}>
-                                      <div className={isVatPayer ? 'col-span-6' : 'col-span-3'}>Mezisoučet</div>
-                                      <div className="text-center">{formatPrice(catalogTotal)}</div>
+                                    {/* Mezisoučet — vždy zobrazen pokud existuje extra řádek */}
+                                    <div className={`grid ${colGrid} gap-2 px-4 py-2 bg-gray-50 border-t text-sm`}>
+                                      <div className={`${labelSpan} text-gray-600`}>Mezisoučet</div>
+                                      <div className="text-center font-medium text-gray-800">{formatPrice(catalogSubtotal)}</div>
                                     </div>
 
+                                    {/* Doprava */}
+                                    {shippingTotal !== 0 && (
+                                      <div className={`grid ${colGrid} gap-2 px-4 py-2 bg-blue-50 border-t text-sm`}>
+                                        <div className={`${labelSpan} font-medium text-gray-900`}>
+                                          {shippingItem?.productName || 'Doprava'}
+                                        </div>
+                                        <div className="text-center text-blue-700 font-medium">{formatPrice(shippingTotal)}</div>
+                                      </div>
+                                    )}
+
                                     {/* Sleva */}
-                                    <div className={`grid ${isVatPayer ? 'grid-cols-[3fr_repeat(6,1fr)]' : 'grid-cols-[2fr_1fr_1fr_1fr]'} gap-2 px-4 py-2 bg-yellow-50 border-t text-sm`}>
-                                      <div className={isVatPayer ? 'col-span-6' : 'col-span-3'} style={{ fontWeight: 500, color: '#111827' }}>Sleva</div>
-                                      <div className="text-center text-red-600 font-medium">{formatPrice(totalDiscount)}</div>
-                                    </div>
+                                    {discountTotal !== 0 && (
+                                      <div className={`grid ${colGrid} gap-2 px-4 py-2 bg-yellow-50 border-t text-sm`}>
+                                        <div className={`${labelSpan} font-medium text-gray-900`}>
+                                          {discountItem?.productName || 'Sleva'}
+                                        </div>
+                                        <div className="text-center text-red-600 font-medium">{formatPrice(discountTotal)}</div>
+                                      </div>
+                                    )}
                                   </>
                                 )
                               })()}
