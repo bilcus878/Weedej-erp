@@ -137,7 +137,6 @@ export default function InventoryPage() {
       if (index !== -1) {
         const pageNumber = Math.floor(index / itemsPerPage) + 1
         setCurrentPage(pageNumber)
-        setExpandedProducts(new Set([highlightId]))
         setTimeout(() => {
           const element = document.getElementById(`product-${highlightId}`)
           if (element) {
