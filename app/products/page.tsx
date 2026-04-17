@@ -7,7 +7,7 @@ import { useEffect, useState, useMemo, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
-import { formatPrice, formatQuantity } from '@/lib/utils'
+import { formatPrice } from '@/lib/utils'
 import { VAT_RATE_LABELS, calculateVatFromNet, isNonVatPayer, CZECH_VAT_RATES } from '@/lib/vatCalculation'
 import { Plus, X, Edit2, Trash2, ChevronUp, ChevronDown, ChevronRight, FolderOpen, Package, Tag, ShoppingBag } from 'lucide-react'
 
@@ -130,12 +130,44 @@ export default function ProductsPage() {
     }
   }
 
-  // Otevřít formulář pro přidání
-  function handleAdd() {
-    setEditingProduct(null)
-    const defaultVatRate = isVatPayer ? '21' : '0'
-    setFormData({ name: '', price: '', purchasePrice: '', vatRate: defaultVatRate, unit: 'ks', categoryId: '' })
-    setShowForm(true)
+  // Vytvořit prázdný produkt přímo do seznamu
+  async function handleCreateEmpty() {
+    const defaultVatRate = isVatPayer ? 21 : 0
+    try {
+      const response = await fetch('/api/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'Nový produkt',
+          price: 0,
+          vatRate: defaultVatRate,
+          unit: 'ks',
+        }),
+      })
+      if (response.ok) {
+        const newProduct = await response.json()
+        await fetchData()
+        setExpandedProducts((prev) => new Set([...prev, newProduct.id]))
+        fetchEshopVariants(newProduct.id)
+        // Otevřít editaci nového produktu
+        setEditingProduct(newProduct)
+        setFormData({
+          name: newProduct.name,
+          price: String(newProduct.price),
+          purchasePrice: '',
+          vatRate: String(defaultVatRate),
+          unit: newProduct.unit,
+          categoryId: '',
+        })
+        setShowForm(true)
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+      } else {
+        alert('Chyba při vytváření produktu')
+      }
+    } catch (error) {
+      console.error('Chyba při vytváření produktu:', error)
+      alert('Chyba při vytváření produktu')
+    }
   }
 
   // Otevřít formulář pro úpravu
@@ -638,6 +670,13 @@ export default function ProductsPage() {
               </button>
             )}
             <button
+              onClick={handleCreateEmpty}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors bg-orange-500 text-white hover:bg-orange-600"
+            >
+              <Plus className="h-4 w-4" />
+              Nový produkt
+            </button>
+            <button
               onClick={() => setShowCategoryManager(!showCategoryManager)}
               className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors bg-purple-600 text-white hover:bg-purple-700"
             >
@@ -739,32 +778,27 @@ export default function ProductsPage() {
         </Card>
       )}
 
-      {/* Formulář pro přidání/úpravu produktu - collapsible card */}
+      {/* Formulář pro úpravu produktu - zobrazuje se pouze při editaci */}
+      {showForm && editingProduct && (
       <Card className="border-2 border-orange-300 bg-orange-50 shadow-lg">
-        <CardHeader
-          className="cursor-pointer hover:bg-orange-100 transition-colors"
-          onClick={() => {
-            if (!showForm) {
-              handleAdd()
-            } else if (!editingProduct) {
-              setShowForm(false)
-            }
-          }}
-        >
-          <div className="flex items-center gap-2">
-            {showForm ? (
-              <ChevronDown className="h-6 w-6 text-orange-600" />
-            ) : (
-              <ChevronRight className="h-6 w-6 text-orange-600" />
-            )}
-            <CardTitle className="text-orange-900 flex items-center gap-2">
-              <Plus className="w-5 h-5" />
-              {editingProduct ? 'Upravit produkt' : 'Nový produkt'}
-            </CardTitle>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-orange-900 flex items-center gap-2">
+                <Edit2 className="w-5 h-5" />
+                Upravit produkt
+              </CardTitle>
+            </div>
+            <button
+              onClick={handleCancel}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <X className="h-5 w-5" />
+            </button>
           </div>
         </CardHeader>
 
-        {showForm && (
+        {true && (
           <CardContent className="p-6 bg-white">
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Sekce: Základní údaje */}
@@ -930,13 +964,14 @@ export default function ProductsPage() {
                   Zrušit
                 </Button>
                 <Button type="submit">
-                  {editingProduct ? 'Uložit změny' : 'Přidat produkt'}
+                  Uložit změny
                 </Button>
               </div>
             </form>
           </CardContent>
         )}
       </Card>
+      )}
 
       {/* Seznam produktů */}
       <div ref={sectionRef} className="space-y-2">
@@ -1221,45 +1256,20 @@ export default function ProductsPage() {
                             <div className="border-l border-gray-200 mx-4"></div>
                             <div><span className="text-gray-600">Kategorie:</span> <span className="font-medium">{product.category?.name || 'Bez kategorie'}</span></div>
                           </div>
-
-                          {/* Prodejní cena a Nákupní cena */}
-                          <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-gray-50">
-                            <div><span className="text-gray-600">Prodejní cena (bez DPH):</span> <span className="font-medium">{formatPrice(product.price)}</span></div>
-                            <div className="border-l border-gray-200 mx-4"></div>
-                            <div><span className="text-gray-600">Nákupní cena:</span> <span className="font-medium">{product.purchasePrice ? formatPrice(product.purchasePrice) : '-'}</span></div>
-                          </div>
-
-                          {/* DPH a Cena s DPH */}
-                          {isVatPayer && !isNonVatPayer(Number(product.vatRate)) && (
-                            <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-white">
-                              <div><span className="text-gray-600">Sazba DPH:</span> <span className="font-medium">{VAT_RATE_LABELS[Number(product.vatRate)] || `${Number(product.vatRate)}%`}</span></div>
-                              <div className="border-l border-gray-200 mx-4"></div>
-                              <div><span className="text-gray-600">Prodejní s DPH:</span> <span className="font-medium text-green-700">{formatPrice(calculateVatFromNet(Number(product.price), Number(product.vatRate)).priceWithVat)}</span></div>
-                            </div>
-                          )}
-
-                          {/* Jednotka a Sklad */}
+                          {/* Jednotka a DPH */}
                           <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-gray-50">
                             <div><span className="text-gray-600">Jednotka:</span> <span className="font-medium">{product.unit}</span></div>
                             <div className="border-l border-gray-200 mx-4"></div>
-                            <div><span className="text-gray-600">Sklad:</span> <span className="font-medium">{formatQuantity(product.stockQuantity, product.unit)}</span></div>
-                          </div>
-
-                          {/* Marže */}
-                          {product.purchasePrice && Number(product.purchasePrice) > 0 && (
-                            <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-white">
-                              <div>
-                                <span className="text-gray-600">Marže:</span>{' '}
-                                <span className="font-medium text-green-700">
-                                  {formatPrice(Number(product.price) - Number(product.purchasePrice))}
-                                  {' '}
-                                  ({((Number(product.price) - Number(product.purchasePrice)) / Number(product.purchasePrice) * 100).toFixed(1)}%)
-                                </span>
-                              </div>
-                              <div className="border-l border-gray-200 mx-4"></div>
-                              <div></div>
+                            <div>
+                              <span className="text-gray-600">Sazba DPH:</span>{' '}
+                              <span className="font-medium">
+                                {isVatPayer
+                                  ? (isNonVatPayer(Number(product.vatRate)) ? '—' : (VAT_RATE_LABELS[Number(product.vatRate)] || `${Number(product.vatRate)}%`))
+                                  : 'Neplátce DPH'
+                                }
+                              </span>
                             </div>
-                          )}
+                          </div>
                         </div>
                       </div>
 
@@ -1268,7 +1278,7 @@ export default function ProductsPage() {
                         <div className="flex items-center justify-between px-4 py-3 bg-emerald-50 border-b border-emerald-200">
                           <h4 className="font-semibold text-sm text-emerald-900 flex items-center gap-2">
                             <ShoppingBag className="h-4 w-4" />
-                            Varianty produktu (eshop)
+                            Varianty produktu
                           </h4>
                           <span className="text-xs text-emerald-700">
                             {(eshopVariants[product.id] || []).length} variant
@@ -1290,7 +1300,7 @@ export default function ProductsPage() {
                                   <th className="px-3 py-2 text-right font-medium">Množství</th>
                                   <th className="px-3 py-2 text-center font-medium">Výchozí</th>
                                   <th className="px-3 py-2 text-center font-medium">SumUp</th>
-                                  <th className="px-3 py-2 text-center font-medium">Aktivní</th>
+                                  <th className="px-3 py-2 text-center font-medium">Eshop</th>
                                   <th className="px-3 py-2 text-center font-medium">Akce</th>
                                 </tr>
                               </thead>
@@ -1418,7 +1428,7 @@ export default function ProductsPage() {
                                   onChange={(e) => setVariantForms((prev) => ({ ...prev, [product.id]: { ...(prev[product.id] || emptyVariantForm()), isActive: e.target.checked } }))}
                                   className="accent-emerald-600"
                                 />
-                                Aktivní
+                                Eshop
                               </label>
                             </div>
                             <div className="col-span-2 flex gap-1 pb-1">
