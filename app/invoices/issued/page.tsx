@@ -1146,6 +1146,10 @@ export default function TransactionsPage() {
                                 .map((item: any, i: number) => {
                                   const catalogProduct = products.find(p => p.id === item.product?.id)
                                   const qty         = Number(item.quantity)
+                                  // Pokud productName obsahuje " — " (eshop varianta), zobraz "2×3 g" místo "2 ks"
+                                  const storedName  = item.productName || ''
+                                  const variantPart = storedName.includes(' — ') ? storedName.split(' — ').slice(1).join(' — ') : null
+                                  const qtyDisplay  = variantPart ? `${qty}×${variantPart}` : formatQuantity(qty, item.unit)
                                   const unitPrice   = Number(item.price ?? catalogProduct?.price ?? 0)
                                   const itemVatRate = Number(item.vatRate ?? catalogProduct?.vatRate ?? DEFAULT_VAT_RATE)
                                   const isItemNonVat = isNonVatPayer(itemVatRate)
@@ -1170,7 +1174,7 @@ export default function TransactionsPage() {
                                         {item.product?.name || item.productName}
                                         {item.productName && !item.product?.name && <span className="text-xs ml-1 text-gray-400">(ruční)</span>}
                                       </div>
-                                      <div className="text-center text-gray-600">{formatQuantity(qty, item.unit)}</div>
+                                      <div className="text-center text-gray-600">{qtyDisplay}</div>
                                       <div className="text-center text-gray-500">{isItemNonVat ? '-' : `${itemVatRate}%`}</div>
                                       <div className="text-center text-gray-600">{formatPrice(unitPrice)}</div>
                                       <div className="text-center text-gray-500">{isItemNonVat ? '-' : formatPrice(vatPerUnit)}</div>
@@ -1183,7 +1187,7 @@ export default function TransactionsPage() {
                                         {item.product?.name || item.productName}
                                         {item.productName && !item.product?.name && <span className="text-xs ml-1 text-gray-400">(ruční)</span>}
                                       </div>
-                                      <div className="text-right text-gray-600">{formatQuantity(qty, item.unit)}</div>
+                                      <div className="text-right text-gray-600">{qtyDisplay}</div>
                                       <div className="text-right text-gray-600">{formatPrice(priceWithVatPU)}</div>
                                       <div className="text-right font-semibold text-gray-900">{formatPrice(rowTotal)}</div>
                                     </div>
