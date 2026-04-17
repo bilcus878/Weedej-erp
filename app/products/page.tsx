@@ -8,8 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import { formatPrice } from '@/lib/utils'
-import { VAT_RATE_LABELS, calculateVatFromNet, isNonVatPayer, CZECH_VAT_RATES } from '@/lib/vatCalculation'
-import { Plus, X, Edit2, Trash2, ChevronUp, ChevronDown, ChevronRight, FolderOpen, Package, Tag, ShoppingBag } from 'lucide-react'
+import { VAT_RATE_LABELS, isNonVatPayer, CZECH_VAT_RATES } from '@/lib/vatCalculation'
+import { Plus, X, Edit2, Trash2, ChevronUp, ChevronDown, ChevronRight, Package, Tag, ShoppingBag } from 'lucide-react'
 
 interface Product {
   id: string
@@ -65,6 +65,9 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
+  const [inlineEditForms, setInlineEditForms] = useState<Record<string, {
+    name: string; price: string; purchasePrice: string; vatRate: string; unit: string; categoryId: string
+  }>>({})
   const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set())
   const [sortField, setSortField] = useState<SortField>('name')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
@@ -130,37 +133,31 @@ export default function ProductsPage() {
     }
   }
 
-  // Vytvořit prázdný produkt přímo do seznamu
+  // Vytvořit prázdný produkt a rovnou otevřít inline editaci
   async function handleCreateEmpty() {
     const defaultVatRate = isVatPayer ? 21 : 0
     try {
       const response = await fetch('/api/products', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: 'Nový produkt',
-          price: 0,
-          vatRate: defaultVatRate,
-          unit: 'ks',
-        }),
+        body: JSON.stringify({ name: 'Nový produkt', price: 0, vatRate: defaultVatRate, unit: 'ks' }),
       })
       if (response.ok) {
         const newProduct = await response.json()
         await fetchData()
         setExpandedProducts((prev) => new Set([...prev, newProduct.id]))
         fetchEshopVariants(newProduct.id)
-        // Otevřít editaci nového produktu
-        setEditingProduct(newProduct)
-        setFormData({
-          name: newProduct.name,
-          price: String(newProduct.price),
-          purchasePrice: '',
-          vatRate: String(defaultVatRate),
-          unit: newProduct.unit,
-          categoryId: '',
-        })
-        setShowForm(true)
-        window.scrollTo({ top: 0, behavior: 'smooth' })
+        setInlineEditForms((prev) => ({
+          ...prev,
+          [newProduct.id]: {
+            name: 'Nový produkt',
+            price: '0',
+            purchasePrice: '',
+            vatRate: String(defaultVatRate),
+            unit: 'ks',
+            categoryId: '',
+          },
+        }))
       } else {
         alert('Chyba při vytváření produktu')
       }
@@ -170,28 +167,66 @@ export default function ProductsPage() {
     }
   }
 
-  // Otevřít formulář pro úpravu
-  function handleEdit(product: Product) {
-    setEditingProduct(product)
-    const productVatRate = isVatPayer ? (product.vatRate?.toString() || '21') : '0'
-    setFormData({
-      name: product.name,
-      price: product.price.toString(),
-      purchasePrice: product.purchasePrice ? product.purchasePrice.toString() : '',
-      vatRate: productVatRate,
-      unit: product.unit,
-      categoryId: product.categoryId || '',
-    })
-    setShowForm(true)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+  // Otevřít inline editaci existujícího produktu
+  function handleInlineEdit(product: Product) {
+    setExpandedProducts((prev) => new Set([...prev, product.id]))
+    if (!eshopVariants[product.id]) fetchEshopVariants(product.id)
+    setInlineEditForms((prev) => ({
+      ...prev,
+      [product.id]: {
+        name: product.name,
+        price: product.price.toString(),
+        purchasePrice: product.purchasePrice ? product.purchasePrice.toString() : '',
+        vatRate: isVatPayer ? (product.vatRate?.toString() || '21') : '0',
+        unit: product.unit,
+        categoryId: product.categoryId || '',
+      },
+    }))
   }
 
-  // Zrušit formulář
+  // Zrušit inline editaci
+  function handleInlineCancel(productId: string) {
+    setInlineEditForms((prev) => {
+      const next = { ...prev }
+      delete next[productId]
+      return next
+    })
+  }
+
+  // Uložit inline editaci
+  async function handleInlineSave(productId: string) {
+    const form = inlineEditForms[productId]
+    if (!form) return
+    if (!form.name.trim()) { alert('Vyplň název produktu'); return }
+    const finalVatRate = isVatPayer ? parseFloat(form.vatRate) : 0
+    try {
+      const res = await fetch(`/api/products/${productId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: form.name,
+          price: parseFloat(form.price) || 0,
+          purchasePrice: form.purchasePrice ? parseFloat(form.purchasePrice) : null,
+          vatRate: finalVatRate,
+          unit: form.unit,
+          categoryId: form.categoryId || null,
+        }),
+      })
+      if (res.ok) {
+        await fetchData()
+        handleInlineCancel(productId)
+      } else {
+        alert('Chyba při ukládání produktu')
+      }
+    } catch {
+      alert('Chyba při ukládání produktu')
+    }
+  }
+
+  // Zrušit formulář (pro případné zbytky staré logiky)
   function handleCancel() {
     setShowForm(false)
     setEditingProduct(null)
-    const defaultVatRate = isVatPayer ? '21' : '0'
-    setFormData({ name: '', price: '', purchasePrice: '', vatRate: defaultVatRate, unit: 'ks', categoryId: '' })
   }
 
   // Odeslat formulář (přidat nebo upravit)
@@ -778,200 +813,6 @@ export default function ProductsPage() {
         </Card>
       )}
 
-      {/* Formulář pro úpravu produktu - zobrazuje se pouze při editaci */}
-      {showForm && editingProduct && (
-      <Card className="border-2 border-orange-300 bg-orange-50 shadow-lg">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <CardTitle className="text-orange-900 flex items-center gap-2">
-                <Edit2 className="w-5 h-5" />
-                Upravit produkt
-              </CardTitle>
-            </div>
-            <button
-              onClick={handleCancel}
-              className="text-gray-400 hover:text-gray-600"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-        </CardHeader>
-
-        {true && (
-          <CardContent className="p-6 bg-white">
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Sekce: Základní údaje */}
-              <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-5 border-l-4 border-orange-500 shadow-sm">
-                <h3 className="text-lg font-semibold mb-4 text-gray-800 flex items-center gap-2">
-                  <Package className="w-5 h-5 text-orange-600" />
-                  Základní údaje
-                  <span className="text-red-500 text-sm">*</span>
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Název produktu *
-                    </label>
-                    <Input
-                      value={formData.name}
-                      onChange={(e) =>
-                        setFormData({ ...formData, name: e.target.value })
-                      }
-                      placeholder="např. White Truffle (X2)"
-                      className="bg-white border-orange-200 focus:border-orange-400 focus:ring-orange-400"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Kategorie
-                    </label>
-                    <select
-                      value={formData.categoryId}
-                      onChange={(e) =>
-                        setFormData({ ...formData, categoryId: e.target.value })
-                      }
-                      className="w-full h-10 rounded-md border border-orange-200 bg-white px-3 focus:ring-2 focus:ring-orange-400 focus:border-transparent"
-                    >
-                      <option value="">Bez kategorie</option>
-                      {categories.map((category) => (
-                        <option key={category.id} value={category.id}>
-                          {category.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Jednotka *
-                    </label>
-                    <select
-                      value={formData.unit}
-                      onChange={(e) =>
-                        setFormData({ ...formData, unit: e.target.value })
-                      }
-                      className="w-full h-10 rounded-md border border-orange-200 bg-white px-3 focus:ring-2 focus:ring-orange-400 focus:border-transparent"
-                    >
-                      <option value="ks">ks (kusy)</option>
-                      <option value="g">g (gramy)</option>
-                      <option value="ml">ml (mililitry)</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Sazba DPH *
-                    </label>
-                    {isVatPayer ? (
-                      <select
-                        value={formData.vatRate}
-                        onChange={(e) =>
-                          setFormData({ ...formData, vatRate: e.target.value })
-                        }
-                        className="w-full h-10 rounded-md border border-orange-200 bg-white px-3 focus:ring-2 focus:ring-orange-400 focus:border-transparent"
-                      >
-                        {CZECH_VAT_RATES.map((rate) => (
-                          <option key={rate} value={rate}>
-                            {VAT_RATE_LABELS[rate]}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <div className="w-full h-10 rounded-md border border-gray-200 bg-gray-100 px-3 flex items-center text-gray-600">
-                        Neplátce DPH
-                      </div>
-                    )}
-                    {!isVatPayer && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        Firma není plátce DPH - změnit lze v Nastavení
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Sekce: Ceny */}
-              <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-5 border-l-4 border-green-500 shadow-sm">
-                <h3 className="text-lg font-semibold mb-4 text-gray-800 flex items-center gap-2">
-                  <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Ceny
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Prodejní cena (Kč) *
-                    </label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={formData.price}
-                      onChange={(e) =>
-                        setFormData({ ...formData, price: e.target.value })
-                      }
-                      placeholder="např. 140"
-                      className="bg-white border-green-200 focus:border-green-400 focus:ring-green-400"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Nákupní cena (Kč)
-                    </label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={formData.purchasePrice}
-                      onChange={(e) =>
-                        setFormData({ ...formData, purchasePrice: e.target.value })
-                      }
-                      placeholder="např. 90"
-                      className="bg-white border-green-200 focus:border-green-400 focus:ring-green-400"
-                    />
-                  </div>
-                </div>
-
-                {/* Náhled cen - POUZE PRO PLÁTCE DPH */}
-                {formData.price && isVatPayer && (
-                  <div className="mt-4 bg-white rounded-lg p-3 text-sm text-gray-600 border border-green-200">
-                    <span className="font-medium">Náhled: </span>
-                    Prodejní cena bez DPH: {formatPrice(parseFloat(formData.price))}
-                    {' → '}
-                    s DPH ({VAT_RATE_LABELS[parseFloat(formData.vatRate)]}): {formatPrice(calculateVatFromNet(parseFloat(formData.price), parseFloat(formData.vatRate)).priceWithVat)}
-                    {formData.purchasePrice && (
-                      <>
-                        {' | '}
-                        Nákupní bez DPH: {formatPrice(parseFloat(formData.purchasePrice))}
-                        {' → '}
-                        s DPH: {formatPrice(calculateVatFromNet(parseFloat(formData.purchasePrice), parseFloat(formData.vatRate)).priceWithVat)}
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div className="flex gap-3 justify-end">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={handleCancel}
-                >
-                  Zrušit
-                </Button>
-                <Button type="submit">
-                  Uložit změny
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        )}
-      </Card>
-      )}
 
       {/* Seznam produktů */}
       <div ref={sectionRef} className="space-y-2">
@@ -981,7 +822,7 @@ export default function ProductsPage() {
             <p className="text-gray-500 mb-2">
               Žádné produkty v katalogu.
             </p>
-            <p className="text-sm text-gray-400">Klikni na oranžový panel nahoře pro přidání prvního produktu</p>
+            <p className="text-sm text-gray-400">Klikni na tlačítko "+ Nový produkt" nahoře pro přidání prvního produktu</p>
           </div>
         ) : (
           <>
@@ -1247,31 +1088,97 @@ export default function ProductsPage() {
                   {/* Rozbalený detail */}
                   {isExpanded && (
                     <div className="border-t p-4 bg-gray-50">
-                      <div className="mb-4 border border-gray-200 rounded-lg overflow-hidden">
-                        <h4 className="font-semibold px-4 py-3 bg-gray-100 border-b text-sm">Detail produktu</h4>
-                        <div className="text-sm">
-                          {/* Název a Kategorie */}
-                          <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-white">
-                            <div><span className="text-gray-600">Název:</span> <span className="font-medium">{product.name}</span></div>
-                            <div className="border-l border-gray-200 mx-4"></div>
-                            <div><span className="text-gray-600">Kategorie:</span> <span className="font-medium">{product.category?.name || 'Bez kategorie'}</span></div>
-                          </div>
-                          {/* Jednotka a DPH */}
-                          <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-gray-50">
-                            <div><span className="text-gray-600">Jednotka:</span> <span className="font-medium">{product.unit}</span></div>
-                            <div className="border-l border-gray-200 mx-4"></div>
+                      {inlineEditForms[product.id] ? (
+                        /* ── Inline editace ── */
+                        <div className="mb-4 border-2 border-blue-300 rounded-lg overflow-hidden bg-blue-50">
+                          <h4 className="font-semibold px-4 py-3 bg-blue-100 border-b border-blue-200 text-sm text-blue-900 flex items-center gap-2">
+                            <Edit2 className="h-4 w-4" />
+                            Upravit produkt
+                          </h4>
+                          <div className="p-4 grid grid-cols-2 gap-4 bg-white">
                             <div>
-                              <span className="text-gray-600">Sazba DPH:</span>{' '}
-                              <span className="font-medium">
-                                {isVatPayer
-                                  ? (isNonVatPayer(Number(product.vatRate)) ? '—' : (VAT_RATE_LABELS[Number(product.vatRate)] || `${Number(product.vatRate)}%`))
-                                  : 'Neplátce DPH'
-                                }
-                              </span>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">Název *</label>
+                              <input
+                                type="text"
+                                value={inlineEditForms[product.id].name}
+                                onChange={(e) => setInlineEditForms((prev) => ({ ...prev, [product.id]: { ...prev[product.id], name: e.target.value } }))}
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-full h-9 px-3 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
+                                autoFocus
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">Kategorie</label>
+                              <select
+                                value={inlineEditForms[product.id].categoryId}
+                                onChange={(e) => setInlineEditForms((prev) => ({ ...prev, [product.id]: { ...prev[product.id], categoryId: e.target.value } }))}
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-full h-9 px-3 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-400 bg-white"
+                              >
+                                <option value="">Bez kategorie</option>
+                                {categories.map((cat) => (
+                                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">Jednotka *</label>
+                              <select
+                                value={inlineEditForms[product.id].unit}
+                                onChange={(e) => setInlineEditForms((prev) => ({ ...prev, [product.id]: { ...prev[product.id], unit: e.target.value } }))}
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-full h-9 px-3 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-400 bg-white"
+                              >
+                                <option value="ks">ks (kusy)</option>
+                                <option value="g">g (gramy)</option>
+                                <option value="ml">ml (mililitry)</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">Sazba DPH</label>
+                              {isVatPayer ? (
+                                <select
+                                  value={inlineEditForms[product.id].vatRate}
+                                  onChange={(e) => setInlineEditForms((prev) => ({ ...prev, [product.id]: { ...prev[product.id], vatRate: e.target.value } }))}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="w-full h-9 px-3 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-400 bg-white"
+                                >
+                                  {CZECH_VAT_RATES.map((rate) => (
+                                    <option key={rate} value={rate}>{VAT_RATE_LABELS[rate]}</option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <div className="w-full h-9 px-3 text-sm border border-gray-200 bg-gray-100 rounded-md flex items-center text-gray-500">Neplátce DPH</div>
+                              )}
                             </div>
                           </div>
                         </div>
-                      </div>
+                      ) : (
+                        /* ── Read-only detail ── */
+                        <div className="mb-4 border border-gray-200 rounded-lg overflow-hidden">
+                          <h4 className="font-semibold px-4 py-3 bg-gray-100 border-b text-sm">Detail produktu</h4>
+                          <div className="text-sm">
+                            <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-white">
+                              <div><span className="text-gray-600">Název:</span> <span className="font-medium">{product.name}</span></div>
+                              <div className="border-l border-gray-200 mx-4"></div>
+                              <div><span className="text-gray-600">Kategorie:</span> <span className="font-medium">{product.category?.name || 'Bez kategorie'}</span></div>
+                            </div>
+                            <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-gray-50">
+                              <div><span className="text-gray-600">Jednotka:</span> <span className="font-medium">{product.unit}</span></div>
+                              <div className="border-l border-gray-200 mx-4"></div>
+                              <div>
+                                <span className="text-gray-600">Sazba DPH:</span>{' '}
+                                <span className="font-medium">
+                                  {isVatPayer
+                                    ? (isNonVatPayer(Number(product.vatRate)) ? '—' : (VAT_RATE_LABELS[Number(product.vatRate)] || `${Number(product.vatRate)}%`))
+                                    : 'Neplátce DPH'
+                                  }
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Varianty produktu eshop */}
                       <div className="mt-4 border border-emerald-200 rounded-lg overflow-hidden">
@@ -1454,28 +1361,47 @@ export default function ProductsPage() {
 
                       {/* Tlačítka akcí */}
                       <div className="flex justify-end gap-2">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleEdit(product)
-                          }}
-                          className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors"
-                          title="Upravit"
-                        >
-                          <Edit2 className="h-4 w-4" />
-                          Upravit
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleDelete(product)
-                          }}
-                          className="flex items-center gap-1 px-3 py-1.5 bg-red-600 text-white text-xs rounded hover:bg-red-700 transition-colors"
-                          title="Smazat"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          Smazat
-                        </button>
+                        {inlineEditForms[product.id] ? (
+                          <>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleInlineSave(product.id) }}
+                              className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition-colors"
+                            >
+                              ✓ Uložit
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleInlineCancel(product.id) }}
+                              className="flex items-center gap-1 px-3 py-1.5 bg-gray-200 text-gray-700 text-xs rounded hover:bg-gray-300 transition-colors"
+                            >
+                              <X className="h-4 w-4" />
+                              Zrušit
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleDelete(product) }}
+                              className="flex items-center gap-1 px-3 py-1.5 bg-red-600 text-white text-xs rounded hover:bg-red-700 transition-colors"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              Smazat
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleInlineEdit(product) }}
+                              className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors"
+                            >
+                              <Edit2 className="h-4 w-4" />
+                              Upravit
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleDelete(product) }}
+                              className="flex items-center gap-1 px-3 py-1.5 bg-red-600 text-white text-xs rounded hover:bg-red-700 transition-colors"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              Smazat
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
                   )}
