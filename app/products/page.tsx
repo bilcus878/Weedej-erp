@@ -74,6 +74,7 @@ export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
+  const [newlyCreatedId, setNewlyCreatedId] = useState<string | null>(null)
   const [inlineEditForms, setInlineEditForms] = useState<Record<string, {
     name: string; price: string; purchasePrice: string; vatRate: string; unit: string; categoryId: string
   }>>({})
@@ -142,6 +143,7 @@ export default function ProductsPage() {
         const newProduct = await response.json()
         await fetchData()
         setExpandedProducts((prev) => new Set([...prev, newProduct.id]))
+        setNewlyCreatedId(newProduct.id)
         fetchEshopVariants(newProduct.id)
         setInlineEditForms((prev) => ({
           ...prev,
@@ -187,6 +189,7 @@ export default function ProductsPage() {
       delete next[productId]
       return next
     })
+    if (newlyCreatedId === productId) setNewlyCreatedId(null)
   }
 
   // Uložit inline editaci
@@ -327,6 +330,10 @@ export default function ProductsPage() {
     }
 
     return [...filtered].sort((a, b) => {
+      // Nově vytvořený produkt vždy první
+      if (a.id === newlyCreatedId) return -1
+      if (b.id === newlyCreatedId) return 1
+
       let aVal: any
       let bVal: any
 
@@ -345,7 +352,7 @@ export default function ProductsPage() {
       if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1
       return 0
     })
-  }, [products, sortField, sortDirection, categoryFilter, filterName, filterUnit, filterVat])
+  }, [products, sortField, sortDirection, categoryFilter, filterName, filterUnit, filterVat, newlyCreatedId])
 
   // Reset stránky při změně filtrů
   useEffect(() => {
