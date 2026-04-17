@@ -13,28 +13,21 @@ export async function GET() {
   try {
     const products = await prisma.product.findMany({
       orderBy: {
-        name: 'asc', // Seřadit podle názvu A-Z
+        name: 'asc',
       },
       include: {
-        // Přidat kategorii
         category: {
-          select: {
-            id: true,
-            name: true,
-          },
+          select: { id: true, name: true },
         },
-        // Přidat i součet skladových zásob
+        eshopVariants: {
+          select: { id: true, price: true, isDefault: true, isActive: true, name: true, variantValue: true, variantUnit: true },
+          orderBy: { variantValue: 'asc' },
+        },
         inventoryItems: {
-          select: {
-            quantity: true,
-            unit: true,
-          },
+          select: { quantity: true, unit: true },
         },
-        // Přidat transakce pro odečtení prodaného množství
         transactionItems: {
-          select: {
-            quantity: true,
-          },
+          select: { quantity: true },
         },
       },
     })

@@ -11,6 +11,16 @@ import { formatPrice } from '@/lib/utils'
 import { VAT_RATE_LABELS, isNonVatPayer, CZECH_VAT_RATES } from '@/lib/vatCalculation'
 import { Plus, X, Edit2, Trash2, ChevronUp, ChevronDown, ChevronRight, Package, Tag, ShoppingBag } from 'lucide-react'
 
+interface ProductVariantSummary {
+  id: string
+  name: string
+  price: number | string
+  isDefault: boolean
+  isActive: boolean
+  variantValue?: number | null
+  variantUnit?: string | null
+}
+
 interface Product {
   id: string
   name: string
@@ -24,6 +34,7 @@ interface Product {
     name: string
   } | null
   stockQuantity: number
+  eshopVariants?: ProductVariantSummary[]
 }
 
 interface Category {
@@ -56,15 +67,13 @@ interface EshopVariantForm {
   isSumup: boolean
 }
 
-type SortField = 'name' | 'category' | 'price' | 'purchasePrice'
+type SortField = 'name' | 'category' | 'variants'
 type SortDirection = 'asc' | 'desc'
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [inlineEditForms, setInlineEditForms] = useState<Record<string, {
     name: string; price: string; purchasePrice: string; vatRate: string; unit: string; categoryId: string
   }>>({})
@@ -88,26 +97,13 @@ export default function ProductsPage() {
 
   // Filtry
   const [filterName, setFilterName] = useState('')
-  const [filterPriceMin, setFilterPriceMin] = useState('')
-  const [filterPriceMax, setFilterPriceMax] = useState('')
   const [filterVat, setFilterVat] = useState('')
-  const [filterPurchasePriceMin, setFilterPurchasePriceMin] = useState('')
-  const [filterPurchasePriceMax, setFilterPurchasePriceMax] = useState('')
   const [filterUnit, setFilterUnit] = useState('')
 
   // Paginace
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(20)
   const sectionRef = useRef<HTMLDivElement>(null)
-
-  const [formData, setFormData] = useState({
-    name: '',
-    price: '',
-    purchasePrice: '',
-    vatRate: '21',
-    unit: 'ks',
-    categoryId: '',
-  })
 
   useEffect(() => {
     fetchData()
@@ -223,74 +219,6 @@ export default function ProductsPage() {
     }
   }
 
-  // Zrušit formulář (pro případné zbytky staré logiky)
-  function handleCancel() {
-    setShowForm(false)
-    setEditingProduct(null)
-  }
-
-  // Odeslat formulář (přidat nebo upravit)
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-
-    if (!formData.name || !formData.price) {
-      alert('Vyplň název a cenu')
-      return
-    }
-
-    const finalVatRate = isVatPayer ? parseFloat(formData.vatRate) : 0
-
-    try {
-      if (editingProduct) {
-        const response = await fetch(`/api/products/${editingProduct.id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: formData.name,
-            price: parseFloat(formData.price),
-            purchasePrice: formData.purchasePrice ? parseFloat(formData.purchasePrice) : null,
-            vatRate: finalVatRate,
-            unit: formData.unit,
-            categoryId: formData.categoryId || null,
-          }),
-        })
-
-        if (response.ok) {
-          alert('Produkt upraven!')
-        } else {
-          alert('Chyba při úpravě produktu')
-          return
-        }
-      } else {
-        const response = await fetch('/api/products', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: formData.name,
-            price: parseFloat(formData.price),
-            purchasePrice: formData.purchasePrice ? parseFloat(formData.purchasePrice) : null,
-            vatRate: finalVatRate,
-            unit: formData.unit,
-            categoryId: formData.categoryId || null,
-          }),
-        })
-
-        if (response.ok) {
-          alert('Produkt přidán')
-        } else {
-          alert('Chyba při přidávání produktu')
-          return
-        }
-      }
-
-      await fetchData()
-      handleCancel()
-    } catch (error) {
-      console.error('Chyba při ukládání produktu:', error)
-      alert('Chyba při ukládání produktu')
-    }
-  }
-
   // Smazat jeden produkt
   async function handleDelete(product: Product) {
     if (!confirm(`Opravdu chceš smazat produkt "${product.name}"?`)) {
@@ -385,73 +313,44 @@ export default function ProductsPage() {
   const filteredAndSortedProducts = useMemo(() => {
     let filtered = products
 
-    // Filtr podle kategorie (dropdown)
     if (categoryFilter) {
       filtered = filtered.filter(p => p.categoryId === categoryFilter)
     }
-
-    // Textové filtry
     if (filterName) {
-      filtered = filtered.filter(p =>
-        p.name.toLowerCase().includes(filterName.toLowerCase())
-      )
+      filtered = filtered.filter(p => p.name.toLowerCase().includes(filterName.toLowerCase()))
     }
     if (filterUnit) {
-      filtered = filtered.filter(p =>
-        p.unit.toLowerCase().includes(filterUnit.toLowerCase())
-      )
+      filtered = filtered.filter(p => p.unit.toLowerCase().includes(filterUnit.toLowerCase()))
     }
-
-    // Cenové filtry - prodejní cena
-    if (filterPriceMin) {
-      const min = parseFloat(filterPriceMin)
-      if (!isNaN(min)) filtered = filtered.filter(p => Number(p.price) >= min)
-    }
-    if (filterPriceMax) {
-      const max = parseFloat(filterPriceMax)
-      if (!isNaN(max)) filtered = filtered.filter(p => Number(p.price) <= max)
-    }
-
-    // Filtr DPH
     if (filterVat) {
       filtered = filtered.filter(p => String(Number(p.vatRate)) === filterVat)
     }
 
-    // Cenové filtry - nákupní cena
-    if (filterPurchasePriceMin) {
-      const min = parseFloat(filterPurchasePriceMin)
-      if (!isNaN(min)) filtered = filtered.filter(p => Number(p.purchasePrice || 0) >= min)
-    }
-    if (filterPurchasePriceMax) {
-      const max = parseFloat(filterPurchasePriceMax)
-      if (!isNaN(max)) filtered = filtered.filter(p => Number(p.purchasePrice || 0) <= max)
-    }
-
-    // Pak seřaď
     return [...filtered].sort((a, b) => {
-      let aVal: any = a[sortField]
-      let bVal: any = b[sortField]
+      let aVal: any
+      let bVal: any
 
       if (sortField === 'category') {
         aVal = a.category?.name || ''
         bVal = b.category?.name || ''
-      }
-
-      if (sortField === 'purchasePrice') {
-        aVal = a.purchasePrice || 0
-        bVal = b.purchasePrice || 0
+      } else if (sortField === 'variants') {
+        aVal = a.eshopVariants?.length ?? 0
+        bVal = b.eshopVariants?.length ?? 0
+      } else {
+        aVal = a[sortField]
+        bVal = b[sortField]
       }
 
       if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1
       if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1
       return 0
     })
-  }, [products, sortField, sortDirection, categoryFilter, filterName, filterUnit, filterPriceMin, filterPriceMax, filterVat, filterPurchasePriceMin, filterPurchasePriceMax])
+  }, [products, sortField, sortDirection, categoryFilter, filterName, filterUnit, filterVat])
 
   // Reset stránky při změně filtrů
   useEffect(() => {
     setCurrentPage(1)
-  }, [filterName, filterUnit, categoryFilter, filterPriceMin, filterPriceMax, filterVat, filterPurchasePriceMin, filterPurchasePriceMax])
+  }, [filterName, filterUnit, categoryFilter, filterVat])
 
   // Paginované produkty
   const paginatedProducts = useMemo(() => {
@@ -826,30 +725,19 @@ export default function ProductsPage() {
           </div>
         ) : (
           <>
-            {/* Filtrační řádek */}
+            {/* Filtrační řádek — cols: reset | cb | název | kategorie | varianty | DPH? | jednotka */}
             <div className={`grid items-center gap-4 px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg ${
               isVatPayer
-                ? 'grid-cols-[32px_20px_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]'
-                : 'grid-cols-[32px_20px_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]'
+                ? 'grid-cols-[32px_20px_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]'
+                : 'grid-cols-[32px_20px_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]'
             }`}>
               <button
-                onClick={() => {
-                  setFilterName('')
-                  setCategoryFilter('')
-                  setFilterPriceMin('')
-                  setFilterPriceMax('')
-                  setFilterVat('')
-                  setFilterPurchasePriceMin('')
-                  setFilterPurchasePriceMax('')
-                  setFilterUnit('')
-                }}
+                onClick={() => { setFilterName(''); setCategoryFilter(''); setFilterVat(''); setFilterUnit('') }}
                 className="w-8 h-8 bg-gray-200 hover:bg-gray-300 text-gray-600 text-xs rounded transition-colors flex items-center justify-center"
                 title="Vymazat filtry"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
-
-              {/* Checkbox select all */}
               <div className="flex items-center justify-center">
                 <input
                   type="checkbox"
@@ -858,8 +746,6 @@ export default function ProductsPage() {
                   className="rounded"
                 />
               </div>
-
-              {/* Název - text */}
               <input
                 type="text"
                 value={filterName}
@@ -867,8 +753,6 @@ export default function ProductsPage() {
                 placeholder="Název..."
                 className="px-2 py-1.5 border border-gray-300 rounded text-xs text-center placeholder:text-center focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
               />
-
-              {/* Kategorie - dropdown */}
               <select
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}
@@ -879,26 +763,8 @@ export default function ProductsPage() {
                   <option key={cat.id} value={cat.id}>{cat.name}</option>
                 ))}
               </select>
-
-              {/* Prodejní cena - rozsah */}
-              <div className="flex gap-1">
-                <input
-                  type="number"
-                  value={filterPriceMin}
-                  onChange={(e) => setFilterPriceMin(e.target.value)}
-                  placeholder="Od"
-                  className="w-1/2 px-1 py-1.5 border border-gray-300 rounded text-xs text-center placeholder:text-center focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                />
-                <input
-                  type="number"
-                  value={filterPriceMax}
-                  onChange={(e) => setFilterPriceMax(e.target.value)}
-                  placeholder="Do"
-                  className="w-1/2 px-1 py-1.5 border border-gray-300 rounded text-xs text-center placeholder:text-center focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-
-              {/* DPH - dropdown */}
+              {/* Varianty — prázdný filtr (řazení funguje přes hlavičku) */}
+              <div />
               {isVatPayer && (
                 <select
                   value={filterVat}
@@ -911,26 +777,6 @@ export default function ProductsPage() {
                   ))}
                 </select>
               )}
-
-              {/* Nákupní cena - rozsah */}
-              <div className="flex gap-1">
-                <input
-                  type="number"
-                  value={filterPurchasePriceMin}
-                  onChange={(e) => setFilterPurchasePriceMin(e.target.value)}
-                  placeholder="Od"
-                  className="w-1/2 px-1 py-1.5 border border-gray-300 rounded text-xs text-center placeholder:text-center focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                />
-                <input
-                  type="number"
-                  value={filterPurchasePriceMax}
-                  onChange={(e) => setFilterPurchasePriceMax(e.target.value)}
-                  placeholder="Do"
-                  className="w-1/2 px-1 py-1.5 border border-gray-300 rounded text-xs text-center placeholder:text-center focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-
-              {/* Jednotka - text */}
               <input
                 type="text"
                 value={filterUnit}
@@ -943,40 +789,21 @@ export default function ProductsPage() {
             {/* Hlavička tabulky */}
             <div className={`grid items-center gap-4 px-4 py-3 bg-gray-100 border rounded-lg text-xs font-semibold text-gray-700 ${
               isVatPayer
-                ? 'grid-cols-[32px_20px_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]'
-                : 'grid-cols-[32px_20px_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]'
+                ? 'grid-cols-[32px_20px_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]'
+                : 'grid-cols-[32px_20px_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]'
             }`}>
               <div></div>
               <div></div>
-              <div
-                className="text-center cursor-pointer hover:text-blue-600 transition-colors select-none"
-                onClick={() => handleSort('name')}
-              >
+              <div className="text-center cursor-pointer hover:text-blue-600 transition-colors select-none" onClick={() => handleSort('name')}>
                 Název <SortIcon field="name" />
               </div>
-              <div
-                className="text-center cursor-pointer hover:text-blue-600 transition-colors select-none"
-                onClick={() => handleSort('category')}
-              >
+              <div className="text-center cursor-pointer hover:text-blue-600 transition-colors select-none" onClick={() => handleSort('category')}>
                 Kategorie <SortIcon field="category" />
               </div>
-              <div
-                className="text-center cursor-pointer hover:text-blue-600 transition-colors select-none"
-                onClick={() => handleSort('price')}
-              >
-                Prodejní cena <SortIcon field="price" />
+              <div className="text-center cursor-pointer hover:text-blue-600 transition-colors select-none" onClick={() => handleSort('variants')}>
+                Varianty <SortIcon field="variants" />
               </div>
-              {isVatPayer && (
-                <div className="text-center">
-                  DPH
-                </div>
-              )}
-              <div
-                className="text-center cursor-pointer hover:text-blue-600 transition-colors select-none"
-                onClick={() => handleSort('purchasePrice')}
-              >
-                Nákupní cena <SortIcon field="purchasePrice" />
-              </div>
+              {isVatPayer && <div className="text-center">DPH</div>}
               <div className="text-center">Jednotka</div>
             </div>
 
@@ -994,46 +821,24 @@ export default function ProductsPage() {
                   {/* Hlavní řádek */}
                   <div className={`grid items-center gap-4 px-4 py-3 transition-colors hover:bg-gray-50 ${
                     isVatPayer
-                      ? 'grid-cols-[32px_20px_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]'
-                      : 'grid-cols-[32px_20px_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]'
+                      ? 'grid-cols-[32px_20px_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]'
+                      : 'grid-cols-[32px_20px_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]'
                   }`}>
-                    {/* Rozbalit/sbalit */}
-                    <button
-                      onClick={() => handleToggleExpand(product.id)}
-                      className="flex items-center justify-center"
-                    >
-                      {isExpanded ? (
-                        <ChevronDown className="h-5 w-5 text-gray-400" />
-                      ) : (
-                        <ChevronRight className="h-5 w-5 text-gray-400" />
-                      )}
+                    <button onClick={() => handleToggleExpand(product.id)} className="flex items-center justify-center">
+                      {isExpanded ? <ChevronDown className="h-5 w-5 text-gray-400" /> : <ChevronRight className="h-5 w-5 text-gray-400" />}
                     </button>
 
-                    {/* Checkbox */}
                     <div onClick={(e) => e.stopPropagation()}>
-                      <input
-                        type="checkbox"
-                        checked={selectedProducts.has(product.id)}
-                        onChange={() => toggleProductSelection(product.id)}
-                        className="rounded"
-                      />
+                      <input type="checkbox" checked={selectedProducts.has(product.id)} onChange={() => toggleProductSelection(product.id)} className="rounded" />
                     </div>
 
                     {/* Název */}
-                    <div
-                      className="cursor-pointer text-center overflow-hidden"
-                      onClick={() => handleToggleExpand(product.id)}
-                    >
-                      <p className="text-sm font-semibold text-gray-900 truncate">
-                        {product.name}
-                      </p>
+                    <div className="cursor-pointer text-center overflow-hidden" onClick={() => handleToggleExpand(product.id)}>
+                      <p className="text-sm font-semibold text-gray-900 truncate">{product.name}</p>
                     </div>
 
                     {/* Kategorie */}
-                    <div
-                      className="cursor-pointer text-center overflow-hidden"
-                      onClick={() => handleToggleExpand(product.id)}
-                    >
+                    <div className="cursor-pointer text-center overflow-hidden" onClick={() => handleToggleExpand(product.id)}>
                       {product.category?.name ? (
                         <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 truncate inline-block max-w-full">
                           {product.category.name}
@@ -1043,44 +848,38 @@ export default function ProductsPage() {
                       )}
                     </div>
 
-                    {/* Prodejní cena */}
-                    <div
-                      className="cursor-pointer text-center overflow-hidden"
-                      onClick={() => handleToggleExpand(product.id)}
-                    >
-                      <p className="text-sm font-medium text-gray-900 truncate">{formatPrice(product.price)}</p>
+                    {/* Varianty */}
+                    <div className="cursor-pointer text-center overflow-hidden" onClick={() => handleToggleExpand(product.id)}>
+                      {(() => {
+                        const variants = product.eshopVariants ?? []
+                        if (variants.length === 0) return <span className="text-xs text-gray-400">—</span>
+                        const prices = variants.map(v => Number(v.price))
+                        const min = Math.min(...prices)
+                        const max = Math.max(...prices)
+                        return (
+                          <div className="flex flex-col items-center gap-0.5">
+                            <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                              {variants.length} var.
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              {min === max ? formatPrice(min) : `${formatPrice(min)} – ${formatPrice(max)}`}
+                            </span>
+                          </div>
+                        )
+                      })()}
                     </div>
 
                     {/* DPH */}
                     {isVatPayer && (
-                      <div
-                        className="cursor-pointer text-center overflow-hidden"
-                        onClick={() => handleToggleExpand(product.id)}
-                      >
+                      <div className="cursor-pointer text-center overflow-hidden" onClick={() => handleToggleExpand(product.id)}>
                         <p className="text-xs text-gray-500 truncate">
-                          {isNonVatPayer(Number(product.vatRate))
-                            ? '-'
-                            : (VAT_RATE_LABELS[Number(product.vatRate)] || `${Number(product.vatRate)}%`)
-                          }
+                          {isNonVatPayer(Number(product.vatRate)) ? '-' : (VAT_RATE_LABELS[Number(product.vatRate)] || `${Number(product.vatRate)}%`)}
                         </p>
                       </div>
                     )}
 
-                    {/* Nákupní cena */}
-                    <div
-                      className="cursor-pointer text-center overflow-hidden"
-                      onClick={() => handleToggleExpand(product.id)}
-                    >
-                      <p className="text-sm text-gray-600 truncate">
-                        {product.purchasePrice ? formatPrice(product.purchasePrice) : '-'}
-                      </p>
-                    </div>
-
                     {/* Jednotka */}
-                    <div
-                      className="cursor-pointer text-center overflow-hidden"
-                      onClick={() => handleToggleExpand(product.id)}
-                    >
+                    <div className="cursor-pointer text-center overflow-hidden" onClick={() => handleToggleExpand(product.id)}>
                       <p className="text-xs text-gray-500 truncate">{product.unit}</p>
                     </div>
                   </div>
@@ -1253,107 +1052,134 @@ export default function ProductsPage() {
                           )}
                         </div>
 
-                        {/* Formulář přidat / upravit variantu */}
-                        <div className="border-t border-emerald-100 bg-emerald-50 px-4 py-3 space-y-2">
-                          <p className="text-xs font-semibold text-emerald-800">
-                            {editingVariant[product.id] ? `Upravit: ${editingVariant[product.id]!.name}` : 'Přidat variantu'}
-                          </p>
-                          <div className="grid grid-cols-12 gap-2 items-end">
-                            <div className="col-span-3">
-                              <label className="block text-xs text-gray-600 mb-1">Název *</label>
-                              <input
-                                type="text"
-                                value={variantForms[product.id]?.name ?? ''}
-                                onChange={(e) => setVariantForms((prev) => ({ ...prev, [product.id]: { ...(prev[product.id] || emptyVariantForm()), name: e.target.value } }))}
-                                placeholder="např. 3,5g"
-                                className="w-full h-8 px-2 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-emerald-400 focus:border-emerald-400"
-                                onClick={(e) => e.stopPropagation()}
-                              />
-                            </div>
-                            <div className="col-span-2">
-                              <label className="block text-xs text-gray-600 mb-1">Cena (Kč) *</label>
-                              <input
-                                type="number"
-                                step="0.01"
-                                value={variantForms[product.id]?.price ?? ''}
-                                onChange={(e) => setVariantForms((prev) => ({ ...prev, [product.id]: { ...(prev[product.id] || emptyVariantForm()), price: e.target.value } }))}
-                                placeholder="0"
-                                className="w-full h-8 px-2 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-emerald-400 focus:border-emerald-400"
-                                onClick={(e) => e.stopPropagation()}
-                              />
-                            </div>
-                            <div className="col-span-2">
-                              <label className="block text-xs text-gray-600 mb-1">Množství</label>
-                              <input
-                                type="number"
-                                step="0.001"
-                                min="0"
-                                value={variantForms[product.id]?.variantValue ?? ''}
-                                onChange={(e) => setVariantForms((prev) => ({ ...prev, [product.id]: { ...(prev[product.id] || emptyVariantForm()), variantValue: e.target.value } }))}
-                                placeholder="100"
-                                className="w-full h-8 px-2 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-emerald-400 focus:border-emerald-400"
-                                onClick={(e) => e.stopPropagation()}
-                              />
-                            </div>
-                            <div className="col-span-1">
-                              <label className="block text-xs text-gray-600 mb-1">Jednotka</label>
-                              <select
-                                value={variantForms[product.id]?.variantUnit ?? ''}
-                                onChange={(e) => setVariantForms((prev) => ({ ...prev, [product.id]: { ...(prev[product.id] || emptyVariantForm()), variantUnit: e.target.value as 'g' | 'ml' | 'ks' | '' } }))}
-                                className="w-full h-8 px-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-emerald-400 focus:border-emerald-400 bg-white"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <option value="">—</option>
-                                <option value="g">g</option>
-                                <option value="ml">ml</option>
-                                <option value="ks">ks</option>
-                              </select>
-                            </div>
-                            <div className="col-span-3 flex items-center gap-3 pb-1 flex-wrap">
-                              <label className="flex items-center gap-1 text-xs cursor-pointer" onClick={(e) => e.stopPropagation()}>
-                                <input
-                                  type="checkbox"
-                                  checked={variantForms[product.id]?.isDefault ?? false}
-                                  onChange={(e) => setVariantForms((prev) => ({ ...prev, [product.id]: { ...(prev[product.id] || emptyVariantForm()), isDefault: e.target.checked } }))}
-                                  className="accent-emerald-600"
-                                />
-                                Výchozí
-                              </label>
-                              <label className="flex items-center gap-1 text-xs cursor-pointer" title="Napojena na SumUp sync — cena se synchronizuje s pokladnou" onClick={(e) => e.stopPropagation()}>
-                                <input
-                                  type="checkbox"
-                                  checked={variantForms[product.id]?.isSumup ?? false}
-                                  onChange={(e) => setVariantForms((prev) => ({ ...prev, [product.id]: { ...(prev[product.id] || emptyVariantForm()), isSumup: e.target.checked } }))}
-                                  className="accent-orange-500"
-                                />
-                                <span className="text-orange-600">SumUp</span>
-                              </label>
-                              <label className="flex items-center gap-1 text-xs cursor-pointer" onClick={(e) => e.stopPropagation()}>
-                                <input
-                                  type="checkbox"
-                                  checked={variantForms[product.id]?.isActive ?? true}
-                                  onChange={(e) => setVariantForms((prev) => ({ ...prev, [product.id]: { ...(prev[product.id] || emptyVariantForm()), isActive: e.target.checked } }))}
-                                  className="accent-emerald-600"
-                                />
-                                Eshop
-                              </label>
-                            </div>
-                            <div className="col-span-2 flex gap-1 pb-1">
-                              <button
-                                onClick={(e) => { e.stopPropagation(); handleVariantSubmit(product.id) }}
-                                disabled={variantLoading[product.id]}
-                                className="flex-1 h-8 bg-emerald-600 text-white text-xs rounded hover:bg-emerald-700 disabled:opacity-50 transition-colors"
-                              >
-                                {variantLoading[product.id] ? '...' : editingVariant[product.id] ? 'Uložit' : 'Přidat'}
-                              </button>
-                              {editingVariant[product.id] && (
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); handleCancelVariantEdit(product.id) }}
-                                  className="h-8 px-2 bg-gray-200 text-gray-700 text-xs rounded hover:bg-gray-300 transition-colors"
-                                >
-                                  Zrušit
-                                </button>
+                        {/* Formulář přidat / upravit variantu — moderní design */}
+                        <div className="border-t border-emerald-100" onClick={(e) => e.stopPropagation()}>
+                          <div className="px-4 pt-3 pb-1 flex items-center justify-between">
+                            <span className="text-xs font-semibold text-emerald-800 flex items-center gap-1.5">
+                              {editingVariant[product.id] ? (
+                                <><Edit2 className="h-3 w-3" /> Upravit variantu</>
+                              ) : (
+                                <><Plus className="h-3 w-3" /> Nová varianta</>
                               )}
+                            </span>
+                          </div>
+
+                          <div className="px-4 pb-4 space-y-3">
+                            {/* Řádek 1: vstupní pole */}
+                            <div className="grid grid-cols-[2fr_1.5fr_1fr_80px] gap-3">
+                              <div>
+                                <label className="block text-xs text-gray-500 mb-1">Název *</label>
+                                <input
+                                  type="text"
+                                  value={variantForms[product.id]?.name ?? ''}
+                                  onChange={(e) => setVariantForms((prev) => ({ ...prev, [product.id]: { ...(prev[product.id] || emptyVariantForm()), name: e.target.value } }))}
+                                  placeholder="např. 3,5g"
+                                  className="w-full h-9 px-3 text-sm border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 outline-none transition"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs text-gray-500 mb-1">Cena (Kč) *</label>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={variantForms[product.id]?.price ?? ''}
+                                  onChange={(e) => setVariantForms((prev) => ({ ...prev, [product.id]: { ...(prev[product.id] || emptyVariantForm()), price: e.target.value } }))}
+                                  placeholder="0"
+                                  className="w-full h-9 px-3 text-sm border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 outline-none transition"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs text-gray-500 mb-1">Množství</label>
+                                <input
+                                  type="number"
+                                  step="0.001"
+                                  min="0"
+                                  value={variantForms[product.id]?.variantValue ?? ''}
+                                  onChange={(e) => setVariantForms((prev) => ({ ...prev, [product.id]: { ...(prev[product.id] || emptyVariantForm()), variantValue: e.target.value } }))}
+                                  placeholder="3.5"
+                                  className="w-full h-9 px-3 text-sm border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 outline-none transition"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs text-gray-500 mb-1">Jednotka</label>
+                                <select
+                                  value={variantForms[product.id]?.variantUnit ?? ''}
+                                  onChange={(e) => setVariantForms((prev) => ({ ...prev, [product.id]: { ...(prev[product.id] || emptyVariantForm()), variantUnit: e.target.value as 'g' | 'ml' | 'ks' | '' } }))}
+                                  className="w-full h-9 px-2 text-sm border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 outline-none transition"
+                                >
+                                  <option value="">—</option>
+                                  <option value="g">g</option>
+                                  <option value="ml">ml</option>
+                                  <option value="ks">ks</option>
+                                </select>
+                              </div>
+                            </div>
+
+                            {/* Řádek 2: přepínače + tlačítka */}
+                            <div className="flex items-center justify-between">
+                              <div className="flex gap-2">
+                                {/* Výchozí */}
+                                <button
+                                  type="button"
+                                  onClick={() => setVariantForms((prev) => ({ ...prev, [product.id]: { ...(prev[product.id] || emptyVariantForm()), isDefault: !(prev[product.id]?.isDefault ?? false) } }))}
+                                  className={`px-3 py-1.5 text-xs rounded-full border font-medium transition-all ${
+                                    variantForms[product.id]?.isDefault
+                                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                                      : 'bg-white text-gray-500 border-gray-200 hover:border-emerald-300 hover:text-emerald-700'
+                                  }`}
+                                >
+                                  ★ Výchozí
+                                </button>
+                                {/* SumUp */}
+                                <button
+                                  type="button"
+                                  title="Cena se synchronizuje s pokladnou SumUp"
+                                  onClick={() => setVariantForms((prev) => ({ ...prev, [product.id]: { ...(prev[product.id] || emptyVariantForm()), isSumup: !(prev[product.id]?.isSumup ?? false) } }))}
+                                  className={`px-3 py-1.5 text-xs rounded-full border font-medium transition-all ${
+                                    variantForms[product.id]?.isSumup
+                                      ? 'bg-orange-500 text-white border-orange-500 shadow-sm'
+                                      : 'bg-white text-gray-500 border-gray-200 hover:border-orange-300 hover:text-orange-600'
+                                  }`}
+                                >
+                                  ⚡ SumUp
+                                </button>
+                                {/* Eshop */}
+                                <button
+                                  type="button"
+                                  onClick={() => setVariantForms((prev) => ({ ...prev, [product.id]: { ...(prev[product.id] || emptyVariantForm()), isActive: !(prev[product.id]?.isActive ?? true) } }))}
+                                  className={`px-3 py-1.5 text-xs rounded-full border font-medium transition-all ${
+                                    (variantForms[product.id]?.isActive ?? true)
+                                      ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                                      : 'bg-white text-gray-500 border-gray-200 hover:border-blue-300 hover:text-blue-600'
+                                  }`}
+                                >
+                                  🛒 Eshop
+                                </button>
+                              </div>
+
+                              <div className="flex gap-2">
+                                {editingVariant[product.id] && (
+                                  <button
+                                    onClick={() => handleCancelVariantEdit(product.id)}
+                                    className="h-9 px-4 text-sm bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+                                  >
+                                    Zrušit
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => handleVariantSubmit(product.id)}
+                                  disabled={variantLoading[product.id]}
+                                  className="h-9 px-5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors font-medium flex items-center gap-1.5"
+                                >
+                                  {variantLoading[product.id] ? (
+                                    <span className="animate-pulse">Ukládám…</span>
+                                  ) : editingVariant[product.id] ? (
+                                    'Uložit změny'
+                                  ) : (
+                                    <><Plus className="h-3.5 w-3.5" /> Přidat variantu</>
+                                  )}
+                                </button>
+                              </div>
                             </div>
                           </div>
                         </div>
