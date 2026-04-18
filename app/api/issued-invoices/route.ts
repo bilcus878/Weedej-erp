@@ -108,7 +108,24 @@ export async function GET() {
         deliveryNotes: (invoice.customerOrder?.deliveryNotes || (invoice.deliveryNote ? [invoice.deliveryNote] : [])).map(dn => ({
           ...dn,
           totalAmount: dn.items?.reduce((sum, item) => {
-            return sum + (Number(item.quantity) * Number(item.product?.price || 0))
+            const hasSaved = (item as any).price != null && (item as any).priceWithVat != null
+            const unitPrice = hasSaved ? Number((item as any).price) : Number((item as any).product?.price || 0)
+            const vatRate = hasSaved ? Number((item as any).vatRate ?? 21) : Number((item as any).product?.vatRate || 21)
+            const priceWithVat = hasSaved
+              ? Number((item as any).priceWithVat)
+              : (unitPrice * (1 + vatRate / 100))
+            let packs = Number(item.quantity)
+            const productName: string | null = (item as any).productName ?? null
+            const unit: string = (item as any).unit ?? 'ks'
+            if (productName?.includes(' — ') && unit !== 'ks') {
+              const variantLabel = productName.split(' — ').slice(-1)[0]
+              const match = variantLabel.match(/^([\d.]+)/)
+              if (match) {
+                const packSize = parseFloat(match[1])
+                if (packSize > 0) packs = Math.round((packs / packSize) * 1000) / 1000
+              }
+            }
+            return sum + (packs * priceWithVat)
           }, 0) || 0
         })),
         // Původní data pro debugging

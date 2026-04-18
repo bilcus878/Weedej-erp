@@ -35,11 +35,19 @@ interface DeliveryNote {
   id: string
   deliveryNumber: string
   deliveryDate: string
+  status?: string
   items?: {
     id: string
     quantity: number
+    unit: string
+    productName?: string | null
+    price?: number | null
+    priceWithVat?: number | null
+    vatAmount?: number | null
+    vatRate?: number | null
     product?: {
       price: number
+      vatRate?: number
     }
   }[]
   totalAmount?: number
@@ -1283,7 +1291,25 @@ export default function TransactionsPage() {
 
                               {/* Řádky výdejek */}
                               {(transaction as any).deliveryNotes.map((deliveryNote: any, idx: number) => {
-                                const deliveryTotal = deliveryNote.totalAmount || 0
+                                const deliveryTotal = (deliveryNote.items as DeliveryNote['items'] ?? []).reduce((sum, item) => {
+                                  const hasSaved = item.price != null && item.priceWithVat != null
+                                  const unitPrice = hasSaved ? Number(item.price) : Number(item.product?.price || 0)
+                                  const itemVatRate = hasSaved ? Number(item.vatRate ?? DEFAULT_VAT_RATE) : Number((item.product as any)?.vatRate || DEFAULT_VAT_RATE)
+                                  const isItemNonVat = isNonVatPayer(itemVatRate)
+                                  const vatPerUnit = hasSaved ? Number(item.vatAmount ?? 0) : (isItemNonVat ? 0 : unitPrice * itemVatRate / 100)
+                                  const priceWithVatPU = hasSaved ? Number(item.priceWithVat) : (unitPrice + vatPerUnit)
+                                  // Convert base-unit qty → pack count for variant items (e.g. 9 ml / 3 ml = 3 packs)
+                                  let packs = Number(item.quantity)
+                                  if (item.productName?.includes(' — ') && item.unit !== 'ks') {
+                                    const variantLabel = item.productName.split(' — ').slice(-1)[0]
+                                    const match = variantLabel.match(/^([\d.]+)/)
+                                    if (match) {
+                                      const packSize = parseFloat(match[1])
+                                      if (packSize > 0) packs = Math.round((packs / packSize) * 1000) / 1000
+                                    }
+                                  }
+                                  return sum + (packs * (isVatPayer ? priceWithVatPU : unitPrice))
+                                }, 0)
 
                                 return (
                                   <a
