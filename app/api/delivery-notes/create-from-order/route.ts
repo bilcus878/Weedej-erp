@@ -71,7 +71,8 @@ export async function POST(request: Request) {
       }
     }
 
-    // Sestav cenový index: productId → cena z faktury nebo objednávky
+    // Ceny se vyhledávají per-item (productId + productName) aby varianty sdílející productId
+    // dostaly správnou cenu ze své vlastní faktury / řádku objednávky.
     // Priorita: faktura (IssuedInvoiceItem) > objednávka (CustomerOrderItem) > produkt (Product.price)
     type PriceRecord = {
       price: number
@@ -80,49 +81,50 @@ export async function POST(request: Request) {
       vatRate: number
       source: 'invoice' | 'order_item' | 'product'
     }
-    const priceIndex = new Map<string, PriceRecord>()
 
-    // 1. Z faktury — absolutní priorita (§28 ZDPH — faktura je zdroj pravdy)
-    if (order.issuedInvoice) {
-      for (const inv of order.issuedInvoice.items) {
-        if (inv.productId) {
-          priceIndex.set(inv.productId, {
+    const nonNullOrder = order  // captured after null-check so TS knows it's non-null in closures
+
+    function resolveItemPrice(item: CreateDeliveryNoteItem): PriceRecord | undefined {
+      // 1. Z faktury — absolutní priorita (§28 ZDPH)
+      if (nonNullOrder.issuedInvoice) {
+        const inv = nonNullOrder.issuedInvoice.items.find(
+          i => i.productId === item.productId && i.productName === item.productName
+        ) ?? nonNullOrder.issuedInvoice.items.find(i => i.productId === item.productId)
+        if (inv) {
+          return {
             price:        Number(inv.price),
             priceWithVat: Number(inv.priceWithVat),
             vatAmount:    Number(inv.vatAmount),
             vatRate:      Number(inv.vatRate),
             source:       'invoice',
-          })
+          }
         }
       }
-    }
-
-    // 2. Z objednávky — pokud faktura pro daný produkt chybí
-    for (const oi of order.items) {
-      if (oi.productId && !priceIndex.has(oi.productId)) {
-        priceIndex.set(oi.productId, {
-          price:        Number(oi.price),
-          priceWithVat: Number(oi.priceWithVat),
-          vatAmount:    Number(oi.vatAmount),
-          vatRate:      Number(oi.vatRate),
-          source:       'order_item',
-        })
-      }
-    }
-
-    // 3. Z produktu — fallback (aktuální cena, pokud nic jiného není k dispozici)
-    for (const item of items) {
-      if (item.productId && !priceIndex.has(item.productId)) {
-        const orderItem = order.items.find(oi => oi.productId === item.productId)
-        const product   = orderItem?.product
+      // 2. Z objednávky — přesná shoda productId + productName, pak fallback na productId
+      const oi = nonNullOrder.items.find(
+        o => o.productId === item.productId && o.productName === item.productName
+      ) ?? nonNullOrder.items.find(o => o.productId === item.productId)
+      if (oi) {
+        // 3. Z produktu — pokud objednávka nemá cenu, zkus produkt
+        if (oi.price != null) {
+          return {
+            price:        Number(oi.price),
+            priceWithVat: Number(oi.priceWithVat),
+            vatAmount:    Number(oi.vatAmount),
+            vatRate:      Number(oi.vatRate),
+            source:       'order_item',
+          }
+        }
+        const product = oi.product
         if (product) {
-          const vatRate     = Number(product.vatRate ?? 21)
-          const price       = Number(product.price)
+          const vatRate      = Number(product.vatRate ?? 21)
+          const price        = Number(product.price)
           const priceWithVat = Math.round(price * (1 + vatRate / 100) * 100) / 100
           const vatAmount    = Math.round((priceWithVat - price) * 100) / 100
-          priceIndex.set(item.productId, { price, priceWithVat, vatAmount, vatRate, source: 'product' })
+          return { price, priceWithVat, vatAmount, vatRate, source: 'product' }
         }
       }
+      return undefined
     }
 
     // Zpracování v transakci
@@ -141,8 +143,10 @@ export async function POST(request: Request) {
           note:            null,
           items: {
             create: items.map(item => {
-              const orderItem = order.items.find(oi => oi.productId === item.productId)
-              const p = item.productId ? priceIndex.get(item.productId) : undefined
+              const orderItem = order.items.find(
+                oi => oi.productId === item.productId && oi.productName === item.productName
+              ) ?? order.items.find(oi => oi.productId === item.productId)
+              const p = item.productId ? resolveItemPrice(item) : undefined
 
               const bq = item.baseQuantity ?? item.quantity
               const bu = item.baseUnit    ?? item.unit
@@ -190,7 +194,9 @@ export async function POST(request: Request) {
 
       // Aktualizuj shippedQuantity + shippedBaseQty
       for (const deliveryItem of items) {
-        const orderItem = order.items.find(oi => oi.productId === deliveryItem.productId)
+        const orderItem = order.items.find(
+          oi => oi.productId === deliveryItem.productId && oi.productName === deliveryItem.productName
+        ) ?? order.items.find(oi => oi.productId === deliveryItem.productId)
         if (!orderItem) continue
 
         const isVariantItem = orderItem.unit === 'ks' && orderItem.variantValue != null && orderItem.variantUnit != null

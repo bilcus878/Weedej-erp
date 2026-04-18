@@ -452,9 +452,15 @@ export default function DeliveryNotesPage() {
     if (!processingNoteId || isProcessing) return
 
     setIsProcessing(true)
+
+    // Optimistic update: remove order from the list immediately so the user
+    // sees it gone without waiting for the network round-trip.
+    const isCustomerOrder = pendingOrders.some(o => o.id === processingNoteId)
+    const savedOrder = isCustomerOrder ? pendingOrders.find(o => o.id === processingNoteId) ?? null : null
+    if (savedOrder) setPendingOrders(prev => prev.filter(o => o.id !== processingNoteId))
+
     try {
       // Zjisti, jestli je to objednávka (z pendingOrders) nebo existující výdejka (z deliveryNotes)
-      const isCustomerOrder = pendingOrders.some(o => o.id === processingNoteId)
 
       if (isCustomerOrder) {
         // VYTVÁŘÍME NOVOU VÝDEJKU z objednávky
@@ -520,7 +526,8 @@ export default function DeliveryNotesPage() {
       setTimeout(() => setToast(null), 4000)
     } catch (error: any) {
       console.error('[Výdejky] Chyba při vyskladnění:', error)
-      // Never leave the modal open with broken state on error — roll back optimistic UI
+      // Roll back optimistic removal if the API failed
+      if (savedOrder) setPendingOrders(prev => [...prev, savedOrder])
       setToast({ type: 'error', message: error.message || 'Nepodařilo se zpracovat výdejku' })
       setTimeout(() => setToast(null), 6000)
     } finally {
@@ -923,7 +930,7 @@ export default function DeliveryNotesPage() {
                                 }`}
                               >
                                 <div className="text-[13px] text-gray-900">
-                                  {item.productName || item.product?.name || 'Neznámý produkt'}
+                                  {(item.productName || item.product?.name || 'Neznámý produkt').split(' — ')[0]}
                                 </div>
                                 <div className="text-[13px] text-gray-700 text-center">
                                   {formatVariantQty(ordered, item.productName, item.unit)}
@@ -958,7 +965,7 @@ export default function DeliveryNotesPage() {
                                 }`}
                               >
                                 <div className="text-[13px] text-gray-900">
-                                  {item.productName || item.product?.name || 'Neznámý produkt'}
+                                  {(item.productName || item.product?.name || 'Neznámý produkt').split(' — ')[0]}
                                 </div>
                                 <div className="text-[13px] text-gray-700 text-right">
                                   {formatVariantQty(ordered, item.productName, item.unit)}
@@ -1478,7 +1485,7 @@ export default function DeliveryNotesPage() {
                             return isVatPayer ? (
                               <div key={i} className={`grid grid-cols-[3fr_1fr_1fr_0.5fr_1fr_0.5fr_1fr_1fr] gap-2 px-4 py-2 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'} text-xs`}>
                                 <div className="font-medium text-gray-900 flex items-center">
-                                  {item.productName || item.product?.name || '(Neznámé)'}
+                                  {(item.productName || item.product?.name || '(Neznámé)').split(' — ')[0]}
                                   {sourceLabel}
                                 </div>
                                 <div className="text-center">
@@ -1516,7 +1523,7 @@ export default function DeliveryNotesPage() {
                             ) : (
                               <div key={i} className={`grid grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-4 px-4 py-3 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
                                 <div className="font-medium text-gray-900 flex items-center">
-                                  {item.productName || item.product?.name || '(Neznámé)'}
+                                  {(item.productName || item.product?.name || '(Neznámé)').split(' — ')[0]}
                                   {sourceLabel}
                                 </div>
                                 <div className="text-center">
