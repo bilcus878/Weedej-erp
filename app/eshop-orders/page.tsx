@@ -15,6 +15,7 @@ import {
   ChevronRight,
   Globe,
   FileText,
+  FileDown,
   Truck,
   CheckCircle,
   Clock,
@@ -600,11 +601,6 @@ export default function EshopOrdersPage() {
                       <p className={`text-sm font-bold text-gray-700 ${isCancelled ? 'line-through' : ''}`}>
                         {order.orderNumber}
                       </p>
-                      {order.issuedInvoice && (
-                        <p className="text-xs text-emerald-600 font-medium mt-0.5">
-                          {order.issuedInvoice.invoiceNumber}
-                        </p>
-                      )}
                     </div>
 
                     {/* Datum */}
@@ -656,7 +652,52 @@ export default function EshopOrdersPage() {
 
                   {/* ── Rozbalený detail ── */}
                   {isExpanded && (
-                    <div className="border-t p-5 bg-gray-50 space-y-5">
+                    <div className="border-t p-4 bg-gray-50">
+
+                      {/* Rozcestník — modré navigační lišta s odkazy na propojenou fakturu / výdejky */}
+                      {(order.issuedInvoice || (order.deliveryNotes ?? []).some(dn => dn.status === 'active')) && (
+                        <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded">
+                          <div className="text-sm text-center">
+                            <div className="flex items-center justify-center gap-4 flex-wrap">
+                              {order.issuedInvoice && (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-gray-600">Faktura:</span>
+                                  <Link
+                                    href={`/invoices/issued?highlight=${order.issuedInvoice.id}`}
+                                    className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
+                                    onClick={e => e.stopPropagation()}
+                                  >
+                                    {order.issuedInvoice.invoiceNumber}
+                                    <ExternalLink className="w-3 h-3 inline ml-1" />
+                                  </Link>
+                                  <span className={`text-xs px-1.5 py-0.5 rounded ${
+                                    order.issuedInvoice.paymentStatus === 'paid'
+                                      ? 'bg-green-100 text-green-700'
+                                      : 'bg-yellow-100 text-yellow-700'
+                                  }`}>
+                                    {order.issuedInvoice.paymentStatus === 'paid' ? 'Zaplaceno' : 'Nezaplaceno'}
+                                  </span>
+                                </div>
+                              )}
+                              {(order.deliveryNotes ?? []).filter(dn => dn.status === 'active').map(dn => (
+                                <div key={dn.id} className="flex items-center gap-2">
+                                  <span className="text-gray-600">Výdejka:</span>
+                                  <Link
+                                    href={`/delivery-notes?highlight=${dn.id}`}
+                                    className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
+                                    onClick={e => e.stopPropagation()}
+                                  >
+                                    {dn.deliveryNumber}
+                                    <ExternalLink className="w-3 h-3 inline ml-1" />
+                                  </Link>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="space-y-5">
 
                       {/* Horní info sekce: objednávka + zákazník ve 2 sloupcích */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -912,115 +953,78 @@ export default function EshopOrdersPage() {
                         )
                       })()}
 
-                      {/* ── Faktura a akce ── */}
-                      <div className="border border-gray-200 rounded-lg overflow-hidden">
-                        <h4 className="font-bold text-sm text-gray-900 px-4 py-2.5 bg-gray-100 border-b border-gray-200 flex items-center gap-2">
-                          <FileText className="w-4 h-4 text-rose-600" />
-                          Faktura &amp; Akce
-                        </h4>
-                        <div className="p-4">
-                          <div className="flex flex-wrap gap-3 items-center">
-
-                            {/* Faktura sekce */}
-                            {order.issuedInvoice ? (
-                              <div className="flex items-center gap-2 px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-lg">
-                                <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                                <span className="text-sm text-gray-600">Faktura:</span>
-                                <Link
-                                  href={`/invoices/issued?highlight=${order.issuedInvoice.id}`}
-                                  className="text-sm font-bold text-emerald-700 hover:text-emerald-800 hover:underline flex items-center gap-1"
-                                  onClick={e => e.stopPropagation()}
-                                >
-                                  {order.issuedInvoice.invoiceNumber}
-                                  <ExternalLink className="w-3 h-3" />
-                                </Link>
-                                <span className={`text-xs px-1.5 py-0.5 rounded ${
-                                  order.issuedInvoice.paymentStatus === 'paid'
-                                    ? 'bg-green-100 text-green-700'
-                                    : 'bg-yellow-100 text-yellow-700'
-                                }`}>
-                                  {order.issuedInvoice.paymentStatus === 'paid' ? 'Zaplaceno' : 'Nezaplaceno'}
-                                </span>
-                              </div>
-                            ) : (
-                              !isCancelled && (
-                                <div className="flex items-center gap-2 px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg">
-                                  <Clock className="w-4 h-4 text-orange-500 flex-shrink-0" />
-                                  <span className="text-sm text-orange-700">Faktura nebyla vystavena</span>
-                                </div>
-                              )
-                            )}
-
-                            {/* Akční tlačítka */}
-                            <div className="flex flex-wrap gap-2 ml-auto">
-
-                              {/* Vytvořit fakturu */}
-                              {!order.issuedInvoice && !isCancelled && (
-                                <button
-                                  onClick={e => { e.stopPropagation(); handleCreateInvoice(order.id) }}
-                                  disabled={processingInvoice === order.id}
-                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                  <FileText className="w-3.5 h-3.5" />
-                                  {processingInvoice === order.id ? 'Vytváří se...' : 'Vystavit fakturu'}
-                                </button>
-                              )}
-
-                              {/* PDF faktura */}
-                              <button
-                                onClick={e => { e.stopPropagation(); handlePrintInvoice(order) }}
-                                className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-medium rounded-lg transition-colors border border-gray-300"
-                              >
-                                <FileText className="w-3.5 h-3.5" />
-                                PDF
-                              </button>
-
-                              {/* Expedovat — probíhá přes Výdejky → Očekávané výdejky */}
-                              {(order.status === 'paid' || order.status === 'processing') && !order.deliveryNotes?.some(dn => dn.status === 'active') && (
-                                <Link
-                                  href="/delivery-notes"
-                                  className="flex items-center gap-2 px-3 py-2 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors"
-                                  onClick={e => e.stopPropagation()}
-                                >
-                                  <Package className="w-4 h-4 text-blue-500 flex-shrink-0" />
-                                  <span className="text-xs text-blue-700">Vyskladnit v Očekávaných výdejkách</span>
-                                  <ExternalLink className="w-3 h-3 text-blue-400" />
-                                </Link>
-                              )}
-
-                              {/* Označit jako doručeno */}
-                              {order.status === 'shipped' && (
-                                <button
-                                  onClick={e => { e.stopPropagation(); handleUpdateStatus(order.id, 'delivered') }}
-                                  disabled={processingStatus === order.id}
-                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                  <CheckCircle className="w-3.5 h-3.5" />
-                                  {processingStatus === order.id ? 'Zpracovává se...' : 'Doručeno'}
-                                </button>
-                              )}
-
-                              {/* Zrušit objednávku */}
-                              {['paid', 'shipped'].includes(order.status) && (
-                                <button
-                                  onClick={e => {
-                                    e.stopPropagation()
-                                    if (confirm(`Opravdu zrušit objednávku ${order.orderNumber}?`)) {
-                                      handleUpdateStatus(order.id, 'cancelled')
-                                    }
-                                  }}
-                                  disabled={processingStatus === order.id}
-                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-red-50 text-red-600 text-xs font-medium rounded-lg transition-colors border border-red-200 disabled:opacity-50"
-                                >
-                                  <XCircle className="w-3.5 h-3.5" />
-                                  Zrušit
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        </div>
                       </div>
 
+                      {/* ── Footer: PDF vlevo, akce vpravo ── */}
+                      <div className="flex items-center justify-between pt-2 mt-1 border-t border-gray-200">
+                        {/* PDF tlačítko */}
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={e => { e.stopPropagation(); handlePrintInvoice(order) }}
+                        >
+                          <FileDown className="w-4 h-4 mr-1" />
+                          Zobrazit PDF
+                        </Button>
+
+                        {/* Akční tlačítka */}
+                        <div className="flex flex-wrap gap-2 justify-end">
+
+                          {/* Vytvořit fakturu */}
+                          {!order.issuedInvoice && !isCancelled && (
+                            <button
+                              onClick={e => { e.stopPropagation(); handleCreateInvoice(order.id) }}
+                              disabled={processingInvoice === order.id}
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <FileText className="w-3.5 h-3.5" />
+                              {processingInvoice === order.id ? 'Vytváří se...' : 'Vystavit fakturu'}
+                            </button>
+                          )}
+
+                          {/* Expedovat */}
+                          {(order.status === 'paid' || order.status === 'processing') && !order.deliveryNotes?.some(dn => dn.status === 'active') && (
+                            <Link
+                              href="/delivery-notes"
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 text-xs font-medium rounded-lg transition-colors"
+                              onClick={e => e.stopPropagation()}
+                            >
+                              <Package className="w-3.5 h-3.5" />
+                              Vyskladnit
+                              <ExternalLink className="w-3 h-3" />
+                            </Link>
+                          )}
+
+                          {/* Označit jako doručeno */}
+                          {order.status === 'shipped' && (
+                            <button
+                              onClick={e => { e.stopPropagation(); handleUpdateStatus(order.id, 'delivered') }}
+                              disabled={processingStatus === order.id}
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <CheckCircle className="w-3.5 h-3.5" />
+                              {processingStatus === order.id ? 'Zpracovává se...' : 'Doručeno'}
+                            </button>
+                          )}
+
+                          {/* Zrušit objednávku */}
+                          {['paid', 'shipped'].includes(order.status) && (
+                            <button
+                              onClick={e => {
+                                e.stopPropagation()
+                                if (confirm(`Opravdu zrušit objednávku ${order.orderNumber}?`)) {
+                                  handleUpdateStatus(order.id, 'cancelled')
+                                }
+                              }}
+                              disabled={processingStatus === order.id}
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-red-50 text-red-600 text-xs font-medium rounded-lg transition-colors border border-red-200 disabled:opacity-50"
+                            >
+                              <XCircle className="w-3.5 h-3.5" />
+                              Zrušit
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
