@@ -117,6 +117,10 @@ export async function POST(
     }
 
     // ATOMICKÁ TRANSAKCE: Všechno naráz
+    // timeout: 30s — na Vercelu s remote DB je výchozích 5s nedostatečných pro
+    // sekvenční roundtripy (documentSeries upsert, receipt create, N×inventoryItem,
+    // N×purchaseOrderItem update, receivedInvoice upsert). Hodnota 30s dává dost
+    // prostoru i při cold startu, aniž by se měnila business logika.
     const result = await prisma.$transaction(async (tx) => {
       // 1. Vygeneruj číslo příjemky (ON-COMMIT) s datem příjmu
       const receiptNumber = await getNextDocumentNumber('receipt', tx, actualReceiptDate)
@@ -288,6 +292,9 @@ export async function POST(
       console.log(`   - Objednávka: ${order.orderNumber} → ${newStatus}`)
 
       return { receipt, newStatus }
+    }, {
+      maxWait: 10000,  // max čekání na volné DB spojení (ms)
+      timeout: 30000,  // max délka transakce (ms) — nahrazuje výchozích 5000
     })
 
     // Načti aktualizovanou objednávku pro frontend refresh
@@ -309,10 +316,16 @@ export async function POST(
       receipt: result.receipt,
       order: updatedOrder
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Chyba při přímém naskladnění:', error)
+    const prismaCode = error?.code ?? null
+    const detail = error?.message ?? String(error)
+    // P2028 = transaction timeout, P2002 = unique constraint, P2025 = record not found
+    const userMessage = prismaCode === 'P2028'
+      ? 'Naskladnění trvalo příliš dlouho — zkuste znovu'
+      : 'Nepodařilo se zpracovat příjem'
     return NextResponse.json(
-      { error: 'Nepodařilo se zpracovat příjem' },
+      { error: userMessage, code: prismaCode, details: detail },
       { status: 500 }
     )
   }
