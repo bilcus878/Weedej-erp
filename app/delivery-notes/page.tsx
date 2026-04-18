@@ -284,7 +284,8 @@ export default function DeliveryNotesPage() {
         const total = dn.items.reduce((sum, item) => {
           const hasSavedPrice = item.price != null && item.priceWithVat != null
           const p = hasSavedPrice ? Number(item.priceWithVat) : Number(item.product?.price || 0)
-          return sum + (Number(item.quantity) * p)
+          const packs = getDNItemPackCount(Number(item.quantity), item.productName, item.unit)
+          return sum + (packs * p)
         }, 0)
         return total >= minVal
       })
@@ -550,10 +551,11 @@ export default function DeliveryNotesPage() {
           const isItemNonVat = isNonVatPayer(itemVatRate)
           const vatPerUnit = hasSavedPrice ? Number(item.vatAmount ?? 0) : (isItemNonVat ? 0 : unitPrice * itemVatRate / 100)
           const priceWithVatPerUnit = hasSavedPrice ? Number(item.priceWithVat) : (unitPrice + vatPerUnit)
+          const packs = getDNItemPackCount(Number(item.quantity), item.productName, item.unit)
           return {
             productName: item.productName || item.product?.name || 'Neznámý produkt',
-            quantity: Number(item.quantity),
-            unit: item.unit,
+            quantity: packs,
+            unit: item.unit !== 'ks' && item.productName?.includes(' — ') ? 'ks' : item.unit,
             price: isVatPayer ? priceWithVatPerUnit : unitPrice,
           }
         }),
@@ -564,7 +566,8 @@ export default function DeliveryNotesPage() {
           const isItemNonVat = isNonVatPayer(itemVatRate)
           const vatPerUnit = hasSavedPrice ? Number(item.vatAmount ?? 0) : (isItemNonVat ? 0 : unitPrice * itemVatRate / 100)
           const priceWithVatPerUnit = hasSavedPrice ? Number(item.priceWithVat) : (unitPrice + vatPerUnit)
-          return sum + (Number(item.quantity) * (isVatPayer ? priceWithVatPerUnit : unitPrice))
+          const packs = getDNItemPackCount(Number(item.quantity), item.productName, item.unit)
+          return sum + (packs * (isVatPayer ? priceWithVatPerUnit : unitPrice))
         }, 0),
         note: note.note,
         status: note.status
@@ -621,10 +624,22 @@ export default function DeliveryNotesPage() {
 
   /**
    * Variant delivery note items are stored in base units (g/ml), not packs.
-   * e.g. "CBD Oil — 5g" shipped as 1 pack is stored as quantity=5, unit='g'.
-   * formatVariantQty(5, "CBD Oil — 5g", "g") would wrongly produce "5x 5g" (= 25 g).
-   * This helper detects that case and converts back to pack count first → "1x 5g".
+   * e.g. "CBD Oil — 3ml" shipped as 4 packs is stored as quantity=12, unit='ml'.
+   * This helper converts base-units → pack count so that prices and totals are correct.
+   * Returns the raw quantity unchanged for non-variant items (unit === 'ks').
    */
+  function getDNItemPackCount(quantity: number, productName: string | null | undefined, unit: string): number {
+    if (productName?.includes(' — ') && unit !== 'ks') {
+      const variantLabel = productName.split(' — ').slice(-1)[0]
+      const match = variantLabel.match(/^([\d.]+)/)
+      if (match) {
+        const packSize = parseFloat(match[1])
+        if (packSize > 0) return Math.round((quantity / packSize) * 1000) / 1000
+      }
+    }
+    return quantity
+  }
+
   function formatDNItemQty(quantity: number, productName: string | null | undefined, unit: string): string {
     if (productName?.includes(' — ') && unit !== 'ks') {
       const variantLabel = productName.split(' — ').slice(-1)[0]
@@ -1318,7 +1333,8 @@ export default function DeliveryNotesPage() {
                           const isItemNonVat = isNonVatPayer(itemVatRate)
                           const vatPerUnit = hasSavedPrice ? Number(item.vatAmount ?? 0) : (isItemNonVat ? 0 : unitPrice * itemVatRate / 100)
                           const priceWithVatPerUnit = hasSavedPrice ? Number(item.priceWithVat) : (unitPrice + vatPerUnit)
-                          return sum + (Number(item.quantity) * (isVatPayer ? priceWithVatPerUnit : unitPrice))
+                          const packs = getDNItemPackCount(Number(item.quantity), item.productName, item.unit)
+                          return sum + (packs * (isVatPayer ? priceWithVatPerUnit : unitPrice))
                         }, 0))
                       ) : '-'}
                     </p>
@@ -1448,8 +1464,10 @@ export default function DeliveryNotesPage() {
                             const isItemNonVat    = isNonVatPayer(itemVatRate)
                             const vatPerUnit      = hasSavedPrice ? Number(item.vatAmount ?? 0) : (isItemNonVat ? 0 : unitPrice * itemVatRate / 100)
                             const priceWithVatPerUnit = hasSavedPrice ? Number(item.priceWithVat) : (unitPrice + vatPerUnit)
-                            const totalWithoutVat = Number(item.quantity) * unitPrice
-                            const totalWithVat    = Number(item.quantity) * priceWithVatPerUnit
+                            // price is per pack; for variant items quantity is in base units → convert first
+                            const packCount       = getDNItemPackCount(Number(item.quantity), item.productName, item.unit)
+                            const totalWithoutVat = packCount * unitPrice
+                            const totalWithVat    = packCount * priceWithVatPerUnit
 
                             const sourceLabel = !hasSavedPrice
                               ? <span title="Cena z aktuálního katalogu — může se lišit od faktury" className="ml-1 text-amber-500 text-xs">⚠</span>
@@ -1538,7 +1556,8 @@ export default function DeliveryNotesPage() {
                                 const isNonVat    = isNonVatPayer(itemVatRate)
                                 const vatPer      = hasSaved ? Number(item.vatAmount ?? 0) : (isNonVat ? 0 : unitPrice * itemVatRate / 100)
                                 const withVat     = hasSaved ? Number(item.priceWithVat) : (unitPrice + vatPer)
-                                return sum + Number(item.quantity) * (isVatPayer ? withVat : unitPrice)
+                                const packs       = getDNItemPackCount(Number(item.quantity), item.productName, item.unit)
+                                return sum + packs * (isVatPayer ? withVat : unitPrice)
                               }, 0))}
                             </div>
                           </div>
