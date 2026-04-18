@@ -40,6 +40,8 @@ const ItemSchema = z.object({
   unit:         z.string().optional().default('ks'),  // ERP base unit (g, ml, ks…)
   unitPriceCzk: z.number().nonnegative(),   // CZK, excl. VAT
   vatRate:      z.number().nonnegative().default(21),
+  variantValue: z.number().positive().optional().nullable(),  // grams/ml per pack
+  variantUnit:  z.string().optional().nullable(),             // "g", "ml"
 })
 
 const OrderSchema = z.object({
@@ -223,6 +225,9 @@ export async function POST(request: NextRequest) {
                 vatAmount,
                 priceWithVat,
                 shippedQuantity: 0,
+                shippedBaseQty:  0,
+                variantValue:    item.variantValue  ?? null,
+                variantUnit:     item.variantUnit   ?? null,
               }
             }),
           },

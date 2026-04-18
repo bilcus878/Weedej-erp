@@ -13,6 +13,7 @@ import Input from '@/components/ui/Input'
 import { ChevronDown, ChevronRight, Trash2, Package, FileDown, XCircle } from 'lucide-react'
 import { formatDate, formatPrice, formatQuantity } from '@/lib/utils'
 import { formatVariantQty } from '@/lib/formatVariantQty'
+import { resolveItemQuantities } from '@/lib/variantConversion'
 import { generateDeliveryNotePDF, openPDFInNewTab } from '@/lib/pdfGenerator'
 import { isNonVatPayer, DEFAULT_VAT_RATE } from '@/lib/vatCalculation'
 
@@ -22,10 +23,17 @@ interface DeliveryNoteItem {
   id: string
   productId?: string
   productName?: string
-  quantity: number
+  quantity: number       // packs for non-variant; base-units (g/ml) for variant in modal
   orderedQuantity?: number
-  unit: string
+  unit: string           // 'ks' for non-variant; 'g'/'ml' for variant in modal
   inventoryItemId?: string
+  // Variant metadata (populated from order item)
+  variantValue?: number | null
+  variantUnit?:  string | null
+  isVariant?:    boolean
+  orderedBaseQty?:   number  // total base units ordered
+  shippedBaseQty?:   number  // already shipped in base units
+  remainingBaseQty?: number  // remaining to ship in base units
   // Ceny uložené při vytvoření výdejky (zdroj: faktura → objednávka → produkt)
   price?: number | null
   priceWithVat?: number | null
@@ -89,7 +97,10 @@ interface CustomerOrder {
     productId: string | null
     productName: string | null
     quantity: number
-    shippedQuantity?: number // Už vyskladněné množství
+    shippedQuantity?: number
+    shippedBaseQty?:  number
+    variantValue?:    number | null
+    variantUnit?:     string | null
     unit: string
     price: number
     vatRate?: number
@@ -360,35 +371,52 @@ export default function DeliveryNotesPage() {
 
 
   function handlePrepareShipment(orderId: string) {
-    // Najdi objednávku
     const order = pendingOrders.find(o => o.id === orderId)
     if (!order) return
 
     setProcessingNoteId(orderId)
 
-    // Převeď položky objednávky na formát DeliveryNoteItem a nastav zbývající množství jako default
-    const orderItemsAsDeliveryItems: DeliveryNoteItem[] = order.items.map(item => {
-      const remaining = Number(item.quantity) - Number(item.shippedQuantity || 0)
-
-      return {
-        id: item.id,
-        productId: item.productId || undefined,
-        productName: item.productName || undefined,
-        quantity: remaining, // Zbývající množství jako default
-        unit: item.unit,
-        product: item.product ? { ...item.product, price: Number((item.product as any).price || (item as any).price || 0) } : undefined
-      }
-    }).filter(item => item.quantity > 0) // Jen položky s nějakým zbytkem
+    const orderItemsAsDeliveryItems: DeliveryNoteItem[] = order.items
+      .filter(item => item.productId !== null)  // no shipping fee lines
+      .map(item => {
+        const resolved = resolveItemQuantities({
+          quantity:        Number(item.quantity),
+          unit:            item.unit,
+          shippedQuantity: Number(item.shippedQuantity ?? 0),
+          shippedBaseQty:  Number(item.shippedBaseQty  ?? 0),
+          variantValue:    item.variantValue != null ? Number(item.variantValue) : null,
+          variantUnit:     item.variantUnit  ?? null,
+        })
+        return {
+          id:               item.id,
+          productId:        item.productId || undefined,
+          productName:      item.productName || undefined,
+          quantity:         resolved.remainingBaseQty,
+          unit:             resolved.baseUnit,
+          variantValue:     item.variantValue != null ? Number(item.variantValue) : null,
+          variantUnit:      item.variantUnit ?? null,
+          isVariant:        resolved.isVariant,
+          orderedBaseQty:   resolved.orderedBaseQty,
+          shippedBaseQty:   resolved.shippedBaseQty,
+          remainingBaseQty: resolved.remainingBaseQty,
+          price:        item.price,
+          priceWithVat: item.priceWithVat,
+          vatAmount:    item.vatAmount,
+          vatRate:      item.vatRate,
+          product: item.product
+            ? { ...item.product, price: Number((item.product as any).price || item.price || 0) }
+            : undefined,
+        }
+      })
+      .filter(item => item.quantity > 0)
 
     setProcessingNoteItems(orderItemsAsDeliveryItems)
 
-    // Inicializuj shippedQuantities se zbývajícím množstvím
     const initialQuantities: Record<string, number> = {}
     orderItemsAsDeliveryItems.forEach(item => {
-      initialQuantities[item.id] = item.quantity
+      initialQuantities[item.id!] = item.quantity  // default = ship everything remaining
     })
     setShippedQuantities(initialQuantities)
-
     setShowProcessModal(true)
   }
 
@@ -421,12 +449,17 @@ export default function DeliveryNotesPage() {
 
       if (isCustomerOrder) {
         // VYTVÁŘÍME NOVOU VÝDEJKU z objednávky
-        const items = processingNoteItems.map(item => ({
-          productId: item.productId || null,
-          productName: item.productName || null,
-          quantity: shippedQuantities[item.id!] || 0,
-          unit: item.unit
-        }))
+        const items = processingNoteItems.map(item => {
+          const qty = shippedQuantities[item.id!] || 0
+          return {
+            productId:    item.productId || null,
+            productName:  item.productName || null,
+            quantity:     qty,
+            unit:         item.unit,                           // already base unit for variant items
+            baseQuantity: item.isVariant ? qty : undefined,   // explicit for API
+            baseUnit:     item.isVariant ? item.unit : undefined,
+          }
+        })
 
         const payload: any = {
           customerOrderId: processingNoteId,
@@ -1693,60 +1726,72 @@ export default function DeliveryNotesPage() {
                     <tbody>
                       {processingNoteItems.map((item, idx) => {
                         const shipped = shippedQuantities[item.id!] || 0
+                        const maxAllowed = item.quantity  // already remainingBaseQty for variant items
+                        const isVariant  = item.isVariant ?? false
+                        const inputStep  = isVariant ? '0.001' : '1'
+                        const inputWidth = isVariant ? 'w-20' : 'w-16'
+                        const isOverLimit = shipped > maxAllowed + 0.001
+
                         const hasSavedPrice = item.price != null && item.priceWithVat != null
-                        const unitPrice = hasSavedPrice ? Number(item.price) : Number(item.product?.price || 0)
-                        const itemVatRate = hasSavedPrice ? Number(item.vatRate ?? DEFAULT_VAT_RATE) : Number((item.product as any)?.vatRate || DEFAULT_VAT_RATE)
-                        const isItemNonVat = isNonVatPayer(itemVatRate)
-                        const vatPerUnit = hasSavedPrice ? Number(item.vatAmount ?? 0) : (isItemNonVat ? 0 : unitPrice * itemVatRate / 100)
-                        const priceWithVat = hasSavedPrice ? Number(item.priceWithVat) : (unitPrice + vatPerUnit)
-                        const total = shipped * (isVatPayer ? priceWithVat : unitPrice)
+                        const unitPrice     = hasSavedPrice ? Number(item.price) : Number(item.product?.price || 0)
+                        const itemVatRate   = hasSavedPrice ? Number(item.vatRate ?? DEFAULT_VAT_RATE) : Number((item.product as any)?.vatRate || DEFAULT_VAT_RATE)
+                        const isItemNonVat  = isNonVatPayer(itemVatRate)
+                        const vatPerUnit    = hasSavedPrice ? Number(item.vatAmount ?? 0) : (isItemNonVat ? 0 : unitPrice * itemVatRate / 100)
+                        const priceWithVat  = hasSavedPrice ? Number(item.priceWithVat) : (unitPrice + vatPerUnit)
+                        const total         = shipped * (isVatPayer ? priceWithVat : unitPrice)
+
+                        // "Objednáno" display: variant → "3 ks = 15 g", non-variant → "3 ks"
+                        const orderedDisplay = isVariant && item.orderedBaseQty != null
+                          ? `${item.orderedBaseQty} ${item.unit}${item.shippedBaseQty ? ` (zbývá ${item.quantity})` : ''}`
+                          : `${item.quantity} ${item.unit}`
+
+                        function handleQtyChange(raw: string) {
+                          if (raw === '') { setShippedQuantities({ ...shippedQuantities, [item.id!]: 0 }); return }
+                          const v = Math.round(Number(raw) * 1000) / 1000
+                          setShippedQuantities({ ...shippedQuantities, [item.id!]: v < 0 ? 0 : v })
+                        }
+
+                        const inputEl = (align: 'center' | 'right') => (
+                          <div className={`flex items-center justify-${align} gap-1.5`}>
+                            <input
+                              type="number"
+                              value={shipped || ''}
+                              onChange={e => handleQtyChange(e.target.value)}
+                              min="0"
+                              max={maxAllowed}
+                              step={inputStep}
+                              className={`${inputWidth} px-2 py-2 border-2 ${isOverLimit ? 'border-red-400 bg-red-50' : 'border-orange-300'} rounded-lg text-center font-medium focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all text-sm`}
+                            />
+                            <span className="text-gray-600 font-medium text-xs">{item.unit}</span>
+                            {isVariant && (
+                              <button
+                                type="button"
+                                title="Vyskladnit vše"
+                                onClick={() => setShippedQuantities({ ...shippedQuantities, [item.id!]: maxAllowed })}
+                                className="text-[10px] text-orange-500 hover:text-orange-700 underline leading-none"
+                              >
+                                vše
+                              </button>
+                            )}
+                          </div>
+                        )
 
                         return isVatPayer ? (
                           <tr key={item.id} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-purple-50/30'} hover:bg-purple-100/40 transition-colors`}>
                             <td className="px-4 py-3 font-medium text-gray-800">
                               {item.productName || item.product?.name || 'Neznámý produkt'}
+                              {isVariant && (
+                                <div className="text-[11px] text-orange-600 font-normal mt-0.5">
+                                  objednáno {item.orderedBaseQty} {item.unit} · zbývá {item.remainingBaseQty} {item.unit}
+                                </div>
+                              )}
                             </td>
-                            <td className="text-center px-4 py-3 text-gray-600 whitespace-nowrap">
-                              {Number(item.quantity)} {item.unit}
+                            <td className="text-center px-4 py-3 text-gray-600 whitespace-nowrap text-sm">
+                              {orderedDisplay}
                             </td>
                             <td className="text-center px-4 py-3 bg-orange-50">
-                              <div className="flex items-center justify-center gap-2">
-                                <input
-                                  type="number"
-                                  value={shipped || ''}
-                                  onChange={(e) => {
-                                    const inputValue = e.target.value
-                                    if (inputValue === '') {
-                                      setShippedQuantities({
-                                        ...shippedQuantities,
-                                        [item.id!]: 0
-                                      })
-                                      return
-                                    }
-
-                                    const numValue = Number(inputValue)
-                                    const maxAllowed = Number(item.quantity)
-
-                                    if (numValue > maxAllowed || numValue < 0) {
-                                      setShippedQuantities({
-                                        ...shippedQuantities,
-                                        [item.id!]: 0
-                                      })
-                                      return
-                                    }
-
-                                    setShippedQuantities({
-                                      ...shippedQuantities,
-                                      [item.id!]: numValue
-                                    })
-                                  }}
-                                  min="0"
-                                  max={Number(item.quantity)}
-                                  step="1"
-                                  className="w-16 px-2 py-2 border-2 border-orange-300 rounded-lg text-center font-medium focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all"
-                                />
-                                <span className="text-gray-600 font-medium text-xs">{item.unit}</span>
-                              </div>
+                              {inputEl('center')}
+                              {isOverLimit && <div className="text-[10px] text-red-600 mt-0.5 text-center">max {maxAllowed} {item.unit}</div>}
                             </td>
                             <td className="text-center px-4 py-3 text-gray-500 whitespace-nowrap">
                               {isItemNonVat ? '-' : `${itemVatRate}%`}
@@ -1768,48 +1813,18 @@ export default function DeliveryNotesPage() {
                           <tr key={item.id} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-purple-50/30'} hover:bg-purple-100/40 transition-colors`}>
                             <td className="px-4 py-3 font-medium text-gray-800">
                               {item.productName || item.product?.name || 'Neznámý produkt'}
+                              {isVariant && (
+                                <div className="text-[11px] text-orange-600 font-normal mt-0.5">
+                                  objednáno {item.orderedBaseQty} {item.unit} · zbývá {item.remainingBaseQty} {item.unit}
+                                </div>
+                              )}
                             </td>
-                            <td className="text-right px-4 py-3 text-gray-600 whitespace-nowrap">
-                              {Number(item.quantity)} {item.unit}
+                            <td className="text-right px-4 py-3 text-gray-600 whitespace-nowrap text-sm">
+                              {orderedDisplay}
                             </td>
                             <td className="text-right px-4 py-3 bg-orange-50">
-                              <div className="flex items-center justify-end gap-2">
-                                <input
-                                  type="number"
-                                  value={shipped || ''}
-                                  onChange={(e) => {
-                                    const inputValue = e.target.value
-                                    if (inputValue === '') {
-                                      setShippedQuantities({
-                                        ...shippedQuantities,
-                                        [item.id!]: 0
-                                      })
-                                      return
-                                    }
-
-                                    const numValue = Number(inputValue)
-                                    const maxAllowed = Number(item.quantity)
-
-                                    if (numValue > maxAllowed || numValue < 0) {
-                                      setShippedQuantities({
-                                        ...shippedQuantities,
-                                        [item.id!]: 0
-                                      })
-                                      return
-                                    }
-
-                                    setShippedQuantities({
-                                      ...shippedQuantities,
-                                      [item.id!]: numValue
-                                    })
-                                  }}
-                                  min="0"
-                                  max={Number(item.quantity)}
-                                  step="1"
-                                  className="w-20 min-w-[5rem] px-3 py-2 border-2 border-orange-300 rounded-lg text-right font-medium focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all"
-                                />
-                                <span className="text-gray-600 font-medium w-8 text-left">{item.unit}</span>
-                              </div>
+                              {inputEl('right')}
+                              {isOverLimit && <div className="text-[10px] text-red-600 mt-0.5 text-right">max {maxAllowed} {item.unit}</div>}
                             </td>
                             <td className="text-right px-4 py-3 text-gray-700 whitespace-nowrap">
                               {formatPrice(unitPrice)}

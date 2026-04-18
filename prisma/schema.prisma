@@ -425,6 +425,9 @@ model DeliveryNoteItem {
   vatAmount       Decimal?       @db.Decimal(10, 2)   // DPH / ks
   vatRate         Decimal?       @db.Decimal(5, 2)    // sazba DPH
   priceSource     String?        // "invoice" | "order_item" | "product" | "manual"
+  // Variant fulfillment — stores base-unit quantity when item has a variant (e.g. 7 g from a 3×5g order)
+  baseQuantity    Decimal?       @db.Decimal(10, 3)
+  baseUnit        String?
   createdAt       DateTime       @default(now())
   deliveryNote    DeliveryNote   @relation(fields: [deliveryNoteId], references: [id], onDelete: Cascade)
   inventoryItem   InventoryItem? @relation(fields: [inventoryItemId], references: [id])
@@ -496,7 +499,10 @@ model CustomerOrderItem {
   productName     String?
   quantity        Decimal       @db.Decimal(10, 3)
   shippedQuantity Decimal       @default(0) @db.Decimal(10, 3)
+  shippedBaseQty  Decimal       @default(0) @db.Decimal(10, 3)
   unit            String
+  variantValue    Decimal?      @db.Decimal(10, 3)
+  variantUnit     String?
   price           Decimal       @db.Decimal(10, 2)
   createdAt       DateTime      @default(now())
   priceWithVat    Decimal       @default(0) @db.Decimal(10, 2)

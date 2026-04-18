@@ -8,14 +8,17 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getNextDocumentNumber } from '@/lib/documentNumbering'
+import { isItemFullyShipped } from '@/lib/variantConversion'
 
 export const dynamic = 'force-dynamic'
 
 interface CreateDeliveryNoteItem {
-  productId: string | null
-  productName: string | null
-  quantity: number
-  unit: string
+  productId:    string | null
+  productName:  string | null
+  quantity:     number          // packs for non-variant, base units (g/ml) for variant
+  unit:         string          // 'ks' for non-variant, 'g'/'ml' for variant
+  baseQuantity?: number         // explicit base quantity (optional, equals quantity for variant items)
+  baseUnit?:     string         // explicit base unit (optional)
 }
 
 interface CreateDeliveryNoteRequest {
@@ -40,7 +43,9 @@ export async function POST(request: Request) {
     const order = await prisma.customerOrder.findUnique({
       where: { id: customerOrderId },
       include: {
-        items: { include: { product: true } },
+        items: {
+          include: { product: true },
+        },
         reservations: { where: { status: 'active' } },
         issuedInvoice: {
           include: { items: true },
@@ -139,12 +144,17 @@ export async function POST(request: Request) {
               const orderItem = order.items.find(oi => oi.productId === item.productId)
               const p = item.productId ? priceIndex.get(item.productId) : undefined
 
+              const bq = item.baseQuantity ?? item.quantity
+              const bu = item.baseUnit    ?? item.unit
+
               return {
                 productId:       item.productId,
                 productName:     item.productName,
                 quantity:        item.quantity,
                 orderedQuantity: orderItem ? Number(orderItem.quantity) : null,
                 unit:            item.unit,
+                baseQuantity:    bq !== item.quantity ? bq : null,
+                baseUnit:        bu !== item.unit     ? bu : null,
                 // Ceny z faktury — zdroj pravdy
                 price:           p?.price        ?? null,
                 priceWithVat:    p?.priceWithVat ?? null,
@@ -178,16 +188,29 @@ export async function POST(request: Request) {
         }
       }
 
-      // Aktualizuj shippedQuantity
+      // Aktualizuj shippedQuantity + shippedBaseQty
       for (const deliveryItem of items) {
         const orderItem = order.items.find(oi => oi.productId === deliveryItem.productId)
-        if (orderItem) {
-          const newShippedQty = Number(orderItem.shippedQuantity || 0) + Number(deliveryItem.quantity)
-          await tx.customerOrderItem.update({
-            where: { id: orderItem.id },
-            data:  { shippedQuantity: newShippedQty },
-          })
-        }
+        if (!orderItem) continue
+
+        const isVariantItem = orderItem.variantValue != null && orderItem.variantUnit != null
+        const vv            = isVariantItem ? Number(orderItem.variantValue) : 1
+
+        // qty shipped in this delivery, in base units (g/ml) or packs
+        const baseShipped   = Number(deliveryItem.baseQuantity ?? deliveryItem.quantity)
+        const newShippedBase = Number(orderItem.shippedBaseQty ?? 0) + baseShipped
+        // Pack-level count: for variant items, compute fractional packs; for ks items, just add quantity
+        const newShippedQty  = isVariantItem
+          ? newShippedBase / vv
+          : Number(orderItem.shippedQuantity ?? 0) + Number(deliveryItem.quantity)
+
+        await tx.customerOrderItem.update({
+          where: { id: orderItem.id },
+          data:  {
+            shippedBaseQty:  newShippedBase,
+            shippedQuantity: newShippedQty,
+          },
+        })
       }
 
       // Zkontroluj kompletnost expedice
@@ -195,9 +218,13 @@ export async function POST(request: Request) {
         const allOrderItems = await tx.customerOrderItem.findMany({
           where: { customerOrderId: order.id },
         })
-        const allFullyShipped = allOrderItems.every(
-          item => Number(item.shippedQuantity || 0) >= Number(item.quantity)
-        )
+        const allFullyShipped = allOrderItems.every(item => isItemFullyShipped({
+          quantity:        Number(item.quantity),
+          shippedQuantity: Number(item.shippedQuantity),
+          shippedBaseQty:  Number(item.shippedBaseQty),
+          variantValue:    item.variantValue != null ? Number(item.variantValue) : null,
+          variantUnit:     item.variantUnit,
+        }))
 
         if (allFullyShipped) {
           await tx.customerOrder.update({

@@ -4,6 +4,7 @@
 
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { isItemFullyShipped } from '@/lib/variantConversion'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,9 +21,22 @@ export async function GET() {
       include: {
         customer: true,
         items: {
-          include: {
-            product: true
-          }
+          select: {
+            id:              true,
+            productId:       true,
+            productName:     true,
+            quantity:        true,
+            shippedQuantity: true,
+            shippedBaseQty:  true,
+            variantValue:    true,
+            variantUnit:     true,
+            unit:            true,
+            price:           true,
+            priceWithVat:    true,
+            vatAmount:       true,
+            vatRate:         true,
+            product:         { select: { id: true, name: true, vatRate: true } },
+          },
         },
         deliveryNotes: true
       },
@@ -32,16 +46,15 @@ export async function GET() {
     })
 
     // Filtruj jen objednávky, které mají ještě něco k vyskladnění
-    const pendingOrders = orders.filter(order => {
-      // Zkontroluj, jestli ALESPOŇ JEDNA položka má zbývající množství
-      const hasRemainingItems = order.items.some(item => {
-        const shipped = Number(item.shippedQuantity || 0)
-        const ordered = Number(item.quantity)
-        return shipped < ordered
-      })
-
-      return hasRemainingItems
-    })
+    const pendingOrders = orders.filter(order =>
+      order.items.some(item => !isItemFullyShipped({
+        quantity:        Number(item.quantity),
+        shippedQuantity: Number(item.shippedQuantity),
+        shippedBaseQty:  Number(item.shippedBaseQty),
+        variantValue:    item.variantValue != null ? Number(item.variantValue) : null,
+        variantUnit:     item.variantUnit,
+      }))
+    )
 
     return NextResponse.json(pendingOrders)
   } catch (error) {
