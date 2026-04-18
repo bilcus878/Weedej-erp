@@ -11,6 +11,7 @@ import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import { Plus, Package, CheckCircle, FileText, ChevronDown, ChevronRight, Trash2, XCircle, FileDown, ExternalLink } from 'lucide-react'
 import { formatDate, formatPrice } from '@/lib/utils'
+import { formatVariantQty } from '@/lib/formatVariantQty'
 import { generateReceiptPDF, openPDFInNewTab } from '@/lib/pdfGenerator'
 import { isNonVatPayer, DEFAULT_VAT_RATE } from '@/lib/vatCalculation'
 
@@ -140,6 +141,10 @@ export default function ReceiptsPage() {
   const [processReceiptDate, setProcessReceiptDate] = useState(new Date().toISOString().split('T')[0])
   const [hasExistingInvoice, setHasExistingInvoice] = useState(false) // Sleduj, jestli už má objednávka vyplněnou fakturu
   const [isInvoiceSectionExpanded, setIsInvoiceSectionExpanded] = useState(false) // Rozkliknutí sekce faktury
+  // Safeguard: prevents double-submit during in-flight API call
+  const [isProcessing, setIsProcessing] = useState(false)
+  // Non-blocking notification state (replaces blocking alert())
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
   useEffect(() => {
     loadData()
@@ -293,12 +298,13 @@ export default function ReceiptsPage() {
 
   async function loadData() {
     try {
+      // cache: 'no-store' on every call ensures a successful receipt always gets fresh DB state.
       const [receiptsRes, suppliersRes, productsRes, pendingOrdersRes, settingsRes] = await Promise.all([
-        fetch('/api/receipts'),
-        fetch('/api/suppliers'),
-        fetch('/api/products'),
-        fetch('/api/purchase-orders/pending', { cache: 'no-store' }), // NOVÝ endpoint pro očekávané objednávky
-        fetch('/api/settings')
+        fetch('/api/receipts', { cache: 'no-store' }),
+        fetch('/api/suppliers', { cache: 'no-store' }),
+        fetch('/api/products', { cache: 'no-store' }),
+        fetch('/api/purchase-orders/pending', { cache: 'no-store' }),
+        fetch('/api/settings', { cache: 'no-store' })
       ])
 
       const [receiptsData, suppliersData, productsData, pendingOrdersData, settingsData] = await Promise.all([
@@ -455,13 +461,13 @@ export default function ReceiptsPage() {
   }
 
   async function handleConfirmProcess(createInvoice: boolean = true) {
-    // Rozlišuj mezi OBJEDNÁVKOU (přímé naskladnění) a PŘÍJEMKOU (staré)
+    // Idempotency guard: block re-entry while a request is already in flight
     const isDirectReceive = processingOrderId !== null
+    if ((!processingOrderId && !processingReceiptId) || isProcessing) return
 
-    if (!processingOrderId && !processingReceiptId) return
-
+    setIsProcessing(true)
     try {
-      let res, url, body
+      let url: string, body: object
 
       if (isDirectReceive) {
         // NOVÝ WORKFLOW: Přímé naskladnění z objednávky (ATOMIC)
@@ -469,20 +475,14 @@ export default function ReceiptsPage() {
           productId: item.productId!,
           receivedQuantity: receivedQuantities[item.id!] || 0
         }))
-
         url = `/api/purchase-orders/${processingOrderId}/receive`
-        body = {
-          items,
-          invoiceData,
-          receiptDate: processReceiptDate
-        }
+        body = { items, invoiceData, receiptDate: processReceiptDate }
       } else {
         // STARÝ WORKFLOW: Zpracování už existující příjemky
         const items = processingReceiptItems.map(item => ({
           id: item.id!,
           receivedQuantity: receivedQuantities[item.id!] || 0
         }))
-
         url = `/api/receipts/${processingReceiptId}/process`
         body = {
           items,
@@ -492,7 +492,7 @@ export default function ReceiptsPage() {
         }
       }
 
-      res = await fetch(url, {
+      const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
@@ -503,21 +503,29 @@ export default function ReceiptsPage() {
         throw new Error(error.error || 'Chyba při zpracování')
       }
 
-      const message = isDirectReceive
-        ? '✅ Příjem úspěšně zpracován a naskladněn!'
-        : 'Příjemka zpracována a naskladněna!'
-
-      alert(message)
+      // Close modal immediately so the user sees a clean state while the list refreshes
       setShowProcessModal(false)
       setProcessingReceiptId(null)
       setProcessingOrderId(null)
       setProcessingReceiptItems([])
       setReceivedQuantities({})
       setProcessReceiptDate(new Date().toISOString().split('T')[0])
-      loadData()
+
+      // Await the full refresh so the pending list is guaranteed up-to-date before we return.
+      // This is the atomic guarantee: the order cannot remain visible after this resolves.
+      await loadData()
+
+      const msg = isDirectReceive ? '✅ Příjem zpracován a naskladněn!' : '✅ Příjemka zpracována a naskladněna!'
+      setToast({ type: 'success', message: msg })
+      setTimeout(() => setToast(null), 4000)
     } catch (error: any) {
-      console.error('Chyba:', error)
-      alert(error.message || 'Nepodařilo se zpracovat příjem')
+      console.error('[Příjemky] Chyba při naskladnění:', error)
+      // Never leave the modal open with broken state on error — roll back optimistic UI
+      setToast({ type: 'error', message: error.message || 'Nepodařilo se zpracovat příjem' })
+      setTimeout(() => setToast(null), 6000)
+    } finally {
+      // Always release the processing lock, even if loadData or the API call threw
+      setIsProcessing(false)
     }
   }
 
@@ -568,11 +576,13 @@ export default function ReceiptsPage() {
         throw new Error(data.error || 'Nepodařilo se stornovat příjemku')
       }
 
-      alert('Příjemka byla úspěšně stornována')
-      loadData() // Refresh
+      await loadData()
+      setToast({ type: 'success', message: 'Příjemka byla úspěšně stornována.' })
+      setTimeout(() => setToast(null), 4000)
     } catch (error: any) {
       console.error('Chyba při stornování:', error)
-      alert(`Chyba: ${error.message}`)
+      setToast({ type: 'error', message: `Chyba: ${error.message}` })
+      setTimeout(() => setToast(null), 6000)
     }
   }
 
@@ -1408,10 +1418,10 @@ export default function ReceiptsPage() {
                                     )}
                                   </div>
                                   <div className="text-center text-gray-600">
-                                    {Number(actualQuantity).toLocaleString('cs-CZ')} {item.unit}
+                                    {formatVariantQty(Number(actualQuantity), item.product?.name || item.productName, item.unit)}
                                     {item.receivedQuantity && item.receivedQuantity !== item.quantity && (
                                       <span className="text-orange-600 text-xs block mt-1">
-                                        (z {Number(item.quantity).toLocaleString('cs-CZ')})
+                                        (z {formatVariantQty(Number(item.quantity), item.product?.name || item.productName, item.unit)})
                                       </span>
                                     )}
                                   </div>
@@ -1485,10 +1495,10 @@ export default function ReceiptsPage() {
                                     )}
                                   </div>
                                   <div className="text-right text-gray-600">
-                                    {Number(actualQuantity).toLocaleString('cs-CZ')} {item.unit}
+                                    {formatVariantQty(Number(actualQuantity), item.product?.name || item.productName, item.unit)}
                                     {item.receivedQuantity && item.receivedQuantity !== item.quantity && (
                                       <span className="text-orange-600 text-xs block mt-1">
-                                        (z {Number(item.quantity).toLocaleString('cs-CZ')} obj.)
+                                        (z {formatVariantQty(Number(item.quantity), item.product?.name || item.productName, item.unit)} obj.)
                                       </span>
                                     )}
                                   </div>
@@ -1975,14 +1985,24 @@ export default function ReceiptsPage() {
                 </Button>
                 <Button
                   onClick={() => handleConfirmProcess(true)}
-                  className="px-8 py-2 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-md hover:shadow-lg transition-all"
+                  disabled={isProcessing}
+                  className="px-8 py-2 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-md hover:shadow-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <CheckCircle className="w-4 h-4 mr-2" />
-                  Zpracovat a naskladnit
+                  {isProcessing ? '⏳ Zpracovávám...' : 'Zpracovat a naskladnit'}
                 </Button>
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Toast notification — non-blocking, auto-dismisses */}
+      {toast && (
+        <div className={`fixed bottom-6 right-6 z-[100] px-5 py-3 rounded-xl shadow-2xl text-white text-sm font-medium max-w-sm transition-all ${
+          toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'
+        }`}>
+          {toast.message}
         </div>
       )}
     </div>

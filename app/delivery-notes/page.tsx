@@ -169,6 +169,10 @@ export default function DeliveryNotesPage() {
   const [processingNoteItems, setProcessingNoteItems] = useState<DeliveryNoteItem[]>([])
   const [shippedQuantities, setShippedQuantities] = useState<Record<string, number>>({})
   const [processNote, setProcessNote] = useState('')
+  // Safeguard: prevents double-submit during in-flight API call
+  const [isProcessing, setIsProcessing] = useState(false)
+  // Non-blocking notification state (replaces blocking alert())
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
   useEffect(() => {
     loadData()
@@ -320,11 +324,13 @@ export default function DeliveryNotesPage() {
 
   async function loadData() {
     try {
+      // cache: 'no-store' on every call so a successful fulfillment always gets fresh DB state,
+      // not a stale browser-cache or Next.js Data-Cache response.
       const [deliveryNotesRes, pendingOrdersRes, customersRes, settingsRes] = await Promise.all([
-        fetch('/api/delivery-notes'),
+        fetch('/api/delivery-notes', { cache: 'no-store' }),
         fetch('/api/customer-orders/pending-shipment', { cache: 'no-store' }),
-        fetch('/api/customers'),
-        fetch('/api/settings')
+        fetch('/api/customers', { cache: 'no-store' }),
+        fetch('/api/settings', { cache: 'no-store' })
       ])
 
       const [deliveryNotesData, pendingOrdersData, customersData, settingsData] = await Promise.all([
@@ -441,8 +447,10 @@ export default function DeliveryNotesPage() {
   }
 
   async function handleConfirmProcess() {
-    if (!processingNoteId) return
+    // Idempotency guard: block re-entry while a request is already in flight
+    if (!processingNoteId || isProcessing) return
 
+    setIsProcessing(true)
     try {
       // Zjisti, jestli je to objednávka (z pendingOrders) nebo existující výdejka (z deliveryNotes)
       const isCustomerOrder = pendingOrders.some(o => o.id === processingNoteId)
@@ -461,15 +469,8 @@ export default function DeliveryNotesPage() {
           }
         })
 
-        const payload: any = {
-          customerOrderId: processingNoteId,
-          items
-        }
-
-        // Přidej poznámku jen pokud není prázdná
-        if (processNote.trim()) {
-          payload.note = processNote.trim()
-        }
+        const payload: any = { customerOrderId: processingNoteId, items }
+        if (processNote.trim()) payload.note = processNote.trim()
 
         const res = await fetch('/api/delivery-notes/create-from-order', {
           method: 'POST',
@@ -481,8 +482,6 @@ export default function DeliveryNotesPage() {
           const error = await res.json()
           throw new Error(error.error || 'Chyba při vytváření výdejky')
         }
-
-        alert('✅ Výdejka byla vytvořena a vyskladněna!')
       } else {
         // ZPRACOVÁVÁME EXISTUJÍCÍ VÝDEJKU (draft → active)
         const items = processingNoteItems.map(item => ({
@@ -491,11 +490,7 @@ export default function DeliveryNotesPage() {
         }))
 
         const payload: any = { items }
-
-        // Přidej poznámku jen pokud není prázdná
-        if (processNote.trim()) {
-          payload.note = processNote.trim()
-        }
+        if (processNote.trim()) payload.note = processNote.trim()
 
         const res = await fetch(`/api/delivery-notes/${processingNoteId}/process`, {
           method: 'POST',
@@ -507,19 +502,29 @@ export default function DeliveryNotesPage() {
           const error = await res.json()
           throw new Error(error.error || 'Chyba při zpracování')
         }
-
-        alert('✅ Výdejka byla zpracována a vyskladněna!')
       }
 
+      // Close modal immediately so the user sees a clean state while the list refreshes
       setShowProcessModal(false)
       setProcessingNoteId(null)
       setProcessingNoteItems([])
       setShippedQuantities({})
       setProcessNote('')
-      loadData()
+
+      // Await the full refresh so the pending list is guaranteed up-to-date before we return.
+      // This is the atomic guarantee: the order cannot remain visible after this resolves.
+      await loadData()
+
+      setToast({ type: 'success', message: '✅ Výdejka byla vyskladněna!' })
+      setTimeout(() => setToast(null), 4000)
     } catch (error: any) {
-      console.error('Chyba:', error)
-      alert(error.message || 'Nepodařilo se zpracovat výdejku')
+      console.error('[Výdejky] Chyba při vyskladnění:', error)
+      // Never leave the modal open with broken state on error — roll back optimistic UI
+      setToast({ type: 'error', message: error.message || 'Nepodařilo se zpracovat výdejku' })
+      setTimeout(() => setToast(null), 6000)
+    } finally {
+      // Always release the processing lock, even if loadData or the API call threw
+      setIsProcessing(false)
     }
   }
 
@@ -604,12 +609,35 @@ export default function DeliveryNotesPage() {
         throw new Error(data.error || 'Nepodařilo se stornovat výdejku')
       }
 
-      alert('Výdejka byla stornována a zboží vráceno do skladu!')
-      loadData()
+      await loadData()
+      setToast({ type: 'success', message: 'Výdejka byla stornována a zboží vráceno do skladu.' })
+      setTimeout(() => setToast(null), 4000)
     } catch (error: any) {
       console.error('Chyba při stornování:', error)
-      alert(`Chyba: ${error.message}`)
+      setToast({ type: 'error', message: `Chyba: ${error.message}` })
+      setTimeout(() => setToast(null), 6000)
     }
+  }
+
+  /**
+   * Variant delivery note items are stored in base units (g/ml), not packs.
+   * e.g. "CBD Oil — 5g" shipped as 1 pack is stored as quantity=5, unit='g'.
+   * formatVariantQty(5, "CBD Oil — 5g", "g") would wrongly produce "5x 5g" (= 25 g).
+   * This helper detects that case and converts back to pack count first → "1x 5g".
+   */
+  function formatDNItemQty(quantity: number, productName: string | null | undefined, unit: string): string {
+    if (productName?.includes(' — ') && unit !== 'ks') {
+      const variantLabel = productName.split(' — ').slice(-1)[0]
+      const match = variantLabel.match(/^([\d.]+)/)
+      if (match) {
+        const packSize = parseFloat(match[1])
+        if (packSize > 0) {
+          const packs = Math.round((quantity / packSize) * 1000) / 1000
+          return `${packs}x ${variantLabel}`
+        }
+      }
+    }
+    return formatVariantQty(quantity, productName, unit)
   }
 
   function getStatusBadge(status: string) {
@@ -1449,7 +1477,7 @@ export default function DeliveryNotesPage() {
                                   )}
                                 </div>
                                 <div className="text-center text-gray-600">
-                                  {formatVariantQty(Number(item.quantity), item.productName, item.unit)}
+                                  {formatDNItemQty(Number(item.quantity), item.productName, item.unit)}
                                 </div>
                                 <div className="text-center text-gray-500">
                                   {isItemNonVat ? '-' : `${itemVatRate}%`}
@@ -1487,7 +1515,7 @@ export default function DeliveryNotesPage() {
                                   )}
                                 </div>
                                 <div className="text-right text-gray-600">
-                                  {formatVariantQty(Number(item.quantity), item.productName, item.unit)}
+                                  {formatDNItemQty(Number(item.quantity), item.productName, item.unit)}
                                 </div>
                                 <div className="text-right text-gray-600">
                                   {formatPrice(unitPrice)}
@@ -1669,6 +1697,15 @@ export default function DeliveryNotesPage() {
           </>
         )}
       </div>
+
+      {/* Toast notification — non-blocking, auto-dismisses */}
+      {toast && (
+        <div className={`fixed bottom-6 right-6 z-[100] px-5 py-3 rounded-xl shadow-2xl text-white text-sm font-medium max-w-sm transition-all ${
+          toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'
+        }`}>
+          {toast.message}
+        </div>
+      )}
 
       {/* Modal pro zpracování (vyskladnění) */}
       {showProcessModal && (
@@ -1918,9 +1955,10 @@ export default function DeliveryNotesPage() {
                 </Button>
                 <Button
                   onClick={handleConfirmProcess}
-                  className="px-6 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
+                  disabled={isProcessing}
+                  className="px-6 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Vyskladnit
+                  {isProcessing ? '⏳ Zpracovávám...' : 'Vyskladnit'}
                 </Button>
               </div>
             </div>
