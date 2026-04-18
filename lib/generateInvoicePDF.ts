@@ -194,11 +194,11 @@ export async function generateInvoicePDF(
 
   // ── Tabulka položek ────────────────────────────────────────────────────────
   const itemRows = invoice.items.map((item, idx) => {
-    const name         = item.product?.name || item.productName || '(Neznámý produkt)'
+    const name         = item.productName || item.product?.name || '(Neznámý produkt)'
     const storedName   = item.productName || ''
     const variantPart  = storedName.includes(' — ') ? storedName.split(' — ').slice(1).join(' — ') : null
     const qty          = variantPart
-      ? (/^\d+[xX]/.test(variantPart) ? variantPart : `${item.quantity}x${variantPart}`)
+      ? (/^\d+[xX×]/.test(variantPart) ? variantPart : `${item.quantity}x ${variantPart}`)
       : `${item.quantity} ${item.unit}`
     const unitNet   = item.price ?? 0
     const vatRate   = item.vatRate ?? 0

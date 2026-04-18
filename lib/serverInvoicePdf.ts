@@ -167,7 +167,11 @@ function buildDocDefinition(
   // Items table
   const itemRows = invoice.items.map((item, idx) => {
     const name        = item.productName || '(Neznámý produkt)'
-    const qty         = `${item.quantity} ${item.unit}`
+    const storedName  = item.productName || ''
+    const variantPart = storedName.includes(' — ') ? storedName.split(' — ').slice(1).join(' — ') : null
+    const qty         = variantPart
+      ? (/^\d+[xX×]/.test(variantPart) ? variantPart : `${item.quantity}x ${variantPart}`)
+      : `${item.quantity} ${item.unit}`
     const unitNet     = item.price ?? 0
     const vatRate     = item.vatRate ?? 0
     const lineNet     = unitNet * item.quantity

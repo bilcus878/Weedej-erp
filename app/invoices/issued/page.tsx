@@ -8,6 +8,7 @@ import { useSearchParams } from 'next/navigation'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import { formatPrice, formatQuantity, formatDateTime } from '@/lib/utils'
+import { formatVariantQty } from '@/lib/formatVariantQty'
 import { generateInvoicePDF } from '@/lib/generateInvoicePDF'
 import { ChevronDown, ChevronRight, Trash2, FileText, ExternalLink, XCircle, FileOutput, Plus, X } from 'lucide-react'
 import { isNonVatPayer, NON_VAT_PAYER_RATE, DEFAULT_VAT_RATE } from '@/lib/vatCalculation'
@@ -1146,12 +1147,7 @@ export default function TransactionsPage() {
                                 .map((item: any, i: number) => {
                                   const catalogProduct = products.find(p => p.id === item.product?.id)
                                   const qty         = Number(item.quantity)
-                                  // Pokud productName obsahuje " — " (eshop varianta), zobraz "2×3 g" místo "2 ks"
-                                  const storedName  = item.productName || ''
-                                  const variantPart = storedName.includes(' — ') ? storedName.split(' — ').slice(1).join(' — ') : null
-                                  const qtyDisplay  = variantPart
-                                    ? (/^\d+[xX]/.test(variantPart) ? variantPart : `${qty}x${variantPart}`)
-                                    : formatQuantity(qty, item.unit)
+                                  const qtyDisplay  = formatVariantQty(qty, item.productName, item.unit)
                                   const unitPrice   = Number(item.price ?? catalogProduct?.price ?? 0)
                                   const itemVatRate = Number(item.vatRate ?? catalogProduct?.vatRate ?? DEFAULT_VAT_RATE)
                                   const isItemNonVat = isNonVatPayer(itemVatRate)

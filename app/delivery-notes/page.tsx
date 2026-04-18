@@ -12,6 +12,7 @@ import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import { ChevronDown, ChevronRight, Trash2, Package, FileDown, XCircle } from 'lucide-react'
 import { formatDate, formatPrice, formatQuantity } from '@/lib/utils'
+import { formatVariantQty } from '@/lib/formatVariantQty'
 import { generateDeliveryNotePDF, openPDFInNewTab } from '@/lib/pdfGenerator'
 import { isNonVatPayer, DEFAULT_VAT_RATE } from '@/lib/vatCalculation'
 
@@ -825,7 +826,7 @@ export default function DeliveryNotesPage() {
                           )}
 
                           {/* Řádky položek - střídání bílá/šedá */}
-                          {order.items.map((item, i) => {
+                          {order.items.filter(item => item.productId !== null).map((item, i) => {
                             const shipped = Number(item.shippedQuantity || 0)
                             const ordered = Number(item.quantity)
                             const remaining = ordered - shipped
@@ -849,13 +850,13 @@ export default function DeliveryNotesPage() {
                                   {item.productName || item.product?.name || 'Neznámý produkt'}
                                 </div>
                                 <div className="text-[13px] text-gray-700 text-center">
-                                  {ordered.toLocaleString('cs-CZ')} {item.unit}
+                                  {formatVariantQty(ordered, item.productName, item.unit)}
                                 </div>
                                 <div className="text-[13px] text-gray-700 text-center">
-                                  {shipped.toLocaleString('cs-CZ')} {item.unit}
+                                  {formatVariantQty(shipped, item.productName, item.unit)}
                                 </div>
                                 <div className="text-[13px] font-semibold text-orange-700 text-center">
-                                  {remaining.toLocaleString('cs-CZ')} {item.unit}
+                                  {formatVariantQty(remaining, item.productName, item.unit)}
                                 </div>
                                 <div className="text-[13px] text-gray-500 text-center">
                                   {isItemNonVat ? '-' : `${itemVatRate}%`}
@@ -884,13 +885,13 @@ export default function DeliveryNotesPage() {
                                   {item.productName || item.product?.name || 'Neznámý produkt'}
                                 </div>
                                 <div className="text-[13px] text-gray-700 text-right">
-                                  {ordered.toLocaleString('cs-CZ')} {item.unit}
+                                  {formatVariantQty(ordered, item.productName, item.unit)}
                                 </div>
                                 <div className="text-[13px] text-gray-700 text-right">
-                                  {shipped.toLocaleString('cs-CZ')} {item.unit}
+                                  {formatVariantQty(shipped, item.productName, item.unit)}
                                 </div>
                                 <div className="text-[13px] font-semibold text-orange-700 text-right">
-                                  {remaining.toLocaleString('cs-CZ')} {item.unit}
+                                  {formatVariantQty(remaining, item.productName, item.unit)}
                                 </div>
                                 <div className="text-[13px] text-gray-700 text-right">
                                   {formatPrice(unitPrice)}
@@ -1378,7 +1379,7 @@ export default function DeliveryNotesPage() {
                           )}
 
                           {/* Řádky položek */}
-                          {note.items.map((item, i: number) => {
+                          {note.items.filter(item => item.productId !== null).map((item, i: number) => {
                             // Priorita: uložená cena z výdejky (= z faktury) → aktuální cena produktu
                             const hasSavedPrice = item.price != null && item.priceWithVat != null
                             const unitPrice       = hasSavedPrice ? Number(item.price) : Number(item.product?.price || 0)
@@ -1415,7 +1416,7 @@ export default function DeliveryNotesPage() {
                                   )}
                                 </div>
                                 <div className="text-center text-gray-600">
-                                  {formatQuantity(item.quantity, item.unit)}
+                                  {formatVariantQty(Number(item.quantity), item.productName, item.unit)}
                                 </div>
                                 <div className="text-center text-gray-500">
                                   {isItemNonVat ? '-' : `${itemVatRate}%`}
@@ -1453,7 +1454,7 @@ export default function DeliveryNotesPage() {
                                   )}
                                 </div>
                                 <div className="text-right text-gray-600">
-                                  {formatQuantity(item.quantity, item.unit)}
+                                  {formatVariantQty(Number(item.quantity), item.productName, item.unit)}
                                 </div>
                                 <div className="text-right text-gray-600">
                                   {formatPrice(unitPrice)}

@@ -8,6 +8,7 @@ import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import Button from '@/components/ui/Button'
 import { formatPrice, formatDate, formatDateTime } from '@/lib/utils'
+import { formatVariantQty } from '@/lib/formatVariantQty'
 import { generateInvoicePDF } from '@/lib/generateInvoicePDF'
 import {
   ChevronDown,
@@ -816,7 +817,7 @@ export default function EshopOrdersPage() {
                               {isVatPayer ? (
                                 <div className="grid grid-cols-[3fr_repeat(6,1fr)] gap-2 items-center">
                                   <div className="font-medium text-gray-800">{productName}</div>
-                                  <div className="text-center text-gray-600">{qty} {item.unit}</div>
+                                  <div className="text-center text-gray-600">{formatVariantQty(qty, item.productName, item.unit)}</div>
                                   <div className="text-center text-gray-500">{vatRate}%</div>
                                   <div className="text-center text-gray-600">{formatPrice(unitPrice)}</div>
                                   <div className="text-center text-gray-500">{formatPrice(vatPerUnit)}</div>
@@ -826,7 +827,7 @@ export default function EshopOrdersPage() {
                               ) : (
                                 <div className="grid grid-cols-[3fr_1fr_1fr_1fr] gap-2 items-center">
                                   <div className="font-medium text-gray-800">{productName}</div>
-                                  <div className="text-center text-gray-600">{qty} {item.unit}</div>
+                                  <div className="text-center text-gray-600">{formatVariantQty(qty, item.productName, item.unit)}</div>
                                   <div className="text-center font-medium text-gray-700">{formatPrice(priceWithVat)}</div>
                                   <div className="text-right font-bold text-gray-900">{formatPrice(rowTotal)}</div>
                                 </div>
