@@ -53,6 +53,10 @@ interface EshopDeliveryNoteItem {
   quantity: number
   unit: string
   productName?: string | null
+  price?: number | null
+  priceWithVat?: number | null
+  vatRate?: number | null
+  vatAmount?: number | null
   product?: { id: string; name: string; price: number } | null
 }
 
@@ -875,8 +879,10 @@ export default function EshopOrdersPage() {
                                 <div className="w-4" />
                               </div>
                               {active.map(dn => {
-                                const dnTotal = dn.items.reduce((sum, item) =>
-                                  sum + Number(item.quantity) * Number(item.product?.price || 0), 0)
+                                const dnTotal = dn.items.reduce((sum, item) => {
+                                  const unitPrice = Number(item.priceWithVat ?? item.product?.price ?? 0)
+                                  return sum + Number(item.quantity) * unitPrice
+                                }, 0)
                                 return (
                                   <Link
                                     key={dn.id}

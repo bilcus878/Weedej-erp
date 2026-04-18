@@ -45,6 +45,10 @@ export async function GET() {
                 quantity: true,
                 unit: true,
                 productName: true,
+                price: true,
+                priceWithVat: true,
+                vatRate: true,
+                vatAmount: true,
                 product: {
                   select: { id: true, name: true, price: true }
                 }

@@ -1,6 +1,7 @@
 // Helper funkce pro automatické vytvoření výdejky z transakce
 import { prisma } from '@/lib/prisma'
 import { getNextDocumentNumber } from './documentNumbering'
+import { getOrderLineItems } from './getOrderLineItems'
 
 /**
  * Vytvoří výdejku automaticky z transakce (SumUp nebo vystavená faktura)
@@ -122,29 +123,26 @@ export async function createDeliveryNoteFromTransaction(transactionId: string) {
  * @returns DeliveryNote nebo null pokud už je vše vyskladněno
  */
 export async function createDeliveryNoteFromCustomerOrder(customerOrderId: string) {
-  // Načti objednávku s položkami
-  const order = await prisma.customerOrder.findUnique({
-    where: { id: customerOrderId },
-    include: { items: { include: { product: true } } }
-  })
+  const [order, lineItems] = await Promise.all([
+    prisma.customerOrder.findUnique({ where: { id: customerOrderId } }),
+    getOrderLineItems(customerOrderId),
+  ])
 
   if (!order) {
     throw new Error('Customer order not found')
   }
 
-  const hasItems = order.items && order.items.length > 0
-
-  if (!hasItems) {
+  if (lineItems.length === 0) {
     throw new Error('Objednávka nemá položky')
   }
 
   // Spočítej zbývající množství pro každou položku
-  const remainingItems = order.items
+  const remainingItems = lineItems
     .map(item => ({
       ...item,
-      remainingQuantity: Number(item.quantity) - Number(item.shippedQuantity || 0)
+      remainingQuantity: item.quantity - item.shippedQuantity,
     }))
-    .filter(item => item.remainingQuantity > 0) // Jen položky, co ještě zbývají
+    .filter(item => item.remainingQuantity > 0)
 
   if (remainingItems.length === 0) {
     throw new Error('Všechny položky již byly vyskladněny')
@@ -167,10 +165,15 @@ export async function createDeliveryNoteFromCustomerOrder(customerOrderId: strin
         note: `Objednávka ${order.orderNumber} - částečné vyskladnění`,
         items: {
           create: remainingItems.map(item => ({
-            productId: item.productId,
-            productName: item.productName,
-            quantity: item.remainingQuantity, // ✅ JEN CO ZBÝVÁ!
-            unit: item.unit
+            productId:    item.productId,
+            productName:  item.productName,
+            quantity:     item.remainingQuantity,
+            unit:         item.unit,
+            price:        item.price        ?? null,
+            priceWithVat: item.priceWithVat ?? null,
+            vatAmount:    item.vatAmount    ?? null,
+            vatRate:      item.vatRate      ?? null,
+            priceSource:  'order_item',
           }))
         }
       },

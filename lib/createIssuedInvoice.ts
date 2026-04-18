@@ -1,6 +1,7 @@
 // Helper funkce pro automatické vytvoření vystavené faktury
 import { prisma } from '@/lib/prisma'
 import { getNextDocumentNumber } from './documentNumbering'
+import { getOrderLineItems } from './getOrderLineItems'
 
 /**
  * Vytvoří vystavenou fakturu automaticky z SumUp transakce
@@ -93,14 +94,13 @@ export async function createIssuedInvoiceFromCustomerOrder(
     specificSymbol?: string
   }
 ) {
-  // Načti objednávku včetně zákazníka
-  const order = await prisma.customerOrder.findUnique({
-    where: { id: customerOrderId },
-    include: {
-      items: true,
-      customer: true // Načíst i zákazníka z DB pro detaily
-    }
-  }) as any // Typ any kvůli slevě která není v základním typu
+  const [order, lineItems] = await Promise.all([
+    prisma.customerOrder.findUnique({
+      where: { id: customerOrderId },
+      include: { customer: true },
+    }) as Promise<any>,
+    getOrderLineItems(customerOrderId),
+  ])
 
   if (!order) {
     throw new Error('Customer order not found')
@@ -154,15 +154,15 @@ export async function createIssuedInvoiceFromCustomerOrder(
         discountValue: order.discountValue || null,
         discountAmount: order.discountAmount || null,
         items: {
-          create: order.items.map((item: any) => ({
-            productId: item.productId,
-            productName: item.productName,
-            quantity: item.quantity,
-            unit: item.unit,
-            price: item.price,
-            vatRate: item.vatRate || 21,
-            vatAmount: item.vatAmount || 0,
-            priceWithVat: item.priceWithVat || item.price,
+          create: lineItems.map(item => ({
+            productId:    item.productId,
+            productName:  item.productName,
+            quantity:     item.quantity,
+            unit:         item.unit,
+            price:        item.price,
+            vatRate:      item.vatRate,
+            vatAmount:    item.vatAmount,
+            priceWithVat: item.priceWithVat,
           }))
         }
       }

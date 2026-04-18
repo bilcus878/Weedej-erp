@@ -512,7 +512,7 @@ export default function DeliveryNotesPage() {
           const vatPerUnit = hasSavedPrice ? Number(item.vatAmount ?? 0) : (isItemNonVat ? 0 : unitPrice * itemVatRate / 100)
           const priceWithVatPerUnit = hasSavedPrice ? Number(item.priceWithVat) : (unitPrice + vatPerUnit)
           return {
-            productName: item.product?.name || item.productName || 'Neznámý produkt',
+            productName: item.productName || item.product?.name || 'Neznámý produkt',
             quantity: Number(item.quantity),
             unit: item.unit,
             price: isVatPayer ? priceWithVatPerUnit : unitPrice,
@@ -846,7 +846,7 @@ export default function DeliveryNotesPage() {
                                 }`}
                               >
                                 <div className="text-[13px] text-gray-900">
-                                  {item.product?.name || item.productName || 'Neznámý produkt'}
+                                  {item.productName || item.product?.name || 'Neznámý produkt'}
                                 </div>
                                 <div className="text-[13px] text-gray-700 text-center">
                                   {ordered.toLocaleString('cs-CZ')} {item.unit}
@@ -881,7 +881,7 @@ export default function DeliveryNotesPage() {
                                 }`}
                               >
                                 <div className="text-[13px] text-gray-900">
-                                  {item.product?.name || item.productName || 'Neznámý produkt'}
+                                  {item.productName || item.product?.name || 'Neznámý produkt'}
                                 </div>
                                 <div className="text-[13px] text-gray-700 text-right">
                                   {ordered.toLocaleString('cs-CZ')} {item.unit}
@@ -1398,7 +1398,7 @@ export default function DeliveryNotesPage() {
                             return isVatPayer ? (
                               <div key={i} className={`grid grid-cols-[3fr_1fr_1fr_0.5fr_1fr_0.5fr_1fr_1fr] gap-2 px-4 py-2 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'} text-xs`}>
                                 <div className="font-medium text-gray-900 flex items-center">
-                                  {item.product?.name || item.productName || '(Neznámé)'}
+                                  {item.productName || item.product?.name || '(Neznámé)'}
                                   {sourceLabel}
                                 </div>
                                 <div className="text-center">
@@ -1436,7 +1436,7 @@ export default function DeliveryNotesPage() {
                             ) : (
                               <div key={i} className={`grid grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-4 px-4 py-3 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
                                 <div className="font-medium text-gray-900 flex items-center">
-                                  {item.product?.name || item.productName || '(Neznámé)'}
+                                  {item.productName || item.product?.name || '(Neznámé)'}
                                   {sourceLabel}
                                 </div>
                                 <div className="text-center">
@@ -1703,7 +1703,7 @@ export default function DeliveryNotesPage() {
                         return isVatPayer ? (
                           <tr key={item.id} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-purple-50/30'} hover:bg-purple-100/40 transition-colors`}>
                             <td className="px-4 py-3 font-medium text-gray-800">
-                              {item.product?.name || item.productName || 'Neznámý produkt'}
+                              {item.productName || item.product?.name || 'Neznámý produkt'}
                             </td>
                             <td className="text-center px-4 py-3 text-gray-600 whitespace-nowrap">
                               {Number(item.quantity)} {item.unit}
@@ -1766,7 +1766,7 @@ export default function DeliveryNotesPage() {
                         ) : (
                           <tr key={item.id} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-purple-50/30'} hover:bg-purple-100/40 transition-colors`}>
                             <td className="px-4 py-3 font-medium text-gray-800">
-                              {item.product?.name || item.productName || 'Neznámý produkt'}
+                              {item.productName || item.product?.name || 'Neznámý produkt'}
                             </td>
                             <td className="text-right px-4 py-3 text-gray-600 whitespace-nowrap">
                               {Number(item.quantity)} {item.unit}
