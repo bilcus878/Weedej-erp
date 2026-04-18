@@ -53,6 +53,7 @@ export async function GET() {
         shippedBaseQty:  Number(item.shippedBaseQty),
         variantValue:    item.variantValue != null ? Number(item.variantValue) : null,
         variantUnit:     item.variantUnit,
+        unit:            item.unit,
       }))
     )
 

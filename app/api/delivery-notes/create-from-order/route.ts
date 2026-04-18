@@ -193,7 +193,7 @@ export async function POST(request: Request) {
         const orderItem = order.items.find(oi => oi.productId === deliveryItem.productId)
         if (!orderItem) continue
 
-        const isVariantItem = orderItem.variantValue != null && orderItem.variantUnit != null
+        const isVariantItem = orderItem.unit === 'ks' && orderItem.variantValue != null && orderItem.variantUnit != null
         const vv            = isVariantItem ? Number(orderItem.variantValue) : 1
 
         // qty shipped in this delivery, in base units (g/ml) or packs
@@ -224,6 +224,7 @@ export async function POST(request: Request) {
           shippedBaseQty:  Number(item.shippedBaseQty),
           variantValue:    item.variantValue != null ? Number(item.variantValue) : null,
           variantUnit:     item.variantUnit,
+          unit:            item.unit,
         }))
 
         if (allFullyShipped) {

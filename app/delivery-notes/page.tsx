@@ -1738,7 +1738,8 @@ export default function DeliveryNotesPage() {
                         const isItemNonVat  = isNonVatPayer(itemVatRate)
                         const vatPerUnit    = hasSavedPrice ? Number(item.vatAmount ?? 0) : (isItemNonVat ? 0 : unitPrice * itemVatRate / 100)
                         const priceWithVat  = hasSavedPrice ? Number(item.priceWithVat) : (unitPrice + vatPerUnit)
-                        const total         = shipped * (isVatPayer ? priceWithVat : unitPrice)
+                        const packEquiv     = isVariant && item.variantValue ? shipped / item.variantValue : shipped
+                        const total         = packEquiv * (isVatPayer ? priceWithVat : unitPrice)
 
                         // "Objednáno" display: variant → "3 ks = 15 g", non-variant → "3 ks"
                         const orderedDisplay = isVariant && item.orderedBaseQty != null
@@ -1851,7 +1852,9 @@ export default function DeliveryNotesPage() {
                               const isItemNonVat = isNonVatPayer(itemVatRate)
                               const vatPerUnit = hasSavedPrice ? Number(item.vatAmount ?? 0) : (isItemNonVat ? 0 : unitPrice * itemVatRate / 100)
                               const priceWithVat = hasSavedPrice ? Number(item.priceWithVat) : (unitPrice + vatPerUnit)
-                              return sum + (shipped * (isVatPayer ? priceWithVat : unitPrice))
+                              const isV = item.isVariant ?? false
+                              const packEquiv = isV && item.variantValue ? shipped / item.variantValue : shipped
+                              return sum + (packEquiv * (isVatPayer ? priceWithVat : unitPrice))
                             }, 0)
                           )}
                         </td>

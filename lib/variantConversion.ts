@@ -21,7 +21,7 @@ export interface ResolvedQuantities {
 }
 
 export function resolveItemQuantities(item: VariantItemInput): ResolvedQuantities {
-  const isVariant  = item.variantValue != null && item.variantUnit != null && item.variantUnit !== 'ks'
+  const isVariant  = item.unit === 'ks' && item.variantValue != null && item.variantUnit != null && item.variantUnit !== 'ks'
   const vv         = item.variantValue ?? 1
   const baseUnit   = (isVariant ? item.variantUnit : item.unit) ?? item.unit
 
@@ -55,9 +55,11 @@ export function isItemFullyShipped(item: {
   shippedBaseQty?: number | string | null
   variantValue?: number | string | null
   variantUnit?:  string | null
+  unit?:         string | null
 }): boolean {
   const vv = item.variantValue != null ? Number(item.variantValue) : null
   const isVariant = vv != null && item.variantUnit != null && item.variantUnit !== 'ks'
+    && (item.unit == null || item.unit === 'ks')
   if (isVariant && vv) {
     const orderedBase  = Number(item.quantity) * vv
     const shippedBase  = Number(item.shippedBaseQty ?? 0)
