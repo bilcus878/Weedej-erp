@@ -521,6 +521,8 @@ model Reservation {
   productId       String
   quantity        Decimal       @db.Decimal(10, 3)
   unit            String
+  variantValue    Decimal?      @db.Decimal(10, 3)
+  variantUnit     String?
   status          String        @default("active")
   createdAt       DateTime      @default(now())
   cancelledAt     DateTime?

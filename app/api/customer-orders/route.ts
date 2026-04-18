@@ -243,8 +243,14 @@ export async function POST(request: Request) {
       // 4. Vytvoř rezervace pro produkty z katalogu (uvnitř stejné transakce)
       await createReservations(
         newOrder.id,
-        items.filter((item: any) => item.productId),
-        tx // ✅ Předáme transakční klient
+        items.filter((item: any) => item.productId).map((item: any) => ({
+          productId:    item.productId,
+          quantity:     Number(item.quantity),
+          unit:         item.unit,
+          variantValue: item.variantValue != null ? Number(item.variantValue) : null,
+          variantUnit:  item.variantUnit  ?? null,
+        })),
+        tx
       )
 
       return newOrder

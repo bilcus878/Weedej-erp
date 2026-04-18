@@ -3,16 +3,24 @@
 
 import { prisma } from '@/lib/prisma'
 
+export interface ReservationItem {
+  productId:    string | null
+  quantity:     number
+  unit:         string
+  variantValue?: number | null
+  variantUnit?:  string | null
+}
+
 /**
  * Vytvoří rezervace pro novou objednávku
  * Volá se automaticky při vytvoření CustomerOrder
  * @param customerOrderId ID objednávky
- * @param items Položky objednávky
+ * @param items Položky objednávky (s variantValue/variantUnit pro variantní produkty)
  * @param tx Transakční klient (pokud voláno uvnitř transakce)
  */
 export async function createReservations(
   customerOrderId: string,
-  items: Array<{ productId: string | null; quantity: number; unit: string }>,
+  items: ReservationItem[],
   tx?: any
 ) {
   const client = tx || prisma
@@ -24,11 +32,13 @@ export async function createReservations(
       const reservation = await client.reservation.create({
         data: {
           customerOrderId,
-          productId: item.productId,
-          quantity: item.quantity,
-          unit: item.unit,
-          status: 'active'
-        }
+          productId:    item.productId,
+          quantity:     item.quantity,
+          unit:         item.unit,
+          variantValue: item.variantValue ?? null,
+          variantUnit:  item.variantUnit  ?? null,
+          status:       'active',
+        },
       })
       reservations.push(reservation)
     }
@@ -50,7 +60,7 @@ export async function cancelReservations(customerOrderId: string, tx?: any) {
       status: 'active',
     },
     data: {
-      status: 'cancelled',
+      status:      'cancelled',
       cancelledAt: new Date(),
     },
   })
@@ -70,61 +80,54 @@ export async function fulfillReservations(customerOrderId: string, tx?: any) {
       status: 'active',
     },
     data: {
-      status: 'fulfilled',
+      status:      'fulfilled',
       fulfilledAt: new Date(),
     },
   })
 }
 
 /**
- * Vypočítá celkové rezervované množství pro daný produkt
- * Vrátí pouze aktivní rezervace (status = 'active')
+ * Vypočítá celkové rezervované množství pro daný produkt v základních jednotkách (g/ml/ks).
+ *
+ * Pro variantní položky (unit='ks', variantValue nastaveno):
+ *   reservedBase = quantity × variantValue
+ * Pro ostatní:
+ *   reservedBase = quantity
+ *
+ * Deleguje na stockCalculation.ts — jediný zdroj pravdy.
  */
 export async function calculateReservedStock(productId: string): Promise<number> {
-  const result = await prisma.reservation.aggregate({
-    where: {
-      productId,
-      status: 'active' // Jen aktivní rezervace
-    },
-    _sum: {
-      quantity: true
-    }
-  })
-
-  return Number(result._sum.quantity || 0)
+  const { calculateReservedStock: calc } = await import('@/lib/stockCalculation')
+  return calc(productId)
 }
 
 /**
- * Zkontroluje, zda je možné rezervovat dané množství produktu
- * Bere v úvahu současný fyzický sklad a již existující rezervace
+ * Zkontroluje, zda je možné rezervovat dané množství produktu.
+ * Množství (quantity) musí být v základních jednotkách (g/ml/ks) — stejně jako sklad.
  */
 export async function canReserveQuantity(
   productId: string,
-  quantity: number
+  quantity:  number
 ): Promise<{
-  canReserve: boolean
+  canReserve:     boolean
   availableStock: number
-  message?: string
+  message?:       string
 }> {
-  // Importuj funkci pro výpočet fyzického skladu
   const { calculateCurrentStock } = await import('@/lib/stockCalculation')
 
-  const physicalStock = await calculateCurrentStock(productId)
-  const reservedStock = await calculateReservedStock(productId)
+  const physicalStock  = await calculateCurrentStock(productId)
+  const reservedStock  = await calculateReservedStock(productId)
   const availableStock = physicalStock - reservedStock
 
   if (availableStock < quantity) {
     return {
       canReserve: false,
       availableStock,
-      message: `Nedostatečný dostupný sklad. Skladem: ${physicalStock}, rezervováno: ${reservedStock}, dostupné: ${availableStock}, požadováno: ${quantity}`
+      message: `Nedostatečný dostupný sklad. Skladem: ${physicalStock}, rezervováno: ${reservedStock}, dostupné: ${availableStock}, požadováno: ${quantity}`,
     }
   }
 
-  return {
-    canReserve: true,
-    availableStock
-  }
+  return { canReserve: true, availableStock }
 }
 
 /**
@@ -135,17 +138,13 @@ export async function getActiveReservationsForProduct(productId: string) {
   return await prisma.reservation.findMany({
     where: {
       productId,
-      status: 'active'
+      status: 'active',
     },
     include: {
       customerOrder: {
-        include: {
-          customer: true
-        }
-      }
+        include: { customer: true },
+      },
     },
-    orderBy: {
-      createdAt: 'asc'
-    }
+    orderBy: { createdAt: 'asc' },
   })
 }

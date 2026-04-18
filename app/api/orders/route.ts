@@ -241,9 +241,11 @@ export async function POST(request: NextRequest) {
       const reservableItems = order.items
         .filter(i => i.productId !== null)
         .map(i => ({
-          productId: i.productId as string,
-          quantity:  Number(i.quantity),
-          unit:      i.unit,
+          productId:    i.productId as string,
+          quantity:     Number(i.quantity),
+          unit:         i.unit,
+          variantValue: i.variantValue != null ? Number(i.variantValue) : null,
+          variantUnit:  i.variantUnit  ?? null,
         }))
 
       if (reservableItems.length > 0) {

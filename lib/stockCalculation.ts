@@ -115,19 +115,29 @@ export async function canDeliverQuantity(
 }
 
 /**
- * Vypočítá rezervované množství pro produkt
- * Vrací součet aktivních rezervací (status = 'active')
+ * Vypočítá rezervované množství pro produkt v základních jednotkách (g/ml/ks).
+ *
+ * Variantní položky (unit='ks', variantValue nastaveno) se převádějí:
+ *   reservedBase = quantity × variantValue   (např. 2 ks × 3 ml = 6 ml)
+ * Ostatní položky (unit='ml'/'g'/'ks' bez variantValue):
+ *   reservedBase = quantity
+ *
+ * Záměrně nepoužívá aggregate._sum — potřebujeme per-řádkový výpočet s variantValue.
  */
 export async function calculateReservedStock(productId: string): Promise<number> {
-  const reserved = await prisma.reservation.aggregate({
-    where: {
-      productId,
-      status: 'active'
-    },
-    _sum: { quantity: true }
+  const reservations = await prisma.reservation.findMany({
+    where: { productId, status: 'active' },
+    select: { quantity: true, unit: true, variantValue: true, variantUnit: true },
   })
 
-  return Number(reserved._sum.quantity || 0)
+  return reservations.reduce((sum, r) => {
+    const qty = Number(r.quantity)
+    const vv  = r.variantValue != null ? Number(r.variantValue) : null
+    const vu  = r.variantUnit
+    // Variant: unit='ks' s nastavenou variantValue v g/ml
+    const isVariant = r.unit === 'ks' && vv != null && vu != null && vu !== 'ks'
+    return sum + (isVariant ? qty * vv! : qty)
+  }, 0)
 }
 
 /**
