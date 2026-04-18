@@ -105,6 +105,15 @@ interface EshopOrder {
   eshopUserId?: string | null
   stripeSessionId?: string | null
   stripePaymentIntent?: string | null
+  paymentReference?: string | null
+  trackingNumber?: string | null
+  carrier?: string | null
+  stornoAt?: string | null
+  stornoBy?: string | null
+  stornoReason?: string | null
+  discountAmount?: number | null
+  discountType?: string | null
+  discountValue?: number | null
   note?: string | null
   items: EshopOrderItem[]
   issuedInvoice?: IssuedInvoiceSummary | null
@@ -666,35 +675,47 @@ export default function EshopOrdersPage() {
                       <div className="border border-gray-200 rounded-lg overflow-hidden">
                         <h4 className="font-bold text-base text-gray-900 px-4 py-3 bg-gray-100 border-b border-gray-200">Informace o objednávce</h4>
 
+                        {/* Obecné */}
                         <div className="border-b">
                           <h5 className="text-sm font-semibold text-gray-800 px-4 py-3 bg-gray-50">Obecné</h5>
                           <div className="text-sm">
                             <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-white">
                               <div><span className="text-gray-600">Datum objednávky:</span> <span className="font-medium">{new Date(order.orderDate).toLocaleDateString('cs-CZ')}</span></div>
                               <div className="border-l border-gray-200 mx-4"></div>
-                              <div><span className="text-gray-600">Odesláno / Vydáno:</span> <span className="font-medium">{order.shippedAt ? new Date(order.shippedAt).toLocaleDateString('cs-CZ') : (order.deliveryNotes?.filter(dn => dn.status === 'active').map(dn => new Date(dn.deliveryDate).toLocaleDateString('cs-CZ')).join(', ') || '-')}</span></div>
+                              <div><span className="text-gray-600">Status:</span> <span className="font-medium">{getStatusBadge(order.status)}</span></div>
                             </div>
                             <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-gray-50">
                               <div><span className="text-gray-600">Zaplaceno:</span> <span className="font-medium">{order.paidAt ? new Date(order.paidAt).toLocaleDateString('cs-CZ') : '-'}</span></div>
                               <div className="border-l border-gray-200 mx-4"></div>
-                              <div><span className="text-gray-600">Typ platby:</span> <span className="font-medium">Stripe (karta)</span></div>
+                              <div><span className="text-gray-600">Odesláno / Vydáno:</span> <span className="font-medium">{order.shippedAt ? new Date(order.shippedAt).toLocaleDateString('cs-CZ') : (order.deliveryNotes?.filter(dn => dn.status === 'active').map(dn => new Date(dn.deliveryDate).toLocaleDateString('cs-CZ')).join(', ') || '-')}</span></div>
                             </div>
                             <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-white">
                               <div><span className="text-gray-600">Poznámka:</span> <span className="font-medium">{order.note || '-'}</span></div>
                               <div className="border-l border-gray-200 mx-4"></div>
                               <div><span className="text-gray-600">Eshop ID:</span> <span className="font-medium font-mono text-xs text-gray-500">{order.eshopOrderId || '-'}</span></div>
                             </div>
-                            {order.stripeSessionId && (
-                              <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-gray-50">
-                                <div><span className="text-gray-600">Stripe Session:</span> <span className="font-medium font-mono text-xs text-gray-500 break-all">{order.stripeSessionId}</span></div>
-                                <div className="border-l border-gray-200 mx-4"></div>
-                                <div></div>
-                              </div>
-                            )}
                           </div>
                         </div>
 
-                        <div>
+                        {/* Platba */}
+                        <div className="border-b">
+                          <h5 className="text-sm font-semibold text-gray-800 px-4 py-3 bg-gray-50">Platba</h5>
+                          <div className="text-sm">
+                            <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-white">
+                              <div><span className="text-gray-600">Reference platby:</span> <span className="font-medium font-mono text-xs text-gray-700">{order.paymentReference || '-'}</span></div>
+                              <div className="border-l border-gray-200 mx-4"></div>
+                              <div><span className="text-gray-600">Stripe Payment Intent:</span> <span className="font-medium font-mono text-xs text-gray-500 break-all">{order.stripePaymentIntent || '-'}</span></div>
+                            </div>
+                            <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-gray-50">
+                              <div><span className="text-gray-600">Stripe Session:</span> <span className="font-medium font-mono text-xs text-gray-500 break-all">{order.stripeSessionId || '-'}</span></div>
+                              <div className="border-l border-gray-200 mx-4"></div>
+                              <div></div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Zákazník / Doručení */}
+                        <div className={order.trackingNumber || order.carrier || ['cancelled','storno'].includes(order.status) ? 'border-b' : ''}>
                           <h5 className="text-sm font-semibold text-gray-800 px-4 py-3 bg-gray-50">Zákazník / Doručení</h5>
                           <div className="text-sm">
                             <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-white">
@@ -715,6 +736,39 @@ export default function EshopOrdersPage() {
                             </div>
                           </div>
                         </div>
+
+                        {/* Expedice — pouze pokud je trackingNumber nebo carrier */}
+                        {(order.trackingNumber || order.carrier) && (
+                          <div className={['cancelled','storno'].includes(order.status) ? 'border-b' : ''}>
+                            <h5 className="text-sm font-semibold text-gray-800 px-4 py-3 bg-gray-50">Expedice</h5>
+                            <div className="text-sm">
+                              <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-white">
+                                <div><span className="text-gray-600">Tracking č.:</span> <span className="font-medium font-mono text-xs">{order.trackingNumber || '-'}</span></div>
+                                <div className="border-l border-gray-200 mx-4"></div>
+                                <div><span className="text-gray-600">Dopravce:</span> <span className="font-medium">{order.carrier || '-'}</span></div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Storno — pouze pokud je objednávka zrušena */}
+                        {['cancelled','storno'].includes(order.status) && (
+                          <div>
+                            <h5 className="text-sm font-semibold text-red-700 px-4 py-3 bg-red-50">Storno</h5>
+                            <div className="text-sm">
+                              <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-white">
+                                <div><span className="text-gray-600">Datum storna:</span> <span className="font-medium">{order.stornoAt ? new Date(order.stornoAt).toLocaleDateString('cs-CZ') : '-'}</span></div>
+                                <div className="border-l border-gray-200 mx-4"></div>
+                                <div><span className="text-gray-600">Stornoval:</span> <span className="font-medium">{order.stornoBy || '-'}</span></div>
+                              </div>
+                              {order.stornoReason && (
+                                <div className="px-4 py-2 bg-gray-50">
+                                  <span className="text-gray-600">Důvod:</span> <span className="font-medium">{order.stornoReason}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       {/* ── Položky objednávky ── */}
@@ -759,7 +813,7 @@ export default function EshopOrdersPage() {
 
                                 return isVatPayer ? (
                                   <div key={item.id} className={`grid grid-cols-[3fr_repeat(6,1fr)] gap-2 px-4 py-2 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'} text-xs`}>
-                                    <div className="font-medium text-gray-900">{item.productName || item.product?.name}</div>
+                                    <div className="font-medium text-gray-900">{item.product?.name || item.productName}</div>
                                     <div className="text-center text-gray-600">{qtyDisplay}</div>
                                     <div className="text-center text-gray-500">{vatRate}%</div>
                                     <div className="text-center text-gray-600">{formatPrice(unitPrice)}</div>
@@ -769,7 +823,7 @@ export default function EshopOrdersPage() {
                                   </div>
                                 ) : (
                                   <div key={item.id} className={`grid grid-cols-[2fr_1fr_1fr_1fr] gap-3 px-4 py-2 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                                    <div className="font-medium text-gray-900">{item.productName || item.product?.name}</div>
+                                    <div className="font-medium text-gray-900">{item.product?.name || item.productName}</div>
                                     <div className="text-right text-gray-600">{qtyDisplay}</div>
                                     <div className="text-right text-gray-600">{formatPrice(priceWithVat)}</div>
                                     <div className="text-right font-semibold text-gray-900">{formatPrice(rowTotal)}</div>
