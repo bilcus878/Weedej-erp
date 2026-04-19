@@ -824,88 +824,149 @@ export default function EshopOrdersPage() {
                         </div>
 
                         {/* ── D) Doručení — full width ──────────────────────── */}
-                        <div className="md:col-span-2 border border-gray-200 rounded-lg overflow-hidden">
-                          <h4 className="font-bold text-sm text-gray-900 px-4 py-2.5 bg-gray-100 border-b border-gray-200 flex items-center gap-2">
-                            <Truck className="w-4 h-4 text-gray-500" />
-                            Doručení
-                          </h4>
-                          <div className="flex divide-x divide-gray-100 bg-white text-sm min-h-[108px]">
+                        {(() => {
+                          const hasTracking = !!(order.trackingNumber || order.carrier)
+                          const carrierTrackingUrl = (() => {
+                            if (!order.trackingNumber) return null
+                            const c = (order.pickupPointCarrier || order.carrier || '').toLowerCase()
+                            if (c === 'zasilkovna') return `https://www.zasilkovna.cz/sledovani-zasilky?barcode=${order.trackingNumber}`
+                            if (c === 'dpd')        return `https://tracking.dpd.de/status/cs/parcel/${order.trackingNumber}`
+                            return null
+                          })()
+                          return (
+                            <div className="md:col-span-2 border border-gray-200 rounded-lg overflow-hidden">
 
-                            {/* Sloupec 1 — způsob dopravy */}
-                            <div className="w-52 shrink-0 px-5 py-4 flex flex-col justify-between">
-                              <div>
-                                <p className="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-3">Způsob dopravy</p>
-                                <p className="font-semibold text-gray-900 leading-snug text-sm">{order.shippingMethod ? shippingMethodLabel(order.shippingMethod) : <span className="text-gray-300">—</span>}</p>
+                              {/* ── Hlavička: metoda + carrier badge + stav expedice ── */}
+                              <div className="px-4 py-2.5 bg-gray-100 border-b border-gray-200 flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-2">
+                                  <Truck className="w-4 h-4 text-gray-500 shrink-0" />
+                                  <span className="font-bold text-sm text-gray-900">Doručení</span>
+                                  {order.shippingMethod && (
+                                    <span className="text-xs text-gray-500 font-medium">— {shippingMethodLabel(order.shippingMethod)}</span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {order.pickupPointCarrier && (
+                                    <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
+                                      {order.pickupPointCarrier}
+                                    </span>
+                                  )}
+                                  <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                                    hasTracking
+                                      ? 'bg-blue-100 text-blue-700'
+                                      : order.status === 'shipped' || order.status === 'delivered'
+                                        ? 'bg-green-100 text-green-700'
+                                        : 'bg-gray-100 text-gray-500'
+                                  }`}>
+                                    <span className={`w-1.5 h-1.5 rounded-full ${hasTracking ? 'bg-blue-500' : order.status === 'shipped' || order.status === 'delivered' ? 'bg-green-500' : 'bg-gray-400'}`} />
+                                    {hasTracking ? 'Sledováno' : order.status === 'shipped' ? 'Odesláno' : order.status === 'delivered' ? 'Doručeno' : 'Čeká na expedici'}
+                                  </span>
+                                </div>
                               </div>
-                              {order.pickupPointCarrier && (
-                                <span className="mt-3 inline-block text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 px-2.5 py-1 rounded-full w-fit">
-                                  {order.pickupPointCarrier}
-                                </span>
-                              )}
-                            </div>
 
-                            {/* Sloupec 2 — destinace (flex-1, dominant) */}
-                            <div className="flex-1 px-5 py-4">
-                              {order.pickupPointId ? (
-                                <>
-                                  <p className="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-3">Výdejní místo</p>
-                                  <div className="flex items-start gap-4">
-                                    <div className="shrink-0 w-10 h-10 rounded-lg bg-amber-50 border border-amber-200 flex items-center justify-center">
-                                      <Package className="w-5 h-5 text-amber-500" />
-                                    </div>
-                                    <div className="min-w-0">
-                                      <p className="font-bold text-base text-gray-900 leading-tight">{order.pickupPointName || '—'}</p>
-                                      {order.pickupPointAddress && (
-                                        <p className="text-gray-500 text-sm mt-1 leading-snug">{order.pickupPointAddress}</p>
-                                      )}
-                                      <div className="mt-2 flex items-center gap-2">
-                                        <span className="text-[9px] font-bold uppercase tracking-widest text-gray-400">ID</span>
-                                        <code className="text-xs font-mono bg-gray-100 text-gray-600 px-2 py-0.5 rounded">{order.pickupPointId}</code>
+                              {/* ── Tělo: destinace | tracking ── */}
+                              <div className="flex divide-x divide-gray-100 bg-white text-sm">
+
+                                {/* Destinace */}
+                                <div className="flex-1 px-5 py-4">
+                                  <p className="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-3">
+                                    {order.pickupPointId ? 'Výdejní místo' : 'Doručovací adresa'}
+                                  </p>
+                                  {order.pickupPointId ? (
+                                    <div className="flex items-start gap-3">
+                                      <div className="shrink-0 w-9 h-9 rounded-lg bg-amber-50 border border-amber-200 flex items-center justify-center">
+                                        <Package className="w-4 h-4 text-amber-500" />
+                                      </div>
+                                      <div className="min-w-0">
+                                        <p className="font-bold text-sm text-gray-900 leading-tight">{order.pickupPointName || '—'}</p>
+                                        {order.pickupPointAddress && (
+                                          <p className="text-gray-500 text-xs mt-1 leading-relaxed">{order.pickupPointAddress}</p>
+                                        )}
+                                        <div className="mt-2 flex items-center gap-1.5">
+                                          <span className="text-[9px] font-bold uppercase tracking-widest text-gray-400">ID</span>
+                                          <code className="text-xs font-mono bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">{order.pickupPointId}</code>
+                                        </div>
                                       </div>
                                     </div>
-                                  </div>
-                                </>
-                              ) : (
-                                <>
-                                  <p className="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-3">Doručovací adresa</p>
-                                  <div className="flex items-start gap-4">
-                                    <div className="shrink-0 w-10 h-10 rounded-lg bg-gray-50 border border-gray-200 flex items-center justify-center">
-                                      <MapPin className="w-5 h-5 text-gray-400" />
+                                  ) : (
+                                    <div className="flex items-start gap-3">
+                                      <div className="shrink-0 w-9 h-9 rounded-lg bg-gray-50 border border-gray-200 flex items-center justify-center">
+                                        <MapPin className="w-4 h-4 text-gray-400" />
+                                      </div>
+                                      <div>
+                                        <p className="font-bold text-sm text-gray-900 leading-tight">{getCustomerName(order)}</p>
+                                        <p className="text-gray-500 text-xs mt-1 whitespace-pre-line leading-relaxed">{order.customerAddress || '—'}</p>
+                                      </div>
                                     </div>
-                                    <div>
-                                      <p className="font-bold text-base text-gray-900 leading-tight">{getCustomerName(order)}</p>
-                                      <p className="text-gray-500 text-sm mt-1 whitespace-pre-line leading-snug">{order.customerAddress || '—'}</p>
-                                    </div>
-                                  </div>
-                                </>
-                              )}
-                            </div>
+                                  )}
+                                </div>
 
-                            {/* Sloupec 3 — expedice / tracking (conditional) */}
-                            {(order.trackingNumber || order.carrier) ? (
-                              <div className="w-52 shrink-0 px-5 py-4 bg-blue-50">
-                                <p className="text-[9px] font-bold uppercase tracking-widest text-blue-400 mb-3">Expedice</p>
-                                {order.carrier && (
-                                  <div className="mb-3">
-                                    <p className="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-0.5">Dopravce</p>
-                                    <p className="font-semibold text-gray-900">{order.carrier}</p>
+                                {/* Tracking panel — vždy zobrazen, připraven pro data */}
+                                <div className={`w-72 shrink-0 px-5 py-4 ${hasTracking ? 'bg-blue-50' : 'bg-gray-50'}`}>
+                                  <p className={`text-[9px] font-bold uppercase tracking-widest mb-3 ${hasTracking ? 'text-blue-400' : 'text-gray-400'}`}>
+                                    Sledování zásilky
+                                  </p>
+                                  <div className="space-y-2.5">
+                                    <div className="flex justify-between gap-2 items-baseline">
+                                      <span className="text-[10px] font-medium text-gray-400 shrink-0">Tracking č.</span>
+                                      {order.trackingNumber
+                                        ? <span className="font-mono text-xs font-bold text-blue-700 text-right break-all">{order.trackingNumber}</span>
+                                        : <span className="text-gray-300 text-xs">—</span>}
+                                    </div>
+                                    <div className="flex justify-between gap-2 items-baseline">
+                                      <span className="text-[10px] font-medium text-gray-400 shrink-0">Dopravce</span>
+                                      {order.carrier
+                                        ? <span className="text-xs font-semibold text-gray-800">{order.carrier}</span>
+                                        : <span className="text-gray-300 text-xs">—</span>}
+                                    </div>
+                                    <div className="flex justify-between gap-2 items-baseline">
+                                      <span className="text-[10px] font-medium text-gray-400 shrink-0">Stav zásilky</span>
+                                      <span className="text-gray-300 text-xs">—</span>
+                                    </div>
+                                    <div className="flex justify-between gap-2 items-baseline">
+                                      <span className="text-[10px] font-medium text-gray-400 shrink-0">Poslední update</span>
+                                      <span className="text-gray-300 text-xs">—</span>
+                                    </div>
+                                    <div className="flex justify-between gap-2 items-baseline">
+                                      <span className="text-[10px] font-medium text-gray-400 shrink-0">ETA</span>
+                                      <span className="text-gray-300 text-xs">—</span>
+                                    </div>
                                   </div>
-                                )}
+                                </div>
+
+                              </div>
+
+                              {/* ── Akce ── */}
+                              <div className="flex items-center gap-2 px-4 py-2.5 border-t border-gray-100 bg-white flex-wrap">
                                 {order.trackingNumber && (
-                                  <div>
-                                    <p className="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-0.5">Tracking</p>
-                                    <p className="font-mono text-xs font-bold text-blue-700 break-all">{order.trackingNumber}</p>
-                                  </div>
+                                  <button
+                                    onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(order.trackingNumber!) }}
+                                    className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+                                  >
+                                    <RefreshCw className="w-3 h-3" />
+                                    Kopírovat tracking
+                                  </button>
+                                )}
+                                {carrierTrackingUrl && (
+                                  <a
+                                    href={carrierTrackingUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={e => e.stopPropagation()}
+                                    className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors"
+                                  >
+                                    <ExternalLink className="w-3 h-3" />
+                                    Sledovat u dopravce
+                                  </a>
+                                )}
+                                {!hasTracking && (
+                                  <span className="text-xs text-gray-400 italic">Žádné akce — zásilka ještě nebyla předána dopravci</span>
                                 )}
                               </div>
-                            ) : (
-                              <div className="w-44 shrink-0 px-5 py-4 flex items-end">
-                                <p className="text-xs text-gray-300 italic">Zatím neexpedováno</p>
-                              </div>
-                            )}
 
-                          </div>
-                        </div>
+                            </div>
+                          )
+                        })()}
 
                       </div>
 
