@@ -6,6 +6,7 @@ import { Plus, Edit, ChevronDown, ChevronRight, FileText, ExternalLink, XCircle,
 import InvoiceDetailsModal from '@/components/InvoiceDetailsModal'
 import { isNonVatPayer, NON_VAT_PAYER_RATE, DEFAULT_VAT_RATE } from '@/lib/vatCalculation'
 import { formatPrice } from '@/lib/utils'
+import { PageHeader, DetailSection, DetailRow, LinkedDocumentBanner, PartySection, ActionToolbar } from '@/components/erp'
 
 export const dynamic = 'force-dynamic'
 
@@ -543,17 +544,7 @@ export default function ReceivedInvoicesPage() {
 
   return (
     <div className="space-y-6">
-      {/* Hlavička */}
-      <div className="bg-gradient-to-r from-slate-50 to-emerald-50 border-l-4 border-emerald-500 rounded-lg shadow-sm py-4 px-6 mb-6">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-emerald-600">
-            Přijaté faktury
-            <span className="text-sm font-normal text-gray-600 ml-3">
-              (Zobrazeno <span className="font-semibold text-emerald-600">{filteredInvoices.length}</span> z <span className="font-semibold text-gray-700">{invoices.length}</span>)
-            </span>
-          </h1>
-        </div>
-      </div>
+      <PageHeader title="Přijaté faktury" icon={FileText} color="amber" total={invoices.length} filtered={filteredInvoices.length} onRefresh={loadData} />
 
       {/* Filtry - přesně odpovídající sloupcům tabulky */}
       <div className="mb-4">
@@ -850,127 +841,59 @@ export default function ReceivedInvoicesPage() {
               </div>
 
               {expandedInvoices.has(invoice.id) && (
-                <div className="border-t p-4 bg-gray-50">
-                  {/* Detail příjemky / objednávky */}
-                  <div>
-                    {/* Modrý rámeček s objednávkou */}
-                    {invoice.purchaseOrder && (
-                      <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded">
-                        <div className="text-sm text-center">
-                          <span className="text-gray-600">Objednávka: </span>
-                          <a
-                            href={`/purchase-orders?highlight=${invoice.purchaseOrder.id}`}
-                            className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            {invoice.purchaseOrder.orderNumber}
-                            <ExternalLink className="w-3 h-3 inline ml-1" />
-                          </a>
-                        </div>
-                      </div>
-                    )}
+                <div className="border-t p-4 bg-gray-50 space-y-4">
+                  {invoice.purchaseOrder && (
+                    <LinkedDocumentBanner
+                      links={[{
+                        label: 'Objednávka',
+                        value: invoice.purchaseOrder.orderNumber,
+                        href: `/purchase-orders?highlight=${invoice.purchaseOrder.id}`
+                      }]}
+                      color="blue"
+                    />
+                  )}
 
-                    {/* Informace o faktuře */}
-                    <div className="mt-6 mb-6 border border-gray-200 rounded-lg overflow-hidden">
-                      <h4 className="font-bold text-base text-gray-900 px-4 py-3 bg-gray-100 border-b border-gray-200">Informace o faktuře</h4>
-
-                      <div className="border-b">
-                        <h5 className="text-sm font-semibold text-gray-800 px-4 py-3 bg-gray-50">Obecné</h5>
-                        <div className="text-sm">
-                          <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-white">
-                            <div><span className="text-gray-600">Datum vytvoření:</span> <span className="font-medium">{invoice.invoiceDate ? new Date(invoice.invoiceDate).toLocaleDateString('cs-CZ') : '-'}</span></div>
-                            <div className="border-l border-gray-200 mx-4"></div>
-                            <div><span className="text-gray-600">Datum dodání:</span> <span className="font-medium">{invoice.receipts && invoice.receipts.length > 0 ? invoice.receipts.map(r => new Date(r.receiptDate).toLocaleDateString('cs-CZ')).join(', ') : '-'}</span></div>
+                  {(() => {
+                    const po = invoice.purchaseOrder as any
+                    const entityType = (invoice as any).supplierEntityType || po?.supplierEntityType || po?.supplier?.entityType || 'company'
+                    const supplierName = (invoice as any).supplierName || po?.supplierName || po?.supplier?.name || invoice.receipts?.[0]?.supplier?.name || 'Anonymní dodavatel'
+                    return (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <DetailSection title="Informace o faktuře" icon={FileText}>
+                          <div className="divide-y divide-gray-100 py-1">
+                            <DetailRow label="Datum faktury" value={invoice.invoiceDate ? new Date(invoice.invoiceDate).toLocaleDateString('cs-CZ') : undefined} />
+                            <DetailRow label="Datum splatnosti" value={invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString('cs-CZ') : undefined} />
+                            <DetailRow label="Datum dodání" value={invoice.receipts && invoice.receipts.length > 0 ? invoice.receipts.map(r => new Date(r.receiptDate).toLocaleDateString('cs-CZ')).join(', ') : undefined} />
+                            <DetailRow label="Očekávané dodání" value={invoice.purchaseOrder?.expectedDate ? new Date(invoice.purchaseOrder.expectedDate).toLocaleDateString('cs-CZ') : undefined} />
+                            <DetailRow label="Typ platby" value={
+                              invoice.paymentType === 'cash' ? 'Hotovost' :
+                              invoice.paymentType === 'card' ? 'Karta' :
+                              invoice.paymentType === 'transfer' ? 'Bankovní převod' :
+                              invoice.paymentType || undefined
+                            } />
+                            <DetailRow label="Poznámka" value={invoice.note || undefined} />
                           </div>
+                        </DetailSection>
 
-                          <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-gray-50">
-                            <div><span className="text-gray-600">Očekávané dodání:</span> <span className="font-medium">{invoice.purchaseOrder?.expectedDate ? new Date(invoice.purchaseOrder.expectedDate).toLocaleDateString('cs-CZ') : '-'}</span></div>
-                            <div className="border-l border-gray-200 mx-4"></div>
-                            <div><span className="text-gray-600">Typ platby:</span> <span className="font-medium">
-                              {invoice.paymentType === 'cash' && 'Hotovost'}
-                              {invoice.paymentType === 'card' && 'Karta'}
-                              {invoice.paymentType === 'transfer' && 'Bankovní převod'}
-                              {!['cash', 'card', 'transfer'].includes(invoice.paymentType) && invoice.paymentType}
-                            </span></div>
-                          </div>
-
-                          <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-white">
-                            <div><span className="text-gray-600">Datum splatnosti:</span> <span className="font-medium">{invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString('cs-CZ') : '-'}</span></div>
-                            <div className="border-l border-gray-200 mx-4"></div>
-                            <div><span className="text-gray-600">Poznámka:</span> <span className="font-medium">{invoice.note || '-'}</span></div>
-                          </div>
-                        </div>
+                        <PartySection
+                          title="Dodavatel"
+                          party={{
+                            name: supplierName,
+                            entityType,
+                            contact: (invoice as any).supplierContactPerson || po?.supplierContactPerson || po?.supplier?.contact,
+                            address: (invoice as any).supplierAddress || po?.supplierAddress || po?.supplier?.address,
+                            phone: (invoice as any).supplierPhone || po?.supplierPhone || po?.supplier?.phone,
+                            ico: (invoice as any).supplierIco || po?.supplierICO || po?.supplier?.ico,
+                            dic: (invoice as any).supplierDic || po?.supplierDIC || po?.supplier?.dic,
+                            email: (invoice as any).supplierEmail || po?.supplierEmail || po?.supplier?.email,
+                            website: (invoice as any).supplierWebsite || po?.supplierWebsite || po?.supplier?.website,
+                            bankAccount: (invoice as any).supplierBankAccount || po?.supplierBankAccount || po?.supplier?.bankAccount,
+                            note: (invoice as any).supplierNote || undefined,
+                          }}
+                        />
                       </div>
-
-                      <div>
-                        <h5 className="text-sm font-semibold text-gray-800 px-4 py-3 bg-gray-50">Dodavatel</h5>
-                        <div className="text-sm">
-                          {(() => {
-                            // Zjistíme typ entity (firma/FO) - PRIORITA: faktura → objednávka → supplier
-                            const po = invoice.purchaseOrder as any
-                            const entityType = (invoice as any).supplierEntityType || po?.supplierEntityType || po?.supplier?.entityType || 'company'
-
-                            return (
-                              <>
-                                {/* Název a typ subjektu */}
-                                <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-white">
-                                  <div>
-                                    <span className="text-gray-600">Název:</span>
-                                    <span className="font-medium">{(invoice as any).supplierName || po?.supplierName || po?.supplier?.name || (invoice as any).receipts?.[0]?.supplier?.name || 'Anonymní dodavatel'}</span>
-                                    {entityType && (
-                                      <span className="ml-2 text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-800">
-                                        {entityType === 'company' ? '🏢 Firma' : '👤 FO'}
-                                      </span>
-                                    )}
-                                  </div>
-                                  <div className="border-l border-gray-200 mx-4"></div>
-                                  {/* Kontaktní osoba pouze pro firmy */}
-                                  {entityType === 'company' && (
-                                    <div><span className="text-gray-600">Kontaktní osoba:</span> <span className="font-medium">{(invoice as any).supplierContactPerson || po?.supplierContactPerson || po?.supplier?.contact || '-'}</span></div>
-                                  )}
-                                  {/* Pro FO zobrazíme Email */}
-                                  {entityType === 'individual' && (
-                                    <div><span className="text-gray-600">Email:</span> <span className="font-medium">{(invoice as any).supplierEmail || po?.supplierEmail || po?.supplier?.email || '-'}</span></div>
-                                  )}
-                                </div>
-
-                                {/* Adresa a Telefon - vždy */}
-                                <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-gray-50">
-                                  <div><span className="text-gray-600">Adresa:</span> <span className="font-medium">{(invoice as any).supplierAddress || po?.supplierAddress || po?.supplier?.address || '-'}</span></div>
-                                  <div className="border-l border-gray-200 mx-4"></div>
-                                  <div><span className="text-gray-600">Telefon:</span> <span className="font-medium">{(invoice as any).supplierPhone || po?.supplierPhone || po?.supplier?.phone || '-'}</span></div>
-                                </div>
-
-                                {/* Pro FIRMU: IČO a Email */}
-                                {entityType === 'company' && (
-                                  <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-white">
-                                    <div><span className="text-gray-600">IČO:</span> <span className="font-medium">{(invoice as any).supplierIco || po?.supplierICO || po?.supplier?.ico || '-'}</span></div>
-                                    <div className="border-l border-gray-200 mx-4"></div>
-                                    <div><span className="text-gray-600">Email:</span> <span className="font-medium">{(invoice as any).supplierEmail || po?.supplierEmail || po?.supplier?.email || '-'}</span></div>
-                                  </div>
-                                )}
-
-                                {/* Pro FIRMU: DIČ a Web */}
-                                {entityType === 'company' && (
-                                  <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-gray-50">
-                                    <div><span className="text-gray-600">DIČ:</span> <span className="font-medium">{(invoice as any).supplierDic || po?.supplierDIC || po?.supplier?.dic || '-'}</span></div>
-                                    <div className="border-l border-gray-200 mx-4"></div>
-                                    <div><span className="text-gray-600">Web:</span> <span className="font-medium">{(invoice as any).supplierWebsite || po?.supplierWebsite || po?.supplier?.website || '-'}</span></div>
-                                  </div>
-                                )}
-
-                                {/* Bankovní účet a Poznámka - vždy */}
-                                <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-white">
-                                  <div><span className="text-gray-600">Bankovní účet:</span> <span className="font-medium">{(invoice as any).supplierBankAccount || po?.supplierBankAccount || po?.supplier?.bankAccount || '-'}</span></div>
-                                  <div className="border-l border-gray-200 mx-4"></div>
-                                  <div><span className="text-gray-600">Poznámka:</span> <span className="font-medium">{invoice.note || po?.note || po?.supplier?.note || '-'}</span></div>
-                                </div>
-                              </>
-                            )
-                          })()}
-                        </div>
-                      </div>
-                    </div>
+                    )
+                  })()}
 
                     {/* Položky objednávky */}
                     {invoice.purchaseOrder?.items && invoice.purchaseOrder.items.length > 0 ? (
@@ -1238,10 +1161,10 @@ export default function ReceivedInvoicesPage() {
                       </div>
                     )}
 
-                    {/* Tlačítka akcí */}
-                    {invoice.status !== 'storno' && (
-                      <div className="mt-3 flex justify-between items-end">
-                        <div className="flex gap-2">
+                  {invoice.status !== 'storno' && (
+                    <ActionToolbar
+                      left={
+                        <>
                           <button
                             onClick={() => handleOpenDetailsModal(invoice)}
                             className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded flex items-center gap-1"
@@ -1271,7 +1194,9 @@ export default function ReceivedInvoicesPage() {
                               />
                             </label>
                           )}
-                        </div>
+                        </>
+                      }
+                      right={
                         <button
                           onClick={() => handleStorno(invoice.id)}
                           className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm rounded flex items-center gap-1"
@@ -1279,9 +1204,9 @@ export default function ReceivedInvoicesPage() {
                           <XCircle className="w-4 h-4" />
                           Stornovat
                         </button>
-                      </div>
-                    )}
-                  </div>
+                      }
+                    />
+                  )}
                 </div>
               )}
             </div>

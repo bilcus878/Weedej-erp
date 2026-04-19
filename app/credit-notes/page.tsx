@@ -6,8 +6,10 @@
 import { useEffect, useState, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { formatPrice, formatQuantity } from '@/lib/utils'
-import { ChevronDown, ChevronRight, XCircle, ExternalLink } from 'lucide-react'
+import { ChevronDown, ChevronRight, XCircle, FileText } from 'lucide-react'
 import { isNonVatPayer, DEFAULT_VAT_RATE } from '@/lib/vatCalculation'
+import { PageHeader, DetailSection, DetailRow, LinkedDocumentBanner, PartySection, ItemsTable, ActionToolbar } from '@/components/erp'
+import type { ErpItem } from '@/components/erp'
 
 export const dynamic = 'force-dynamic'
 
@@ -250,17 +252,7 @@ export default function CreditNotesPage() {
 
   return (
     <div className="space-y-6">
-      {/* Hlavička */}
-      <div className="bg-gradient-to-r from-slate-50 to-purple-50 border-l-4 border-purple-500 rounded-lg shadow-sm py-4 px-6 mb-6">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-purple-600">
-            Dobropisy
-            <span className="text-sm font-normal text-gray-600 ml-3">
-              (Zobrazeno <span className="font-semibold text-purple-600">{filteredNotes.length}</span> z <span className="font-semibold text-gray-700">{creditNotes.length}</span>)
-            </span>
-          </h1>
-        </div>
-      </div>
+      <PageHeader title="Dobropisy" icon={FileText} color="purple" total={creditNotes.length} filtered={filteredNotes.length} onRefresh={fetchData} />
 
       {/* Filtry */}
       <div className="mb-4">
@@ -487,221 +479,87 @@ export default function CreditNotesPage() {
 
                   {/* Rozbalený detail */}
                   {isExpanded && (
-                    <div className="border-t p-4 bg-gray-50">
-                      <div>
-                        {/* Rozcestník - odkazy na fakturu, objednávku, transakci */}
-                        <div className="mb-3 p-3 bg-purple-50 border border-purple-200 rounded">
-                          <div className="text-sm text-center">
-                            <div className="flex items-center justify-center gap-4 flex-wrap">
-                              {/* Původní faktura */}
-                              <div className="flex items-center gap-2">
-                                <span className="text-gray-600">Faktura: </span>
-                                <a
-                                  href={`/invoices/issued?highlight=${creditNote.issuedInvoiceId}`}
-                                  className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  {creditNote.invoiceNumber}
-                                  <ExternalLink className="w-3 h-3 inline ml-1" />
-                                </a>
-                              </div>
+                    <div className="border-t p-4 bg-gray-50 space-y-4">
+                      {/* Rozcestník - odkazy na fakturu, objednávku, transakci */}
+                      {(() => {
+                        const links = [
+                          { label: 'Faktura', value: creditNote.invoiceNumber, href: `/invoices/issued?highlight=${creditNote.issuedInvoiceId}` },
+                          ...(creditNote.customerOrderId ? [{ label: 'Objednávka', value: creditNote.customerOrderNumber || 'Zobrazit', href: `/customer-orders?highlight=${creditNote.customerOrderId}` }] : []),
+                          ...(!creditNote.customerOrderId && creditNote.transactionId ? [{ label: 'Transakce', value: creditNote.transactionCode || 'Zobrazit', href: `/transactions?highlight=${creditNote.transactionId}` }] : []),
+                        ]
+                        return <LinkedDocumentBanner links={links} color="purple" />
+                      })()}
 
-                              {/* Objednávka zákazníka (pokud existuje) */}
-                              {creditNote.customerOrderId && (
-                                <div className="flex items-center gap-2">
-                                  <span className="text-gray-600">Objednávka: </span>
-                                  <a
-                                    href={`/customer-orders?highlight=${creditNote.customerOrderId}`}
-                                    className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                    {creditNote.customerOrderNumber || 'Zobrazit'}
-                                    <ExternalLink className="w-3 h-3 inline ml-1" />
-                                  </a>
-                                </div>
-                              )}
-
-                              {/* SumUp transakce (pokud existuje a není objednávka) */}
-                              {creditNote.transactionId && !creditNote.customerOrderId && (
-                                <div className="flex items-center gap-2">
-                                  <span className="text-gray-600">Transakce: </span>
-                                  <a
-                                    href={`/transactions?highlight=${creditNote.transactionId}`}
-                                    className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                    {creditNote.transactionCode || 'Zobrazit'}
-                                    <ExternalLink className="w-3 h-3 inline ml-1" />
-                                  </a>
-                                </div>
-                              )}
-                            </div>
+                      {/* Info + Odběratel */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <DetailSection title="Informace o dobropisu" icon={FileText}>
+                          <div className="divide-y divide-gray-100 py-1">
+                            <DetailRow label="Datum vystavení" value={new Date(creditNote.creditNoteDate).toLocaleDateString('cs-CZ')} />
+                            <DetailRow label="Původní faktura" value={creditNote.invoiceNumber} />
+                            <DetailRow label="Důvod" value={creditNote.reason || undefined} />
+                            <DetailRow label="Poznámka" value={creditNote.note || undefined} />
+                            {creditNote.status === 'storno' && (
+                              <>
+                                <DetailRow label="Důvod storna" value={<span className="text-red-600">{creditNote.stornoReason || '—'}</span>} />
+                                <DetailRow label="Datum storna" value={creditNote.stornoAt ? <span className="text-red-600">{new Date(creditNote.stornoAt).toLocaleDateString('cs-CZ')}</span> : undefined} />
+                              </>
+                            )}
                           </div>
-                        </div>
+                        </DetailSection>
 
-                        {/* Informace o dobropisu */}
-                        <div className="mt-6 mb-6 border border-gray-200 rounded-lg overflow-hidden">
-                          <h4 className="font-bold text-base text-gray-900 px-4 py-3 bg-gray-100 border-b border-gray-200">Informace o dobropisu</h4>
-
-                          <div className="border-b">
-                            <h5 className="text-sm font-semibold text-gray-800 px-4 py-3 bg-gray-50">Obecné</h5>
-                            <div className="text-sm">
-                              <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-white">
-                                <div><span className="text-gray-600">Datum vystavení:</span> <span className="font-medium">{new Date(creditNote.creditNoteDate).toLocaleDateString('cs-CZ')}</span></div>
-                                <div className="border-l border-gray-200 mx-4"></div>
-                                <div><span className="text-gray-600">Původní faktura:</span> <span className="font-medium">{creditNote.invoiceNumber}</span></div>
-                              </div>
-
-                              <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-gray-50">
-                                <div><span className="text-gray-600">Důvod:</span> <span className="font-medium">{creditNote.reason || '-'}</span></div>
-                                <div className="border-l border-gray-200 mx-4"></div>
-                                <div><span className="text-gray-600">Poznámka:</span> <span className="font-medium">{creditNote.note || '-'}</span></div>
-                              </div>
-
-                              {creditNote.status === 'storno' && (
-                                <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-red-50">
-                                  <div><span className="text-gray-600">Důvod storna:</span> <span className="font-medium text-red-600">{creditNote.stornoReason || '-'}</span></div>
-                                  <div className="border-l border-gray-200 mx-4"></div>
-                                  <div><span className="text-gray-600">Datum storna:</span> <span className="font-medium text-red-600">{creditNote.stornoAt ? new Date(creditNote.stornoAt).toLocaleDateString('cs-CZ') : '-'}</span></div>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
-                          <div>
-                            <h5 className="text-sm font-semibold text-gray-800 px-4 py-3 bg-gray-50">Odběratel / Zákazník</h5>
-                            <div className="text-sm">
-                              {(() => {
-                                const customerName = creditNote.customer?.name || creditNote.customerName || 'Bez odběratele'
-                                const isAnonymous = !creditNote.customer && !creditNote.customerName
-
-                                if (isAnonymous) {
-                                  return (
-                                    <div className="px-4 py-2 bg-white">
-                                      <span className="text-gray-600">Název:</span>
-                                      <span className="font-medium ml-2">Bez odběratele</span>
-                                    </div>
-                                  )
-                                }
-
-                                const entityType = creditNote.customer?.entityType || creditNote.customerEntityType || 'company'
-
-                                return (
-                                  <>
-                                    <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-white">
-                                      <div>
-                                        <span className="text-gray-600">Název:</span>
-                                        <span className="font-medium"> {customerName}</span>
-                                        {entityType && (
-                                          <span className="ml-2 text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-800">
-                                            {entityType === 'company' ? 'Firma' : 'FO'}
-                                          </span>
-                                        )}
-                                      </div>
-                                      <div className="border-l border-gray-200 mx-4"></div>
-                                      <div><span className="text-gray-600">Adresa:</span> <span className="font-medium">{creditNote.customerAddress || creditNote.customer?.address || '-'}</span></div>
-                                    </div>
-
-                                    <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-gray-50">
-                                      <div><span className="text-gray-600">IČO:</span> <span className="font-medium">{creditNote.customerIco || creditNote.customer?.ico || '-'}</span></div>
-                                      <div className="border-l border-gray-200 mx-4"></div>
-                                      <div><span className="text-gray-600">DIČ:</span> <span className="font-medium">{creditNote.customerDic || creditNote.customer?.dic || '-'}</span></div>
-                                    </div>
-
-                                    <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-white">
-                                      <div><span className="text-gray-600">Email:</span> <span className="font-medium">{creditNote.customerEmail || creditNote.customer?.email || '-'}</span></div>
-                                      <div className="border-l border-gray-200 mx-4"></div>
-                                      <div><span className="text-gray-600">Telefon:</span> <span className="font-medium">{creditNote.customerPhone || creditNote.customer?.phone || '-'}</span></div>
-                                    </div>
-                                  </>
-                                )
-                              })()}
-                            </div>
-                          </div>
-                        </div>
+                        <PartySection
+                          title="Odběratel / Zákazník"
+                          party={{
+                            name: creditNote.customer?.name || creditNote.customerName || 'Bez odběratele',
+                            entityType: creditNote.customer?.entityType || creditNote.customerEntityType || 'company',
+                            contact: creditNote.customer?.contact,
+                            address: creditNote.customerAddress || creditNote.customer?.address,
+                            phone: creditNote.customerPhone || creditNote.customer?.phone,
+                            ico: creditNote.customerIco || creditNote.customer?.ico,
+                            dic: creditNote.customerDic || creditNote.customer?.dic,
+                            email: creditNote.customerEmail || creditNote.customer?.email,
+                            website: creditNote.customer?.website,
+                            bankAccount: creditNote.customer?.bankAccount,
+                            note: creditNote.customer?.note,
+                          }}
+                        />
                       </div>
 
                       {/* Položky */}
                       {creditNote.items.length === 0 ? (
-                        <p className="text-red-600 mt-6 mb-6">Dobropis nemá žádné položky!</p>
+                        <p className="text-red-600">Dobropis nemá žádné položky!</p>
                       ) : (
-                        <div className="mt-6 mb-6 border border-gray-200 rounded-lg overflow-hidden">
-                          <h4 className="font-bold text-base text-gray-900 px-4 py-3 bg-gray-100 border-b border-gray-200">Položky ({creditNote.items.length})</h4>
-                          <div className="text-sm">
-                            {isVatPayer ? (
-                              <div className="grid grid-cols-[3fr_repeat(6,1fr)] gap-2 px-4 py-2 bg-gray-50 font-semibold text-gray-700 border-b text-xs">
-                                <div>Produkt</div>
-                                <div className="text-center">Množství</div>
-                                <div className="text-center">DPH</div>
-                                <div className="text-center">Cena/ks</div>
-                                <div className="text-center">DPH/ks</div>
-                                <div className="text-center">S DPH/ks</div>
-                                <div className="text-center">Celkem</div>
-                              </div>
-                            ) : (
-                              <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-3 px-4 py-2 bg-gray-50 font-semibold text-gray-700 border-b">
-                                <div>Produkt</div>
-                                <div className="text-right">Množství</div>
-                                <div className="text-right">Cena za kus</div>
-                                <div className="text-right">Celkem</div>
-                              </div>
-                            )}
-
-                            {creditNote.items.map((item, i) => {
-                              const unitPrice = Number(item.price)
-                              const itemVatRate = Number(item.vatRate || DEFAULT_VAT_RATE)
-                              const isItemNonVat = isNonVatPayer(itemVatRate)
-                              const vatPerUnit = isItemNonVat ? 0 : unitPrice * itemVatRate / 100
-                              const priceWithVatPerUnit = unitPrice + vatPerUnit
-                              const totalWithoutVat = Number(item.quantity) * unitPrice
-                              const totalVat = Number(item.quantity) * vatPerUnit
-                              const totalWithVat = totalWithoutVat + totalVat
-
-                              return isVatPayer ? (
-                                <div key={item.id} className={`grid grid-cols-[3fr_repeat(6,1fr)] gap-2 px-4 py-2 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'} text-xs`}>
-                                  <div className="font-medium text-gray-900">
-                                    {item.productName || '(Neznámé)'}
-                                  </div>
-                                  <div className="text-center text-gray-600">{formatQuantity(Number(item.quantity), item.unit)}</div>
-                                  <div className="text-center text-gray-500">{isItemNonVat ? '-' : `${itemVatRate}%`}</div>
-                                  <div className="text-center text-gray-600">{formatPrice(unitPrice)}</div>
-                                  <div className="text-center text-gray-500">{isItemNonVat ? '-' : formatPrice(vatPerUnit)}</div>
-                                  <div className="text-center text-gray-700">{formatPrice(priceWithVatPerUnit)}</div>
-                                  <div className="text-center font-semibold text-red-600">-{formatPrice(totalWithVat)}</div>
-                                </div>
-                              ) : (
-                                <div key={item.id} className={`grid grid-cols-[2fr_1fr_1fr_1fr] gap-3 px-4 py-2 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                                  <div className="font-medium text-gray-900">
-                                    {item.productName || '(Neznámé)'}
-                                  </div>
-                                  <div className="text-right text-gray-600">{formatQuantity(Number(item.quantity), item.unit)}</div>
-                                  <div className="text-right text-gray-600">{formatPrice(unitPrice)}</div>
-                                  <div className="text-right font-semibold text-red-600">-{formatPrice(totalWithoutVat)}</div>
-                                </div>
-                              )
-                            })}
-
-                            {/* Celkem */}
-                            <div className={`grid ${isVatPayer ? 'grid-cols-[3fr_repeat(6,1fr)]' : 'grid-cols-[2fr_1fr_1fr_1fr]'} gap-2 px-4 py-2 bg-gray-100 font-bold border-t text-sm`}>
-                              <div className={isVatPayer ? 'col-span-6' : 'col-span-3'}>{isVatPayer ? 'Celková částka dobropisu (s DPH)' : 'Celková částka dobropisu'}</div>
-                              <div className={`${isVatPayer ? 'text-center' : 'text-right'} text-red-600`}>{formatPrice(creditNote.totalAmount)}</div>
-                            </div>
-                          </div>
-                        </div>
+                        <ItemsTable
+                          items={creditNote.items.map(item => ({
+                            id: item.id,
+                            productName: item.productName,
+                            quantity: item.quantity,
+                            unit: item.unit,
+                            price: item.price,
+                            vatRate: item.vatRate,
+                            vatAmount: item.vatAmount,
+                            priceWithVat: item.priceWithVat,
+                          }) as ErpItem)}
+                          isVatPayer={isVatPayer}
+                          showNegative={true}
+                          totalAmount={creditNote.totalAmount}
+                          formatQty={(qty, unit) => formatQuantity(qty, unit || '')}
+                        />
                       )}
 
-                      {/* Tlačítka */}
-                      <div className="mt-4 flex justify-end items-center">
-                        {creditNote.status !== 'storno' && (
-                          <button
-                            onClick={() => handleStorno(creditNote)}
-                            className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm rounded flex items-center gap-1"
-                          >
-                            <XCircle className="w-4 h-4" />
-                            Stornovat
-                          </button>
-                        )}
-                      </div>
+                      {creditNote.status !== 'storno' && (
+                        <ActionToolbar
+                          right={
+                            <button
+                              onClick={() => handleStorno(creditNote)}
+                              className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm rounded flex items-center gap-1"
+                            >
+                              <XCircle className="w-4 h-4" />
+                              Stornovat
+                            </button>
+                          }
+                        />
+                      )}
                     </div>
                   )}
                 </div>

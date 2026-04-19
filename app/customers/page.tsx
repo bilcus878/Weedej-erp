@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import { Plus, Edit2, Trash2, X, ChevronDown, ChevronRight, Users } from 'lucide-react'
+import { PageHeader, PartySection, ActionToolbar } from '@/components/erp'
 
 export const dynamic = 'force-dynamic'
 
@@ -290,16 +291,14 @@ export default function CustomersPage() {
   return (
     <div className="space-y-6">
       {/* Hlavička */}
-      <div className="bg-gradient-to-r from-slate-50 to-blue-50 border-l-4 border-blue-500 rounded-lg shadow-sm py-4 px-6 mb-6">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-blue-600">
-            Odběratelé
-            <span className="text-sm font-normal text-gray-600 ml-3">
-              (Zobrazeno <span className="font-semibold text-blue-600">{filteredCustomers.length}</span> z <span className="font-semibold text-gray-700">{customers.length}</span>)
-            </span>
-          </h1>
-        </div>
-      </div>
+      <PageHeader
+        title="Odběratelé"
+        icon={Users}
+        color="blue"
+        total={customers.length}
+        filtered={filteredCustomers.length}
+        onRefresh={fetchCustomers}
+      />
 
       {/* Formulář pro přidání/úpravu odběratele */}
       <Card className="mb-6 border-2 border-blue-300 bg-blue-50 shadow-lg">
@@ -682,98 +681,44 @@ export default function CustomersPage() {
 
                     {/* Rozbalený detail */}
                     {isExpanded && (
-                      <div className="border-t p-4 bg-gray-50">
-                        {/* Sekce Detail o odběrateli - s rámečkem */}
-                        <div className="mb-4 border border-gray-200 rounded-lg overflow-hidden">
-                          <h4 className="font-semibold px-4 py-3 bg-gray-100 border-b">Detail o odběrateli</h4>
-                          <div className="text-sm">
-                            {(() => {
-                              const entityType = customer.entityType || 'company'
-
-                              return (
-                                <>
-                                  {/* Název a typ subjektu */}
-                                  <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-white">
-                                    <div>
-                                      <span className="text-gray-600">Název:</span>
-                                      <span className="font-medium ml-2">{customer.name}</span>
-                                      <span className="ml-2 text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-800">
-                                        {entityType === 'company' ? '🏢 Firma' : '👤 FO'}
-                                      </span>
-                                    </div>
-                                    <div className="border-l border-gray-200 mx-4"></div>
-                                    {/* Kontaktní osoba pouze pro firmy */}
-                                    {entityType === 'company' && (
-                                      <div><span className="text-gray-600">Kontaktní osoba:</span> <span className="font-medium">{customer.contact || '-'}</span></div>
-                                    )}
-                                    {/* Pro FO zobrazíme Email */}
-                                    {entityType === 'individual' && (
-                                      <div><span className="text-gray-600">Email:</span> <span className="font-medium">{customer.email || '-'}</span></div>
-                                    )}
-                                  </div>
-
-                                  {/* Adresa a Telefon - vždy */}
-                                  <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-gray-50">
-                                    <div><span className="text-gray-600">Adresa:</span> <span className="font-medium">{customer.address || '-'}</span></div>
-                                    <div className="border-l border-gray-200 mx-4"></div>
-                                    <div><span className="text-gray-600">Telefon:</span> <span className="font-medium">{customer.phone || '-'}</span></div>
-                                  </div>
-
-                                  {/* Pro FIRMU: IČO a Email */}
-                                  {entityType === 'company' && (
-                                    <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-white">
-                                      <div><span className="text-gray-600">IČO:</span> <span className="font-medium">{customer.ico || '-'}</span></div>
-                                      <div className="border-l border-gray-200 mx-4"></div>
-                                      <div><span className="text-gray-600">Email:</span> <span className="font-medium">{customer.email || '-'}</span></div>
-                                    </div>
-                                  )}
-
-                                  {/* Pro FIRMU: DIČ a Web */}
-                                  {entityType === 'company' && (
-                                    <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-gray-50">
-                                      <div><span className="text-gray-600">DIČ:</span> <span className="font-medium">{customer.dic || '-'}</span></div>
-                                      <div className="border-l border-gray-200 mx-4"></div>
-                                      <div><span className="text-gray-600">Web:</span> <span className="font-medium">{customer.website || '-'}</span></div>
-                                    </div>
-                                  )}
-
-                                  {/* Bankovní účet a Poznámka - vždy */}
-                                  <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-white">
-                                    <div><span className="text-gray-600">Bankovní účet:</span> <span className="font-medium">{customer.bankAccount || '-'}</span></div>
-                                    <div className="border-l border-gray-200 mx-4"></div>
-                                    <div><span className="text-gray-600">Poznámka:</span> <span className="font-medium">{customer.note || '-'}</span></div>
-                                  </div>
-                                </>
-                              )
-                            })()}
-                          </div>
-                        </div>
-
-                        {/* Tlačítka akcí - pravý dolní roh, pod sekcí detail */}
-                        <div className="flex justify-end gap-2">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleEdit(customer)
-                            }}
-                            className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors"
-                            title="Upravit"
-                          >
-                            <Edit2 className="h-4 w-4" />
-                            Upravit
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleDelete(customer)
-                            }}
-                            className="flex items-center gap-1 px-3 py-1.5 bg-red-600 text-white text-xs rounded hover:bg-red-700 transition-colors"
-                            title="Smazat"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            Smazat
-                          </button>
-                        </div>
+                      <div className="border-t p-4 bg-gray-50 space-y-4">
+                        <PartySection
+                          title="Detail odběratele"
+                          icon={Users}
+                          party={{
+                            name:        customer.name,
+                            entityType:  customer.entityType,
+                            contact:     customer.contact,
+                            address:     customer.address,
+                            phone:       customer.phone,
+                            ico:         customer.ico,
+                            dic:         customer.dic,
+                            email:       customer.email,
+                            website:     customer.website,
+                            bankAccount: customer.bankAccount,
+                            note:        customer.note,
+                          }}
+                        />
+                        <ActionToolbar
+                          right={
+                            <>
+                              <button
+                                onClick={e => { e.stopPropagation(); handleEdit(customer) }}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                              >
+                                <Edit2 className="h-3.5 w-3.5" />
+                                Upravit
+                              </button>
+                              <button
+                                onClick={e => { e.stopPropagation(); handleDelete(customer) }}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-red-200 text-red-600 text-xs font-medium rounded-lg hover:bg-red-50 transition-colors"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                                Smazat
+                              </button>
+                            </>
+                          }
+                        />
                       </div>
                     )}
                   </div>

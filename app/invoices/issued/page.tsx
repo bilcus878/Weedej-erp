@@ -11,6 +11,7 @@ import { formatPrice, formatQuantity, formatDateTime } from '@/lib/utils'
 import { formatVariantQty } from '@/lib/formatVariantQty'
 import { generateInvoicePDF } from '@/lib/generateInvoicePDF'
 import { ChevronDown, ChevronRight, Trash2, FileText, ExternalLink, XCircle, FileOutput, Plus, X } from 'lucide-react'
+import { PageHeader, DetailSection, DetailRow, LinkedDocumentBanner, PartySection, ItemsTable, ActionToolbar } from '@/components/erp'
 import { isNonVatPayer, NON_VAT_PAYER_RATE, DEFAULT_VAT_RATE } from '@/lib/vatCalculation'
 
 export const dynamic = 'force-dynamic'
@@ -617,16 +618,14 @@ export default function TransactionsPage() {
   return (
     <div className="space-y-6">
       {/* Hlavička */}
-      <div className="bg-gradient-to-r from-slate-50 to-emerald-50 border-l-4 border-emerald-500 rounded-lg shadow-sm py-4 px-6 mb-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-emerald-600">
-            Vystavené faktury
-            <span className="text-sm font-normal text-gray-600 ml-3">
-              (Zobrazeno <span className="font-semibold text-emerald-600">{filteredInvoices.length}</span> z <span className="font-semibold text-gray-700">{transactions.length}</span>)
-            </span>
-          </h1>
-        </div>
-      </div>
+      <PageHeader
+        title="Vystavené faktury"
+        icon={FileText}
+        color="blue"
+        total={transactions.length}
+        filtered={filteredInvoices.length}
+        onRefresh={fetchData}
+      />
 
       {/* Filtry - přesně odpovídající sloupcům tabulky */}
       <div className="mb-4">
@@ -934,192 +933,109 @@ export default function TransactionsPage() {
 
                     {/* Rozbalené položky transakce */}
                     {isExpanded && (
-                      <div className="border-t p-4 bg-gray-50">
-                        <div>
-                          {/* Modrý rámeček s odkazy */}
-                          <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded">
-                            <div className="text-sm text-center">
-                              <div className="flex items-center justify-center gap-4 flex-wrap">
-                                {/* Pokud je objednávka zákazníka */}
-                                {transaction.customerOrderId && (
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-gray-600">Objednávka: </span>
-                                    <a
-                                      href={`/${transaction.customerOrderSource === 'eshop' ? 'eshop-orders' : 'customer-orders'}?highlight=${transaction.customerOrderId}`}
-                                      className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      {transaction.customerOrderNumber || 'Zobrazit objednávku'}
-                                      <ExternalLink className="w-3 h-3 inline ml-1" />
-                                    </a>
-                                  </div>
-                                )}
+                      <div className="border-t p-4 bg-gray-50 space-y-4">
+                        <div className="space-y-4">
 
-                                {/* Pokud je transakce SumUp */}
-                                {transaction.transactionId && !transaction.customerOrderId && (
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-gray-600">Transakce: </span>
-                                    <a
-                                      href={`/transactions?highlight=${transaction.transactionId}`}
-                                      className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      {transaction.transactionCode_sumup || 'Zobrazit transakci'}
-                                      <ExternalLink className="w-3 h-3 inline ml-1" />
-                                    </a>
-                                  </div>
-                                )}
+                          {/* Propojené dokumenty */}
+                          {(transaction.customerOrderId || transaction.transactionId || transaction.receiptId) && (() => {
+                            const links: { label: string; value: string; href: string }[] = []
+                            if (transaction.customerOrderId) {
+                              links.push({
+                                label: 'Objednávka',
+                                value: transaction.customerOrderNumber || 'Zobrazit objednávku',
+                                href: `/${transaction.customerOrderSource === 'eshop' ? 'eshop-orders' : 'customer-orders'}?highlight=${transaction.customerOrderId}`,
+                              })
+                            }
+                            if (transaction.transactionId && !transaction.customerOrderId) {
+                              links.push({
+                                label: 'Transakce',
+                                value: transaction.transactionCode_sumup || 'Zobrazit transakci',
+                                href: `/transactions?highlight=${transaction.transactionId}`,
+                              })
+                            }
+                            if (transaction.receiptId) {
+                              const match = transaction.receiptId.match(/urn:sumup:pos:sale:([^:]+):([a-f0-9-]{36})[:;]/)
+                              if (match) {
+                                links.push({
+                                  label: 'Účtenka',
+                                  value: 'Zobrazit',
+                                  href: `https://sales-receipt.sumup.com/pos/public/v1/${match[1]}/receipt/${match[2]}?format=html`,
+                                })
+                              }
+                            }
+                            return links.length > 0 ? <LinkedDocumentBanner links={links} color="blue" /> : null
+                          })()}
 
-                                {/* SumUp účtenka - pokud existuje */}
-                                {transaction.receiptId && (() => {
-                                  const match = transaction.receiptId.match(/urn:sumup:pos:sale:([^:]+):([a-f0-9-]{36})[:;]/)
-                                  if (!match) return null
-
-                                  const merchantCode = match[1]
-                                  const saleId = match[2]
-                                  const receiptUrl = `https://sales-receipt.sumup.com/pos/public/v1/${merchantCode}/receipt/${saleId}?format=html`
-
-                                  return (
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-gray-600">Účtenka: </span>
-                                      <a
-                                        href={receiptUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
-                                        onClick={(e) => e.stopPropagation()}
-                                      >
-                                        Zobrazit
-                                        <ExternalLink className="w-3 h-3 inline ml-1" />
-                                      </a>
-                                    </div>
-                                  )
-                                })()}
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Informace o faktuře */}
-                          <div className="mt-6 mb-6 border border-gray-200 rounded-lg overflow-hidden">
-                            <h4 className="font-bold text-base text-gray-900 px-4 py-3 bg-gray-100 border-b border-gray-200">Informace o faktuře</h4>
-
-                            <div className="border-b">
-                              <h5 className="text-sm font-semibold text-gray-800 px-4 py-3 bg-gray-50">Obecné</h5>
-                              <div className="text-sm">
-                                <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-white">
-                                  <div><span className="text-gray-600">Datum vytvoření:</span> <span className="font-medium">{new Date(transaction.transactionDate).toLocaleDateString('cs-CZ')}</span></div>
-                                  <div className="border-l border-gray-200 mx-4"></div>
-                                  <div><span className="text-gray-600">Odesláno / Vydáno:</span> <span className="font-medium">{transaction.customerOrderId && transaction.deliveryNotes && transaction.deliveryNotes.length > 0 ? transaction.deliveryNotes.map((dn: any) => new Date(dn.deliveryDate).toLocaleDateString('cs-CZ')).join(', ') : transaction.transactionId && !transaction.customerOrderId ? new Date(transaction.transactionDate).toLocaleDateString('cs-CZ') : '-'}</span></div>
-                                </div>
-
-                                <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-gray-50">
-                                  <div><span className="text-gray-600">Datum splatnosti:</span> <span className="font-medium">{(transaction as any).dueDate ? new Date((transaction as any).dueDate).toLocaleDateString('cs-CZ') : '-'}</span></div>
-                                  <div className="border-l border-gray-200 mx-4"></div>
-                                  <div><span className="text-gray-600">Typ platby:</span> <span className="font-medium">
-                                    {transaction.paymentType === 'cash' && 'Hotovost'}
-                                    {transaction.paymentType === 'card' && 'Karta'}
-                                    {transaction.paymentType === 'transfer' && 'Bankovní převod'}
-                                    {!transaction.paymentType && '-'}
-                                  </span></div>
-                                </div>
-
-                                <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-white">
-                                  <div><span className="text-gray-600">Zaplaceno:</span> <span className="font-medium">{transaction.status === 'paid' || transaction.status === 'delivered' || (transaction._original as any)?.customerOrder?.paidAt || (transaction._original as any)?.transaction ? ((transaction._original as any)?.customerOrder?.paidAt ? new Date((transaction._original as any).customerOrder.paidAt).toLocaleDateString('cs-CZ') : new Date(transaction.transactionDate).toLocaleDateString('cs-CZ')) : '-'}</span></div>
-                                  <div className="border-l border-gray-200 mx-4"></div>
-                                  <div><span className="text-gray-600">Poznámka:</span> <span className="font-medium">{(transaction as any).note || '-'}</span></div>
-                                </div>
-                              </div>
-                            </div>
-
-                            <div>
-                              <h5 className="text-sm font-semibold text-gray-800 px-4 py-3 bg-gray-50">Odběratel / Zákazník</h5>
-                              <div className="text-sm">
-                                {(() => {
-                                  // Pokud je to SumUp transakce bez odběratele, zobraz "Anonymní zákazník (SumUp)"
-                                  const isSumUpTransaction = transaction.transactionId && !transaction.customerOrderId && !transaction.customer && !(transaction as any).customerName
-                                  const displayName = isSumUpTransaction
-                                    ? 'Anonymní zákazník'
-                                    : ((transaction as any).customerName || transaction.customer?.name || 'Anonymní zákazník')
-
-                                  const customerName = displayName
-                                  const isAnonymous = customerName === 'Anonymní odběratel' || customerName === 'Anonymní zákazník'
-
-                                  // Pro anonymní zákazníky zobrazíme jen 1 řádek s názvem
-                                  if (isAnonymous) {
-                                    return (
-                                      <div className="px-4 py-2 bg-white">
-                                        <span className="text-gray-600">Název:</span>
-                                        <span className="font-medium ml-2">
-                                          {customerName}
-                                          {isSumUpTransaction && <span className="text-xs text-gray-500 ml-1">(SumUp)</span>}
-                                        </span>
-                                      </div>
-                                    )
+                          {/* 2-sloupcová mřížka: Obecné info + Zákazník */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Obecné informace o faktuře */}
+                            <DetailSection title="Informace o faktuře" icon={FileText}>
+                              <div className="divide-y divide-gray-100 py-1">
+                                <DetailRow label="Datum vytvoření" value={new Date(transaction.transactionDate).toLocaleDateString('cs-CZ')} />
+                                <DetailRow
+                                  label="Odesláno / Vydáno"
+                                  value={
+                                    transaction.customerOrderId && transaction.deliveryNotes && transaction.deliveryNotes.length > 0
+                                      ? transaction.deliveryNotes.map((dn: any) => new Date(dn.deliveryDate).toLocaleDateString('cs-CZ')).join(', ')
+                                      : transaction.transactionId && !transaction.customerOrderId
+                                        ? new Date(transaction.transactionDate).toLocaleDateString('cs-CZ')
+                                        : null
                                   }
-
-                                  // Pro normální zákazníky zobrazíme všechny detaily
-                                  const entityType = (transaction.customer as any)?.entityType || (transaction as any).customerEntityType || 'company'
-
-                                  return (
-                                    <>
-                                      {/* Název a typ subjektu */}
-                                      <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-white">
-                                        <div>
-                                          <span className="text-gray-600">Název:</span>
-                                          <span className="font-medium">{customerName}</span>
-                                          {entityType && (
-                                            <span className="ml-2 text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-800">
-                                              {entityType === 'company' ? '🏢 Firma' : '👤 FO'}
-                                            </span>
-                                          )}
-                                        </div>
-                                        <div className="border-l border-gray-200 mx-4"></div>
-                                        {/* Kontaktní osoba pouze pro firmy */}
-                                        {entityType === 'company' && (
-                                          <div><span className="text-gray-600">Kontaktní osoba:</span> <span className="font-medium">{(transaction as any).customerContactPerson || (transaction.customer as any)?.contact || '-'}</span></div>
-                                        )}
-                                        {/* Pro FO zobrazíme Email */}
-                                        {entityType === 'individual' && (
-                                          <div><span className="text-gray-600">Email:</span> <span className="font-medium">{(transaction as any).customerEmail || (transaction.customer as any)?.email || '-'}</span></div>
-                                        )}
-                                      </div>
-
-                                      {/* Adresa a Telefon - vždy */}
-                                      <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-gray-50">
-                                        <div><span className="text-gray-600">Adresa:</span> <span className="font-medium">{(transaction as any).customerAddress || (transaction.customer as any)?.address || '-'}</span></div>
-                                        <div className="border-l border-gray-200 mx-4"></div>
-                                        <div><span className="text-gray-600">Telefon:</span> <span className="font-medium">{(transaction as any).customerPhone || (transaction.customer as any)?.phone || '-'}</span></div>
-                                      </div>
-
-                                      {/* Pro FIRMU: IČO a Email */}
-                                      {entityType === 'company' && (
-                                        <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-white">
-                                          <div><span className="text-gray-600">IČO:</span> <span className="font-medium">{(transaction as any).customerIco || (transaction.customer as any)?.ico || '-'}</span></div>
-                                          <div className="border-l border-gray-200 mx-4"></div>
-                                          <div><span className="text-gray-600">Email:</span> <span className="font-medium">{(transaction as any).customerEmail || (transaction.customer as any)?.email || '-'}</span></div>
-                                        </div>
-                                      )}
-
-                                      {/* Pro FIRMU: DIČ a Web */}
-                                      {entityType === 'company' && (
-                                        <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-gray-50">
-                                          <div><span className="text-gray-600">DIČ:</span> <span className="font-medium">{(transaction as any).customerDic || (transaction.customer as any)?.dic || '-'}</span></div>
-                                          <div className="border-l border-gray-200 mx-4"></div>
-                                          <div><span className="text-gray-600">Web:</span> <span className="font-medium">{(transaction as any).customerWebsite || (transaction.customer as any)?.website || '-'}</span></div>
-                                        </div>
-                                      )}
-
-                                      {/* Bankovní účet a Poznámka - vždy */}
-                                      <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-white">
-                                        <div><span className="text-gray-600">Bankovní účet:</span> <span className="font-medium">{(transaction as any).customerBankAccount || (transaction.customer as any)?.bankAccount || '-'}</span></div>
-                                        <div className="border-l border-gray-200 mx-4"></div>
-                                        <div><span className="text-gray-600">Poznámka:</span> <span className="font-medium">{(transaction.customer as any)?.note || '-'}</span></div>
-                                      </div>
-                                    </>
-                                  )
-                                })()}
+                                />
+                                <DetailRow
+                                  label="Datum splatnosti"
+                                  value={(transaction as any).dueDate ? new Date((transaction as any).dueDate).toLocaleDateString('cs-CZ') : null}
+                                />
+                                <DetailRow
+                                  label="Typ platby"
+                                  value={
+                                    transaction.paymentType === 'cash' ? 'Hotovost' :
+                                    transaction.paymentType === 'card' ? 'Karta' :
+                                    transaction.paymentType === 'transfer' ? 'Bankovní převod' : null
+                                  }
+                                />
+                                <DetailRow
+                                  label="Zaplaceno"
+                                  value={
+                                    (transaction.status === 'paid' || transaction.status === 'delivered' || (transaction._original as any)?.customerOrder?.paidAt || (transaction._original as any)?.transaction)
+                                      ? ((transaction._original as any)?.customerOrder?.paidAt
+                                          ? new Date((transaction._original as any).customerOrder.paidAt).toLocaleDateString('cs-CZ')
+                                          : new Date(transaction.transactionDate).toLocaleDateString('cs-CZ'))
+                                      : null
+                                  }
+                                />
+                                {(transaction as any).note && (
+                                  <DetailRow label="Poznámka" value={(transaction as any).note} />
+                                )}
                               </div>
-                            </div>
+                            </DetailSection>
+
+                            {/* Zákazník / Odběratel */}
+                            {(() => {
+                              const isSumUp = transaction.transactionId && !transaction.customerOrderId && !transaction.customer && !(transaction as any).customerName
+                              const customerName = isSumUp
+                                ? 'Anonymní zákazník'
+                                : ((transaction as any).customerName || transaction.customer?.name || 'Anonymní zákazník')
+                              return (
+                                <PartySection
+                                  title="Odběratel / Zákazník"
+                                  icon={FileText}
+                                  party={{
+                                    name:        customerName,
+                                    entityType:  (transaction.customer as any)?.entityType || (transaction as any).customerEntityType,
+                                    contact:     (transaction as any).customerContactPerson || (transaction.customer as any)?.contact,
+                                    address:     (transaction as any).customerAddress || (transaction.customer as any)?.address,
+                                    phone:       (transaction as any).customerPhone || (transaction.customer as any)?.phone,
+                                    ico:         (transaction as any).customerIco || (transaction.customer as any)?.ico,
+                                    dic:         (transaction as any).customerDic || (transaction.customer as any)?.dic,
+                                    email:       (transaction as any).customerEmail || (transaction.customer as any)?.email,
+                                    website:     (transaction as any).customerWebsite || (transaction.customer as any)?.website,
+                                    bankAccount: (transaction as any).customerBankAccount || (transaction.customer as any)?.bankAccount,
+                                    note:        (transaction.customer as any)?.note,
+                                  }}
+                                />
+                              )
+                            })()}
                           </div>
                         </div>
 
@@ -1461,40 +1377,39 @@ export default function TransactionsPage() {
                           )
                         })()}
 
-                        {/* Tlačítka */}
-                        <div className="mt-4 flex justify-between items-center">
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => handlePrintInvoice(transaction)}
-                              className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm rounded flex items-center gap-1"
-                            >
-                              <FileText className="w-4 h-4" />
-                              Zobrazit fakturu
-                            </button>
-
-                            {/* Tlačítko Vystavit dobropis - jen pokud není stornováno */}
-                            {transaction.status !== 'storno' && (
+                        <ActionToolbar
+                          left={
+                            <>
                               <button
-                                onClick={() => handleOpenCreditNoteModal(transaction)}
-                                className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded flex items-center gap-1"
+                                onClick={() => handlePrintInvoice(transaction)}
+                                className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm rounded flex items-center gap-1"
                               >
-                                <FileOutput className="w-4 h-4" />
-                                Vystavit dobropis
+                                <FileText className="w-4 h-4" />
+                                Zobrazit fakturu
                               </button>
-                            )}
-                          </div>
-
-                          {/* Tlačítko STORNO - jen pokud není stornováno */}
-                          {transaction.status !== 'storno' && (
-                            <button
-                              onClick={() => handleStorno(transaction)}
-                              className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm rounded flex items-center gap-1"
-                            >
-                              <XCircle className="w-4 h-4" />
-                              Stornovat
-                            </button>
-                          )}
-                        </div>
+                              {transaction.status !== 'storno' && (
+                                <button
+                                  onClick={() => handleOpenCreditNoteModal(transaction)}
+                                  className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded flex items-center gap-1"
+                                >
+                                  <FileOutput className="w-4 h-4" />
+                                  Vystavit dobropis
+                                </button>
+                              )}
+                            </>
+                          }
+                          right={
+                            transaction.status !== 'storno' ? (
+                              <button
+                                onClick={() => handleStorno(transaction)}
+                                className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm rounded flex items-center gap-1"
+                              >
+                                <XCircle className="w-4 h-4" />
+                                Stornovat
+                              </button>
+                            ) : undefined
+                          }
+                        />
                       </div>
                     )}
                   </div>

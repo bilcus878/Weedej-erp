@@ -27,6 +27,7 @@ import {
   RefreshCw,
   MapPin,
 } from 'lucide-react'
+import { PageHeader } from '@/components/erp'
 
 export const dynamic = 'force-dynamic'
 
@@ -457,33 +458,14 @@ export default function EshopOrdersPage() {
     <div className="space-y-6">
 
       {/* ── Hlavička ── */}
-      <div className="bg-gradient-to-r from-slate-50 to-emerald-50 border-l-4 border-emerald-500 rounded-lg shadow-sm py-4 px-6">
-        <div className="relative">
-          <div className="text-center">
-            <h1 className="text-2xl font-bold text-emerald-600 flex items-center justify-center gap-2">
-              <Globe className="w-6 h-6" />
-              Eshop objednávky
-              <span className="text-sm font-normal text-gray-600 ml-1">
-                (Zobrazeno{' '}
-                <span className="font-semibold text-emerald-600">{filteredOrders.length}</span>
-                {' '}z{' '}
-                <span className="font-semibold text-gray-700">{orders.length}</span>)
-              </span>
-            </h1>
-          </div>
-
-          {/* Tlačítko Obnovit */}
-          <div className="absolute top-0 right-0">
-            <button
-              onClick={fetchData}
-              className="px-4 py-2 bg-white border border-gray-200 text-gray-600 font-medium rounded-lg shadow-sm hover:bg-gray-50 hover:border-gray-300 transition-all flex items-center gap-2 text-sm"
-            >
-              <RefreshCw className="h-4 w-4" />
-              Obnovit
-            </button>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        title="Eshop objednávky"
+        icon={Globe}
+        color="emerald"
+        total={orders.length}
+        filtered={filteredOrders.length}
+        onRefresh={fetchData}
+      />
 
       {/* ── Filtry ── */}
       <div className="mb-4">
