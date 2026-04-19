@@ -700,7 +700,7 @@ export default function EshopOrdersPage() {
 
                       {/* Informace o objednávce */}
                       <div className="border border-gray-200 rounded-lg overflow-hidden">
-                        <h4 className="font-bold text-base text-gray-900 px-4 py-3 bg-gray-100 border-b border-gray-200">Informace o objednávce</h4>
+                        <h4 className="font-bold text-base text-gray-900 px-4 py-3 bg-gray-100 border-b border-gray-200">Informace o objednávce &amp; doručení</h4>
 
                         {/* Obecné */}
                         <div className="border-b">
@@ -741,82 +741,81 @@ export default function EshopOrdersPage() {
                           </div>
                         </div>
 
-                        {/* Zákazník / Doručení */}
-                        <div className={order.trackingNumber || order.carrier || ['cancelled','storno'].includes(order.status) ? 'border-b' : ''}>
-                          <h5 className="text-sm font-semibold text-gray-800 px-4 py-3 bg-gray-50">Zákazník / Doručení</h5>
-                          <div className="text-sm">
-                            <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-white">
-                              <div><span className="text-gray-600">Jméno:</span> <span className="font-medium">{getCustomerName(order)}</span></div>
-                              <div className="border-l border-gray-200 mx-4"></div>
-                              <div>
-                                <span className="text-gray-600">Email:</span>{' '}
-                                {getCustomerEmail(order)
-                                  ? <a href={`mailto:${getCustomerEmail(order)}`} className="font-medium text-blue-600 hover:underline" onClick={e => e.stopPropagation()}>{getCustomerEmail(order)}</a>
-                                  : <span className="font-medium">-</span>
-                                }
+                        {/* Fakturační adresa — vždy zobrazena */}
+                        <div className="border-b">
+                          <h5 className="text-sm font-semibold text-gray-800 px-4 py-3 bg-gray-50">Fakturační adresa</h5>
+                          <div className="px-4 py-3 bg-white text-sm space-y-1">
+                            <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
+                              <FileText className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
+                              <div className="space-y-0.5">
+                                <p className="font-semibold text-blue-900">
+                                  {order.billingCompany || order.billingName || getCustomerName(order)}
+                                </p>
+                                {order.billingCompany && order.billingName && order.billingName !== order.billingCompany && (
+                                  <p className="text-blue-700 text-xs">{order.billingName}</p>
+                                )}
+                                {order.billingIco && (
+                                  <p className="text-blue-600 text-xs">IČO: <span className="font-mono">{order.billingIco}</span></p>
+                                )}
+                                {(order.billingStreet || order.billingCity) ? (
+                                  <>
+                                    <p className="text-blue-800 text-xs">{order.billingStreet}</p>
+                                    <p className="text-blue-800 text-xs">{order.billingZip} {order.billingCity}{order.billingCountry && order.billingCountry !== 'CZ' ? `, ${order.billingCountry}` : ''}</p>
+                                  </>
+                                ) : (
+                                  <p className="text-blue-700 text-xs whitespace-pre-line">{order.customerAddress || '-'}</p>
+                                )}
+                                <p className="text-blue-600 text-xs pt-0.5">
+                                  {getCustomerEmail(order) && <span className="mr-3">{getCustomerEmail(order)}</span>}
+                                  {getCustomerPhone(order) && <span>{getCustomerPhone(order)}</span>}
+                                </p>
                               </div>
-                            </div>
-                            <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-gray-50">
-                              <div><span className="text-gray-600">Telefon:</span> <span className="font-medium">{getCustomerPhone(order) || '-'}</span></div>
-                              <div className="border-l border-gray-200 mx-4"></div>
-                              <div><span className="text-gray-600">Adresa:</span> <span className="font-medium whitespace-pre-line">{order.customerAddress || '-'}</span></div>
                             </div>
                           </div>
                         </div>
 
-                        {/* Způsob dopravy / Výdejní místo / Fakturační adresa */}
-                        {(order.shippingMethod || order.pickupPointId || order.billingName) && (
-                          <div className={order.trackingNumber || order.carrier || ['cancelled','storno'].includes(order.status) ? 'border-b' : ''}>
-                            <h5 className="text-sm font-semibold text-gray-800 px-4 py-3 bg-gray-50">Doprava &amp; Adresa</h5>
-                            <div className="px-4 py-3 space-y-3 bg-white text-sm">
+                        {/* Způsob dopravy — vždy zobrazena */}
+                        <div className={order.trackingNumber || order.carrier || ['cancelled','storno'].includes(order.status) ? 'border-b' : ''}>
+                          <h5 className="text-sm font-semibold text-gray-800 px-4 py-3 bg-gray-50">Doprava</h5>
+                          <div className="px-4 py-3 space-y-3 bg-white text-sm">
 
-                              {/* Způsob dopravy */}
-                              {order.shippingMethod && (
-                                <div className="flex items-center gap-2">
-                                  <Truck className="w-4 h-4 text-gray-400 shrink-0" />
-                                  <span className="text-gray-600">Způsob dopravy:</span>
-                                  <span className="font-medium text-gray-800">{shippingMethodLabel(order.shippingMethod)}</span>
-                                </div>
-                              )}
-
-                              {/* Výdejní místo — zvýrazněný box */}
-                              {order.pickupPointId && (
-                                <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
-                                  <MapPin className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
-                                  <div className="space-y-0.5">
-                                    <p className="text-xs font-bold uppercase tracking-wide text-amber-700">
-                                      {order.pickupPointCarrier === 'zasilkovna' ? 'Zásilkovna' : order.pickupPointCarrier === 'dpd' ? 'DPD' : 'Výdejní místo'}
-                                    </p>
-                                    <p className="font-semibold text-amber-900">{order.pickupPointName || '-'}</p>
-                                    {order.pickupPointAddress && (
-                                      <p className="text-amber-700 text-xs">{order.pickupPointAddress}</p>
-                                    )}
-                                    <p className="text-amber-600 text-xs font-mono">ID: {order.pickupPointId}</p>
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* Fakturační adresa — pouze pokud se liší od doručovací */}
-                              {order.billingName && (
-                                <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
-                                  <FileText className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
-                                  <div className="space-y-0.5">
-                                    <p className="text-xs font-bold uppercase tracking-wide text-blue-700">Fakturační adresa</p>
-                                    <p className="font-semibold text-blue-900">{order.billingCompany || order.billingName}</p>
-                                    {order.billingCompany && order.billingName !== order.billingCompany && (
-                                      <p className="text-blue-700 text-xs">{order.billingName}</p>
-                                    )}
-                                    {order.billingIco && (
-                                      <p className="text-blue-600 text-xs">IČO: <span className="font-mono">{order.billingIco}</span></p>
-                                    )}
-                                    <p className="text-blue-800 text-xs">{order.billingStreet}</p>
-                                    <p className="text-blue-800 text-xs">{order.billingZip} {order.billingCity}{order.billingCountry && order.billingCountry !== 'CZ' ? `, ${order.billingCountry}` : ''}</p>
-                                  </div>
-                                </div>
-                              )}
+                            {/* Shipping method label */}
+                            <div className="flex items-center gap-2">
+                              <Truck className="w-4 h-4 text-gray-400 shrink-0" />
+                              <span className="text-gray-600">Způsob dopravy:</span>
+                              <span className="font-medium text-gray-800">
+                                {order.shippingMethod ? shippingMethodLabel(order.shippingMethod) : 'Neuvedeno'}
+                              </span>
                             </div>
+
+                            {/* Výdejní místo — amber box */}
+                            {order.pickupPointId ? (
+                              <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+                                <MapPin className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                                <div className="space-y-0.5">
+                                  <p className="text-xs font-bold uppercase tracking-wide text-amber-700">
+                                    {order.pickupPointCarrier === 'zasilkovna' ? 'Zásilkovna' : order.pickupPointCarrier === 'dpd' ? 'DPD' : 'Výdejní místo'}
+                                  </p>
+                                  <p className="font-semibold text-amber-900">{order.pickupPointName || '-'}</p>
+                                  {order.pickupPointAddress && (
+                                    <p className="text-amber-700 text-xs">{order.pickupPointAddress}</p>
+                                  )}
+                                  <p className="text-amber-600 text-xs font-mono">ID: {order.pickupPointId}</p>
+                                </div>
+                              </div>
+                            ) : (order.shippingMethod === 'DPD_HOME' || order.shippingMethod === 'ZASILKOVNA_HOME' || order.shippingMethod === 'COURIER' || !order.shippingMethod) ? (
+                              /* Home delivery — show customer delivery address */
+                              <div className="flex items-start gap-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+                                <MapPin className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
+                                <div className="space-y-0.5">
+                                  <p className="text-xs font-bold uppercase tracking-wide text-gray-500">Doručovací adresa</p>
+                                  <p className="font-semibold text-gray-800">{getCustomerName(order)}</p>
+                                  <p className="text-gray-600 text-xs whitespace-pre-line">{order.customerAddress || '-'}</p>
+                                </div>
+                              </div>
+                            ) : null}
                           </div>
-                        )}
+                        </div>
 
                         {/* Expedice — pouze pokud je trackingNumber nebo carrier */}
                         {(order.trackingNumber || order.carrier) && (

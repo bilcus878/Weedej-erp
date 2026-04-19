@@ -179,6 +179,31 @@ export async function POST(request: NextRequest) {
   })
 
   if (existing) {
+    // If the existing order has no shipping data yet (created by success page without it)
+    // but the new request carries it (from webhook), patch the shipping snapshot now.
+    const needsShippingPatch = !existing.shippingMethod && body.shippingMethod
+    if (needsShippingPatch) {
+      const patched = await prisma.customerOrder.update({
+        where: { id: existing.id },
+        data: {
+          shippingMethod:     body.shippingMethod     ?? null,
+          pickupPointId:      body.pickupPoint?.id    ?? null,
+          pickupPointName:    body.pickupPoint?.name  ?? null,
+          pickupPointAddress: body.pickupPoint?.address ?? null,
+          pickupPointCarrier: body.pickupPoint?.carrier ?? null,
+          billingName:        body.billingAddress?.name    ?? null,
+          billingCompany:     body.billingAddress?.company ?? null,
+          billingIco:         body.billingAddress?.ico     ?? null,
+          billingStreet:      body.billingAddress?.street  ?? null,
+          billingCity:        body.billingAddress?.city    ?? null,
+          billingZip:         body.billingAddress?.zip     ?? null,
+          billingCountry:     body.billingAddress?.country ?? null,
+        },
+        include: { issuedInvoice: { include: { items: true } } },
+      })
+      console.log(`[ERP /api/orders] Patched shipping snapshot for existing order=${existing.orderNumber}`)
+      return buildSuccessResponse(patched, origin)
+    }
     console.log(`[ERP /api/orders] Duplicate eshopOrderId=${body.eshopOrderId}, returning existing order=${existing.orderNumber}`)
     return buildSuccessResponse(existing, origin)
   }
