@@ -164,20 +164,36 @@ export async function generateEshopOrderPDF(
   }
 
   // ── Tabulka položek ────────────────────────────────────────────────────────
-  const itemRows = order.items.map((item, idx) => {
+  // Doprava vždy jako poslední řádek — stejné pořadí jako ve web UI
+  const isShippingItem = (item: EshopOrderForPDF['items'][number]) =>
+    /(doprav|shipping)/i.test(item.productName || '')
+
+  const sortedItems = [...order.items].sort((a, b) => {
+    const aShip = isShippingItem(a) ? 1 : 0
+    const bShip = isShippingItem(b) ? 1 : 0
+    return aShip - bShip
+  })
+
+  const itemRows = sortedItems.map((item, idx) => {
     const name = item.productName || '(Neznámý produkt)'
     const storedName = item.productName || ''
     const variantPart = storedName.includes(' — ') ? storedName.split(' — ').slice(1).join(' — ') : null
     const qty = variantPart
       ? (/^\d+[xX×]/.test(variantPart) ? variantPart : `${item.quantity}x ${variantPart}`)
       : `${item.quantity} ${item.unit}`
-    const unitNet   = item.price ?? 0
+
     const vatRate   = item.vatRate ?? 0
-    const lineNet   = unitNet * item.quantity
-    const vatAmt    = item.vatAmount ?? (lineNet * vatRate / 100)
     const lineGross = item.priceWithVat != null
       ? item.priceWithVat * item.quantity
-      : lineNet + vatAmt
+      : (item.price ?? 0) * item.quantity * (1 + vatRate / 100)
+    // Pokud price (bez DPH) chybí nebo je 0, odvodíme ho z brutto ceny
+    const unitNet = (item.price != null && item.price > 0)
+      ? item.price
+      : (item.priceWithVat != null && vatRate > 0 ? item.priceWithVat / (1 + vatRate / 100) : 0)
+    const lineNet   = unitNet * item.quantity
+    const vatAmt    = item.vatAmount != null && item.vatAmount > 0
+      ? item.vatAmount * item.quantity
+      : (lineGross - lineNet)
 
     if (isVatPayer) {
       return [

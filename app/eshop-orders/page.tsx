@@ -801,6 +801,11 @@ export default function EshopOrdersPage() {
 
                             {order.items
                               .filter(item => item.productId !== null)
+                              .sort((a, b) => {
+                                const aShip = /(doprav|shipping)/i.test(a.productName || '') ? 1 : 0
+                                const bShip = /(doprav|shipping)/i.test(b.productName || '') ? 1 : 0
+                                return aShip - bShip
+                              })
                               .map((item, i) => {
                                 const qty          = Number(item.quantity)
                                 const qtyDisplay   = formatVariantQty(qty, item.productName, item.unit)

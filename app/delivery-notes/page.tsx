@@ -1372,7 +1372,7 @@ export default function DeliveryNotesPage() {
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium text-blue-900">Objednávka:</span>
                           <Link
-                            href={`/customer-orders?highlight=${note.customerOrder.id}`}
+                            href={`/${note.customerOrder.orderNumber?.startsWith('ESH') ? 'eshop-orders' : 'customer-orders'}?highlight=${note.customerOrder.id}`}
                             className="text-blue-600 hover:text-blue-800 hover:underline text-sm font-medium"
                           >
                             {note.customerOrder.orderNumber}

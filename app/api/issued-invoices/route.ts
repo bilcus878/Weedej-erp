@@ -98,6 +98,7 @@ export async function GET() {
         // ID a číslo objednávky zákazníka pro proklik
         customerOrderId: invoice.customerOrderId,
         customerOrderNumber: invoice.customerOrder?.orderNumber,
+        customerOrderSource: invoice.customerOrder?.source,
         // ID transakce (SumUp) pro proklik
         transactionId: invoice.transaction?.id,
         transactionCode_sumup: invoice.transaction?.transactionCode,

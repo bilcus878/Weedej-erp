@@ -67,6 +67,7 @@ interface Transaction {
   } | null
   customerOrderId?: string
   customerOrderNumber?: string
+  customerOrderSource?: string
   transactionId?: string
   transactionCode_sumup?: string
   receiptId?: string
@@ -944,7 +945,7 @@ export default function TransactionsPage() {
                                   <div className="flex items-center gap-2">
                                     <span className="text-gray-600">Objednávka: </span>
                                     <a
-                                      href={`/customer-orders?highlight=${transaction.customerOrderId}`}
+                                      href={`/${transaction.customerOrderSource === 'eshop' ? 'eshop-orders' : 'customer-orders'}?highlight=${transaction.customerOrderId}`}
                                       className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
                                       onClick={(e) => e.stopPropagation()}
                                     >
@@ -1152,6 +1153,11 @@ export default function TransactionsPage() {
                               {/* Řádky položek */}
                               {transaction.items
                                 .filter((item: any) => item.productId !== null)
+                                .sort((a: any, b: any) => {
+                                  const aShip = /(doprav|shipping)/i.test(a.productName || '') ? 1 : 0
+                                  const bShip = /(doprav|shipping)/i.test(b.productName || '') ? 1 : 0
+                                  return aShip - bShip
+                                })
                                 .map((item: any, i: number) => {
                                   const catalogProduct = products.find(p => p.id === item.product?.id)
                                   const qty         = Number(item.quantity)
