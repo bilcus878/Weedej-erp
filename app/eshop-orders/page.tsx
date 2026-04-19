@@ -699,13 +699,13 @@ export default function EshopOrdersPage() {
 
                         {/* ── A) Zákazník + Fakturační adresa ───────────────── */}
                         <div className="border border-gray-200 rounded-lg overflow-hidden flex flex-col">
-                          <h4 className="font-bold text-sm text-gray-900 px-4 py-2.5 bg-gray-100 border-b border-gray-200 flex items-center gap-2 shrink-0">
+                          <h4 className="font-bold text-sm text-gray-900 px-4 py-2 bg-gray-100 border-b border-gray-200 flex items-center gap-2 shrink-0">
                             <ShoppingBag className="w-4 h-4 text-gray-500" />
                             Zákazník
                           </h4>
-                          <div className="flex-1 px-4 py-3 text-sm bg-white divide-y divide-gray-100">
+                          <div className="flex-1 px-4 py-2.5 text-sm bg-white divide-y divide-gray-100">
                             {/* Kontakt */}
-                            <div className="space-y-2 pb-3">
+                            <div className="space-y-1.5 pb-2.5">
                               <div className="flex justify-between gap-2">
                                 <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Jméno</span>
                                 <span className="font-semibold text-gray-900 text-right">{getCustomerName(order)}</span>
@@ -735,7 +735,7 @@ export default function EshopOrdersPage() {
                               )}
                             </div>
                             {/* Fakturační adresa */}
-                            <div className="space-y-2 pt-3">
+                            <div className="space-y-1.5 pt-2.5">
                               <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2.5 flex items-center gap-1.5">
                                 <FileText className="w-3 h-3" />
                                 Fakturační adresa
@@ -767,85 +767,72 @@ export default function EshopOrdersPage() {
                         </div>
 
                         {/* ── B) Shrnutí objednávky ─────────────────────────── */}
-                        <div className="border border-gray-200 rounded-lg overflow-hidden flex flex-col">
-                          <h4 className="font-bold text-sm text-gray-900 px-4 py-2.5 bg-gray-100 border-b border-gray-200 flex items-center gap-2 shrink-0">
+                        <div className="border border-gray-200 rounded-lg overflow-hidden">
+                          <h4 className="font-bold text-sm text-gray-900 px-4 py-2 bg-gray-100 border-b border-gray-200 flex items-center gap-2">
                             <CreditCard className="w-4 h-4 text-gray-500" />
                             Shrnutí objednávky
                           </h4>
-                          <div className="flex-1 px-4 py-3 text-sm bg-white divide-y divide-gray-100">
-                            <div className="space-y-2 pb-3">
-                              <div className="flex justify-between gap-2">
-                                <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Číslo objednávky</span>
-                                <span className="font-mono font-semibold text-gray-900 text-right">{order.orderNumber}</span>
-                              </div>
-                              <div className="flex justify-between gap-2">
-                                <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Status</span>
-                                <span>{getStatusBadge(order.status)}</span>
-                              </div>
-                              <div className="flex justify-between gap-2">
-                                <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Datum objednávky</span>
-                                <span className="font-medium text-gray-800 text-right">{new Date(order.orderDate).toLocaleDateString('cs-CZ')}</span>
-                              </div>
-                              <div className="flex justify-between gap-2">
-                                <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Zaplaceno</span>
-                                <span className="font-medium text-gray-800 text-right">{order.paidAt ? new Date(order.paidAt).toLocaleDateString('cs-CZ') : <span className="text-gray-400">—</span>}</span>
-                              </div>
-                              <div className="flex justify-between gap-2">
-                                <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Odesláno</span>
-                                <span className="font-medium text-gray-800 text-right">
-                                  {order.shippedAt
-                                    ? new Date(order.shippedAt).toLocaleDateString('cs-CZ')
-                                    : (order.deliveryNotes?.find(dn => dn.status === 'active')
-                                        ? new Date(order.deliveryNotes.find(dn => dn.status === 'active')!.deliveryDate).toLocaleDateString('cs-CZ')
-                                        : <span className="text-gray-400">—</span>)}
-                                </span>
-                              </div>
-                              <div className="flex justify-between gap-2">
-                                <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Celková částka</span>
-                                <span className="font-bold text-gray-900 text-right">{formatPrice(Number(order.totalAmount))}</span>
-                              </div>
-                              <div className="flex justify-between gap-2">
-                                <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Ref. platby</span>
-                                <span className="font-mono text-xs text-gray-600 text-right break-all">{order.paymentReference || <span className="text-gray-400">—</span>}</span>
-                              </div>
-                              {order.note && !order.note.startsWith('Platba:') && (
-                                <div className="flex justify-between gap-2">
-                                  <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Poznámka</span>
-                                  <span className="font-medium text-gray-800 text-right">{order.note}</span>
-                                </div>
-                              )}
+                          <div className="px-4 py-2.5 text-sm bg-white space-y-1.5">
+                            <div className="flex justify-between gap-2">
+                              <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Objednávka</span>
+                              <span className="font-mono font-semibold text-gray-900 text-right">{order.orderNumber}</span>
                             </div>
-                            {/* Faktura — odkaz */}
-                            <div className="space-y-2 pt-3">
-                              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2.5 flex items-center gap-1.5">
-                                <FileText className="w-3 h-3" />
-                                Faktura
-                              </p>
+                            <div className="flex justify-between gap-2">
+                              <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Faktura</span>
                               {order.issuedInvoice ? (
-                                <div className="flex justify-between items-center gap-2">
-                                  <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Číslo faktury</span>
-                                  <div className="flex items-center gap-2">
-                                    <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
-                                      order.issuedInvoice.paymentStatus === 'paid'
-                                        ? 'bg-green-100 text-green-700'
-                                        : 'bg-yellow-100 text-yellow-700'
-                                    }`}>
-                                      {order.issuedInvoice.paymentStatus === 'paid' ? 'Zaplaceno' : 'Nezaplaceno'}
-                                    </span>
-                                    <Link
-                                      href={`/invoices/issued?highlight=${order.issuedInvoice.id}`}
-                                      className="font-mono font-semibold text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
-                                      onClick={e => e.stopPropagation()}
-                                    >
-                                      {order.issuedInvoice.invoiceNumber}
-                                      <ExternalLink className="w-3 h-3" />
-                                    </Link>
-                                  </div>
+                                <div className="flex items-center gap-1.5">
+                                  <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${order.issuedInvoice.paymentStatus === 'paid' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                    {order.issuedInvoice.paymentStatus === 'paid' ? 'Zap.' : 'Nezap.'}
+                                  </span>
+                                  <Link
+                                    href={`/invoices/issued?highlight=${order.issuedInvoice.id}`}
+                                    className="font-mono font-semibold text-blue-600 hover:underline flex items-center gap-0.5 text-right"
+                                    onClick={e => e.stopPropagation()}
+                                  >
+                                    {order.issuedInvoice.invoiceNumber}
+                                    <ExternalLink className="w-3 h-3" />
+                                  </Link>
                                 </div>
                               ) : (
-                                <p className="text-xs text-gray-400 italic">Faktura nebyla vystavena</p>
+                                <span className="text-gray-400 text-xs italic">nevystavena</span>
                               )}
                             </div>
+                            <div className="flex justify-between gap-2">
+                              <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Status</span>
+                              <span>{getStatusBadge(order.status)}</span>
+                            </div>
+                            <div className="flex justify-between gap-2">
+                              <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Objednáno</span>
+                              <span className="font-medium text-gray-800 text-right">{new Date(order.orderDate).toLocaleDateString('cs-CZ')}</span>
+                            </div>
+                            <div className="flex justify-between gap-2">
+                              <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Zaplaceno</span>
+                              <span className="font-medium text-gray-800 text-right">{order.paidAt ? new Date(order.paidAt).toLocaleDateString('cs-CZ') : <span className="text-gray-400">—</span>}</span>
+                            </div>
+                            <div className="flex justify-between gap-2">
+                              <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Odesláno</span>
+                              <span className="font-medium text-gray-800 text-right">
+                                {order.shippedAt
+                                  ? new Date(order.shippedAt).toLocaleDateString('cs-CZ')
+                                  : (order.deliveryNotes?.find(dn => dn.status === 'active')
+                                      ? new Date(order.deliveryNotes.find(dn => dn.status === 'active')!.deliveryDate).toLocaleDateString('cs-CZ')
+                                      : <span className="text-gray-400">—</span>)}
+                              </span>
+                            </div>
+                            <div className="flex justify-between gap-2">
+                              <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Celkem</span>
+                              <span className="font-bold text-gray-900 text-right">{formatPrice(Number(order.totalAmount))}</span>
+                            </div>
+                            <div className="flex justify-between gap-2">
+                              <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Ref. platby</span>
+                              <span className="font-mono text-xs text-gray-500 text-right break-all">{order.paymentReference || <span className="text-gray-400">—</span>}</span>
+                            </div>
+                            {order.note && !order.note.startsWith('Platba:') && (
+                              <div className="flex justify-between gap-2">
+                                <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Poznámka</span>
+                                <span className="font-medium text-gray-800 text-right">{order.note}</span>
+                              </div>
+                            )}
                           </div>
                         </div>
 
