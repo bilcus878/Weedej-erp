@@ -33,7 +33,7 @@ jobs:
         run: npx prisma generate
 
       - name: Build
-        run: next build
+        run: npx next build
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
