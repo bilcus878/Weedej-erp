@@ -21,7 +21,20 @@ export async function PATCH(
 ) {
   try {
     const body = await request.json()
-    const { status } = body
+    const { status, trackingNumber, carrier } = body
+
+    // ── Tracking-only update (no status change) ───────────────────────────
+    if (!status && (trackingNumber !== undefined || carrier !== undefined)) {
+      const updated = await prisma.customerOrder.update({
+        where: { id: params.id },
+        data: {
+          ...(trackingNumber !== undefined ? { trackingNumber: trackingNumber || null } : {}),
+          ...(carrier       !== undefined ? { carrier:        carrier       || null } : {}),
+        },
+        select: { id: true, trackingNumber: true, carrier: true },
+      })
+      return NextResponse.json(updated)
+    }
 
     if (!status || !ALLOWED_STATUSES.includes(status)) {
       return NextResponse.json(
