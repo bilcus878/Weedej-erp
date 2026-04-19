@@ -45,9 +45,12 @@ export async function GET() {
       }
     })
 
-    // Filtruj jen objednávky, které mají ještě něco k vyskladnění
-    const pendingOrders = orders.filter(order =>
-      order.items.some(item => !isItemFullyShipped({
+    // Filtruj jen objednávky, které mají ještě zbožové položky k vyskladnění
+    // (null productId = doprava/sleva — nikdy se nevyskladňuje, nesmí blokovat dokončení)
+    const pendingOrders = orders.filter(order => {
+      const goodsItems = order.items.filter(item => item.productId !== null)
+      if (goodsItems.length === 0) return false
+      return goodsItems.some(item => !isItemFullyShipped({
         quantity:        Number(item.quantity),
         shippedQuantity: Number(item.shippedQuantity),
         shippedBaseQty:  Number(item.shippedBaseQty),
@@ -55,7 +58,7 @@ export async function GET() {
         variantUnit:     item.variantUnit,
         unit:            item.unit,
       }))
-    )
+    })
 
     return NextResponse.json(pendingOrders)
   } catch (error) {

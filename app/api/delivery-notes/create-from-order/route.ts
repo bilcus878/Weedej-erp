@@ -228,7 +228,7 @@ export async function POST(request: Request) {
       // Zkontroluj kompletnost expedice
       if (order.status !== 'storno') {
         const allOrderItems = await tx.customerOrderItem.findMany({
-          where: { customerOrderId: order.id },
+          where: { customerOrderId: order.id, productId: { not: null } },
         })
         const allFullyShipped = allOrderItems.every(item => isItemFullyShipped({
           quantity:        Number(item.quantity),
