@@ -27,32 +27,29 @@ export function PartySection({ party, title, icon, colSpan }: Props) {
   const isCompany = (party.entityType || 'company') === 'company'
 
   const entityBadge = party.entityType ? (
-    <span className="ml-2 text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-normal">
+    <span className="ml-2 text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-normal normal-case tracking-normal">
       {party.entityType === 'company' ? '🏢 Firma' : '👤 FO'}
     </span>
   ) : null
 
   return (
     <DetailSection title={title} icon={icon} colSpan={colSpan}>
-      <div className="divide-y divide-gray-100 py-1">
-        <DetailRow
-          label="Název"
-          value={<>{party.name}{entityBadge}</>}
-        />
+      <div className="space-y-1.5">
+        <DetailRow label="Název" value={<>{party.name}{entityBadge}</>} />
         {isCompany && party.contact && (
-          <DetailRow label="Kontakt" value={party.contact} />
+          <DetailRow label="Kontakt" value={party.contact} muted />
         )}
         {party.address && (
-          <DetailRow label="Adresa" value={party.address} />
+          <DetailRow label="Adresa" value={party.address} muted />
         )}
         {party.phone && (
-          <DetailRow label="Telefon" value={party.phone} />
+          <DetailRow label="Telefon" value={party.phone} muted />
         )}
         {isCompany && party.ico && (
-          <DetailRow label="IČO" value={party.ico} mono />
+          <DetailRow label="IČO" value={party.ico} mono muted />
         )}
         {isCompany && party.dic && (
-          <DetailRow label="DIČ" value={party.dic} mono />
+          <DetailRow label="DIČ" value={party.dic} mono muted />
         )}
         {party.email && (
           <DetailRow
@@ -65,13 +62,13 @@ export function PartySection({ party, title, icon, colSpan }: Props) {
           />
         )}
         {party.website && (
-          <DetailRow label="Web" value={party.website} />
+          <DetailRow label="Web" value={party.website} muted />
         )}
         {party.bankAccount && (
-          <DetailRow label="Účet" value={party.bankAccount} mono />
+          <DetailRow label="Účet" value={party.bankAccount} mono muted />
         )}
         {party.note && (
-          <DetailRow label="Poznámka" value={party.note} />
+          <DetailRow label="Poznámka" value={party.note} muted />
         )}
       </div>
     </DetailSection>

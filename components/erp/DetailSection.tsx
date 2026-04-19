@@ -29,7 +29,7 @@ export function DetailSection({ title, icon: Icon, colSpan = '', children, accen
         </div>
         {headerRight}
       </h4>
-      <div className="flex-1 bg-white">
+      <div className="flex-1 px-4 py-2.5 text-sm bg-white">
         {children}
       </div>
     </div>

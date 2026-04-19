@@ -970,7 +970,7 @@ export default function TransactionsPage() {
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {/* Obecné informace o faktuře */}
                             <DetailSection title="Informace o faktuře" icon={FileText}>
-                              <div className="divide-y divide-gray-100 py-1">
+                              <div className="space-y-1.5">
                                 <DetailRow label="Datum vytvoření" value={new Date(transaction.transactionDate).toLocaleDateString('cs-CZ')} />
                                 <DetailRow
                                   label="Odesláno / Vydáno"
@@ -1077,9 +1077,9 @@ export default function TransactionsPage() {
 
                         {/* Položky */}
                         {transaction.items.length === 0 ? (
-                          <p className="text-red-600 mt-6 mb-6">Faktura nemá žádné položky!</p>
+                          <p className="text-red-600">Faktura nemá žádné položky!</p>
                         ) : (
-                          <div className="mt-6 mb-6 border border-gray-200 rounded-lg overflow-hidden">
+                          <div className="border border-gray-200 rounded-lg overflow-hidden">
                             <h4 className="font-bold text-base text-gray-900 px-4 py-3 bg-gray-100 border-b border-gray-200">Položky ({transaction.items.filter((item: any) => item.productId !== null || item.productName === 'Doprava').length})</h4>
                             <div className="text-sm">
                               {/* Hlavička - různá pro plátce a neplátce DPH */}
@@ -1234,7 +1234,7 @@ export default function TransactionsPage() {
 
                         {/* Výdejky */}
                         {(transaction as any).deliveryNotes && (transaction as any).deliveryNotes.length > 0 && (
-                          <div className="mt-6 mb-6 border border-gray-200 rounded-lg overflow-hidden">
+                          <div className="border border-gray-200 rounded-lg overflow-hidden">
                             <h4 className="font-bold text-base text-gray-900 px-4 py-3 bg-gray-100 border-b border-gray-200">Výdejky ({(transaction as any).deliveryNotes.length})</h4>
 
                             <div className="text-sm">
@@ -1316,7 +1316,7 @@ export default function TransactionsPage() {
                         {(() => {
                           const invoiceCreditNotes = creditNotesMap[transaction.id] || []
                           return (
-                            <div className="mt-6 mb-6 border border-gray-200 rounded-lg overflow-hidden">
+                            <div className="border border-gray-200 rounded-lg overflow-hidden">
                               <h4 className="font-bold text-base text-gray-900 px-4 py-3 bg-gray-100 border-b border-gray-200">Dobropisy ({invoiceCreditNotes.length})</h4>
 
                               {invoiceCreditNotes.length === 0 ? (
@@ -1382,17 +1382,17 @@ export default function TransactionsPage() {
                             <>
                               <button
                                 onClick={() => handlePrintInvoice(transaction)}
-                                className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm rounded flex items-center gap-1"
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-lg transition-colors"
                               >
-                                <FileText className="w-4 h-4" />
+                                <FileText className="w-3.5 h-3.5" />
                                 Zobrazit fakturu
                               </button>
                               {transaction.status !== 'storno' && (
                                 <button
                                   onClick={() => handleOpenCreditNoteModal(transaction)}
-                                  className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded flex items-center gap-1"
+                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium rounded-lg transition-colors"
                                 >
-                                  <FileOutput className="w-4 h-4" />
+                                  <FileOutput className="w-3.5 h-3.5" />
                                   Vystavit dobropis
                                 </button>
                               )}
@@ -1402,9 +1402,9 @@ export default function TransactionsPage() {
                             transaction.status !== 'storno' ? (
                               <button
                                 onClick={() => handleStorno(transaction)}
-                                className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm rounded flex items-center gap-1"
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded-lg transition-colors"
                               >
-                                <XCircle className="w-4 h-4" />
+                                <XCircle className="w-3.5 h-3.5" />
                                 Stornovat
                               </button>
                             ) : undefined

@@ -860,7 +860,7 @@ export default function ReceivedInvoicesPage() {
                     return (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <DetailSection title="Informace o faktuře" icon={FileText}>
-                          <div className="divide-y divide-gray-100 py-1">
+                          <div className="space-y-1.5">
                             <DetailRow label="Datum faktury" value={invoice.invoiceDate ? new Date(invoice.invoiceDate).toLocaleDateString('cs-CZ') : undefined} />
                             <DetailRow label="Datum splatnosti" value={invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString('cs-CZ') : undefined} />
                             <DetailRow label="Datum dodání" value={invoice.receipts && invoice.receipts.length > 0 ? invoice.receipts.map(r => new Date(r.receiptDate).toLocaleDateString('cs-CZ')).join(', ') : undefined} />
@@ -897,7 +897,7 @@ export default function ReceivedInvoicesPage() {
 
                     {/* Položky objednávky */}
                     {invoice.purchaseOrder?.items && invoice.purchaseOrder.items.length > 0 ? (
-                      <div className="mt-6 mb-6 border border-gray-200 rounded-lg overflow-hidden">
+                      <div className="border border-gray-200 rounded-lg overflow-hidden">
                         <h4 className="font-bold text-base text-gray-900 px-4 py-3 bg-gray-100 border-b border-gray-200">Položky ({invoice.purchaseOrder.items.length})</h4>
                         <div className="text-sm">
                           {/* Hlavička - různá pro plátce a neplátce DPH */}
@@ -1084,7 +1084,7 @@ export default function ReceivedInvoicesPage() {
 
                     {/* Příjemky - zobrazit pouze pokud existují */}
                     {invoice.receipts && invoice.receipts.length > 0 && (
-                      <div className="mt-6 mb-6 border border-gray-200 rounded-lg overflow-hidden">
+                      <div className="border border-gray-200 rounded-lg overflow-hidden">
                         <h4 className="font-bold text-base text-gray-900 px-4 py-3 bg-gray-100 border-b border-gray-200">Příjemky ({invoice.receipts.length})</h4>
 
                         <div className="text-sm">
@@ -1167,9 +1167,9 @@ export default function ReceivedInvoicesPage() {
                         <>
                           <button
                             onClick={() => handleOpenDetailsModal(invoice)}
-                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded flex items-center gap-1"
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors"
                           >
-                            <FileEdit className="w-4 h-4" />
+                            <FileEdit className="w-3.5 h-3.5" />
                             Doplnit fakturu
                           </button>
                           {invoice.attachmentUrl ? (
@@ -1177,14 +1177,14 @@ export default function ReceivedInvoicesPage() {
                               href={invoice.attachmentUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm rounded flex items-center gap-1"
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-lg transition-colors"
                             >
-                              <FileText className="w-4 h-4" />
+                              <FileText className="w-3.5 h-3.5" />
                               Zobrazit fakturu
                             </a>
                           ) : (
-                            <label className="px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded flex items-center gap-1 cursor-pointer">
-                              <FileText className="w-4 h-4" />
+                            <label className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white text-xs font-medium rounded-lg transition-colors cursor-pointer">
+                              <FileText className="w-3.5 h-3.5" />
                               Nahrát soubor
                               <input
                                 type="file"
@@ -1199,9 +1199,9 @@ export default function ReceivedInvoicesPage() {
                       right={
                         <button
                           onClick={() => handleStorno(invoice.id)}
-                          className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm rounded flex items-center gap-1"
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded-lg transition-colors"
                         >
-                          <XCircle className="w-4 h-4" />
+                          <XCircle className="w-3.5 h-3.5" />
                           Stornovat
                         </button>
                       }

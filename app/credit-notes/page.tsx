@@ -493,7 +493,7 @@ export default function CreditNotesPage() {
                       {/* Info + Odběratel */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <DetailSection title="Informace o dobropisu" icon={FileText}>
-                          <div className="divide-y divide-gray-100 py-1">
+                          <div className="space-y-1.5">
                             <DetailRow label="Datum vystavení" value={new Date(creditNote.creditNoteDate).toLocaleDateString('cs-CZ')} />
                             <DetailRow label="Původní faktura" value={creditNote.invoiceNumber} />
                             <DetailRow label="Důvod" value={creditNote.reason || undefined} />
@@ -552,9 +552,9 @@ export default function CreditNotesPage() {
                           right={
                             <button
                               onClick={() => handleStorno(creditNote)}
-                              className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm rounded flex items-center gap-1"
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded-lg transition-colors"
                             >
-                              <XCircle className="w-4 h-4" />
+                              <XCircle className="w-3.5 h-3.5" />
                               Stornovat
                             </button>
                           }
