@@ -92,6 +92,11 @@ interface CustomerOrder {
     name: string
   }
   customerName?: string
+  shippingMethod?:     string | null
+  pickupPointId?:      string | null
+  pickupPointName?:    string | null
+  pickupPointAddress?: string | null
+  pickupPointCarrier?: string | null
   items: Array<{
     id: string
     productId: string | null
@@ -879,6 +884,41 @@ export default function DeliveryNotesPage() {
                     {/* Detail položek */}
                     {isExpanded && (
                       <div className="border-t-2 border-orange-300 p-4 bg-gray-50">
+                        {/* Doprava & výdejní místo */}
+                        {(order.shippingMethod || order.pickupPointId) && (
+                          <div className="mb-3 border border-gray-200 rounded-lg overflow-hidden">
+                            <h4 className="font-bold text-sm text-gray-900 px-4 py-2 bg-gray-100 border-b border-gray-200">Doprava</h4>
+                            <div className="px-4 py-3 space-y-2 bg-white text-sm">
+                              {order.shippingMethod && (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-gray-600">Způsob dopravy:</span>
+                                  <span className="font-medium">{{
+                                    DPD_HOME: 'DPD — Doručení na adresu',
+                                    DPD_PICKUP: 'DPD — Výdejní místo',
+                                    ZASILKOVNA_HOME: 'Zásilkovna — Doručení na adresu',
+                                    ZASILKOVNA_PICKUP: 'Zásilkovna — Výdejní místo / Z-BOX',
+                                    COURIER: 'Kurýr',
+                                    PICKUP_IN_STORE: 'Osobní odběr',
+                                  }[order.shippingMethod] ?? order.shippingMethod}</span>
+                                </div>
+                              )}
+                              {order.pickupPointId && (
+                                <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                                  <div className="space-y-0.5">
+                                    <p className="text-xs font-bold uppercase tracking-wide text-amber-700">
+                                      {order.pickupPointCarrier === 'zasilkovna' ? 'Zásilkovna' : order.pickupPointCarrier === 'dpd' ? 'DPD' : 'Výdejní místo'}
+                                    </p>
+                                    <p className="font-semibold text-amber-900">{order.pickupPointName || '-'}</p>
+                                    {order.pickupPointAddress && (
+                                      <p className="text-amber-700 text-xs">{order.pickupPointAddress}</p>
+                                    )}
+                                    <p className="text-amber-600 text-xs font-mono">ID: {order.pickupPointId}</p>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
                         <div className="border rounded-lg overflow-hidden">
                           {/* Hlavička - různá pro plátce a neplátce DPH */}
                           {isVatPayer ? (
