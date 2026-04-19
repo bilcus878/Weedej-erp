@@ -867,11 +867,11 @@ export default function EshopOrdersPage() {
                                 </span>
                               </div>
 
-                              {/* Tři sloupce vedle sebe */}
-                              <div className="flex divide-x divide-gray-100 bg-white text-sm">
+                              {/* Čtyři rovné sloupce */}
+                              <div className="grid grid-cols-4 divide-x divide-gray-200 bg-white text-sm">
 
                                 {/* 1 — Způsob dopravy */}
-                                <div className="px-4 py-3 w-44 shrink-0">
+                                <div className="px-4 py-3">
                                   <p className="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">Způsob dopravy</p>
                                   <p className="font-semibold text-gray-900 text-sm leading-snug">
                                     {order.shippingMethod ? shippingMethodLabel(order.shippingMethod) : <span className="text-gray-400">—</span>}
@@ -884,7 +884,7 @@ export default function EshopOrdersPage() {
                                 </div>
 
                                 {/* 2 — Destinace */}
-                                <div className="px-4 py-3 w-56 shrink-0">
+                                <div className="px-4 py-3">
                                   <p className="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-2">
                                     {order.pickupPointId ? 'Výdejní místo' : 'Doručovací adresa'}
                                   </p>
@@ -917,21 +917,25 @@ export default function EshopOrdersPage() {
                                   )}
                                 </div>
 
-                                {/* Mapa — jen u výdejního místa */}
-                                {order.pickupPointId && (order.pickupPointAddress || order.pickupPointName) && (
-                                  <div className="w-44 shrink-0 border-l border-gray-100 overflow-hidden self-stretch">
-                                    <iframe
-                                      src={`https://maps.google.com/maps?q=${encodeURIComponent((order.pickupPointAddress || order.pickupPointName)!)}&output=embed&z=16`}
-                                      className="w-full h-full min-h-[100px]"
-                                      loading="lazy"
-                                      referrerPolicy="no-referrer-when-downgrade"
-                                      title="Mapa výdejního místa"
-                                    />
-                                  </div>
-                                )}
+                                {/* 3 — Mapa (vždy sloupec, i když prázdný) */}
+                                {order.pickupPointId && (order.pickupPointAddress || order.pickupPointName)
+                                  ? (
+                                    <div className="overflow-hidden">
+                                      <iframe
+                                        src={`https://maps.google.com/maps?q=${encodeURIComponent((order.pickupPointAddress || order.pickupPointName)!)}&output=embed&z=16`}
+                                        className="w-full h-full min-h-[110px]"
+                                        loading="lazy"
+                                        referrerPolicy="no-referrer-when-downgrade"
+                                        title="Mapa výdejního místa"
+                                      />
+                                    </div>
+                                  ) : (
+                                    <div />
+                                  )
+                                }
 
-                                {/* 3 — Zásilka / tracking */}
-                                <div className="px-4 py-3 flex-1 min-w-0">
+                                {/* 4 — Zásilka / tracking */}
+                                <div className="px-4 py-3 min-w-0">
                                   <p className="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-2">Zásilka</p>
 
                                   {isEditing ? (
