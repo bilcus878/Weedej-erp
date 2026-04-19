@@ -985,7 +985,7 @@ export default function DeliveryNotesPage() {
                           {/* Celková částka - tučný řádek */}
                           <div className={`grid ${isVatPayer ? 'grid-cols-[2fr_0.8fr_0.8fr_0.8fr_0.5fr_0.8fr_0.5fr_0.8fr_1fr]' : 'grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr]'} gap-2 px-3 py-1.5 bg-gray-100 border-t-2 font-bold`}>
                             <div className={`${isVatPayer ? 'col-span-8' : 'col-span-5'} text-[13px]`}>{isVatPayer ? 'Celková částka s DPH' : 'Celková částka objednávky'}</div>
-                            <div className="text-[13px] text-center">
+                            <div className={`text-[13px] ${isVatPayer ? 'text-center' : 'text-right'}`}>
                               {formatPrice(order.items.filter(item => item.productId !== null).reduce((sum, item) => {
                                 const unitPrice = Number(item.price || 0)
                                 const itemVatRate = Number(item.vatRate ?? item.product?.vatRate ?? DEFAULT_VAT_RATE)

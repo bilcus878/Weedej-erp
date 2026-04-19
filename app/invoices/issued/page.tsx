@@ -1245,7 +1245,7 @@ export default function TransactionsPage() {
                                     {/* Mezisoučet — vždy zobrazen pokud existuje extra řádek */}
                                     <div className={`grid ${colGrid} gap-2 px-4 py-2 bg-gray-50 border-t text-sm`}>
                                       <div className={`${labelSpan} text-gray-600`}>Mezisoučet</div>
-                                      <div className="text-center font-medium text-gray-800">{formatPrice(catalogSubtotal)}</div>
+                                      <div className={`${isVatPayer ? 'text-center' : 'text-right'} font-medium text-gray-800`}>{formatPrice(catalogSubtotal)}</div>
                                     </div>
 
                                     {/* Doprava */}
@@ -1254,7 +1254,7 @@ export default function TransactionsPage() {
                                         <div className={`${labelSpan} font-medium text-gray-900`}>
                                           {shippingItem?.productName || 'Doprava'}
                                         </div>
-                                        <div className="text-center text-blue-700 font-medium">{formatPrice(shippingTotal)}</div>
+                                        <div className={`${isVatPayer ? 'text-center' : 'text-right'} text-blue-700 font-medium`}>{formatPrice(shippingTotal)}</div>
                                       </div>
                                     )}
 
@@ -1264,7 +1264,7 @@ export default function TransactionsPage() {
                                         <div className={`${labelSpan} font-medium text-gray-900`}>
                                           {discountItem?.productName || 'Sleva'}
                                         </div>
-                                        <div className="text-center text-red-600 font-medium">{formatPrice(discountTotal)}</div>
+                                        <div className={`${isVatPayer ? 'text-center' : 'text-right'} text-red-600 font-medium`}>{formatPrice(discountTotal)}</div>
                                       </div>
                                     )}
                                   </>
@@ -1274,7 +1274,7 @@ export default function TransactionsPage() {
                               {/* Celkem zaplaceno */}
                               <div className={`grid ${isVatPayer ? 'grid-cols-[3fr_repeat(6,1fr)]' : 'grid-cols-[2fr_1fr_1fr_1fr]'} gap-2 px-4 py-2 bg-gray-100 font-bold border-t text-sm`}>
                                 <div className={isVatPayer ? 'col-span-6' : 'col-span-3'}>{isVatPayer ? 'Celková částka s DPH' : 'Celková částka'}</div>
-                                <div className="text-center">{formatPrice(transaction.totalAmount)}</div>
+                                <div className={isVatPayer ? 'text-center' : 'text-right'}>{formatPrice(transaction.totalAmount)}</div>
                               </div>
                             </div>
                           </div>

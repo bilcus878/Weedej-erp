@@ -1867,7 +1867,7 @@ export default function PurchaseOrdersPage() {
                               {/* Mezisoučet před slevou */}
                               <div className={`grid ${isVatPayer ? 'grid-cols-[3fr_repeat(8,1fr)]' : 'grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr]'} gap-2 px-4 py-2 bg-gray-50 border-t text-sm`}>
                                 <div className={isVatPayer ? 'col-span-8' : 'col-span-5'} style={{ fontWeight: 500, color: '#374151' }}>Mezisoučet</div>
-                                <div className="text-center font-medium text-gray-700">
+                                <div className={`${isVatPayer ? 'text-center' : 'text-right'} font-medium text-gray-700`}>
                                   {(() => {
                                     const subtotal = parseFloat((order as any).totalAmount?.toString() || '0') + parseFloat((order as any).discountAmount?.toString() || '0')
                                     return formatPrice(subtotal)
@@ -1890,7 +1890,7 @@ export default function PurchaseOrdersPage() {
                                     </span>
                                   )}
                                 </div>
-                                <div className="text-center font-medium text-red-600">
+                                <div className={`${isVatPayer ? 'text-center' : 'text-right'} font-medium text-red-600`}>
                                   -{formatPrice((order as any).discountAmount)}
                                 </div>
                               </div>
@@ -1898,7 +1898,7 @@ export default function PurchaseOrdersPage() {
                               {/* Celková částka po slevě */}
                               <div className={`grid ${isVatPayer ? 'grid-cols-[3fr_repeat(8,1fr)]' : 'grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr]'} gap-2 px-4 py-2 bg-gray-100 font-bold border-t text-sm`}>
                                 <div className={isVatPayer ? 'col-span-8' : 'col-span-5'}>{isVatPayer ? 'Celková částka s DPH' : 'Celková částka'}</div>
-                                <div className="text-center">
+                                <div className={isVatPayer ? 'text-center' : 'text-right'}>
                                   {formatPrice((order as any).totalAmount || 0)}
                                 </div>
                               </div>
@@ -1907,7 +1907,7 @@ export default function PurchaseOrdersPage() {
                             /* Celková částka bez slevy */
                             <div className={`grid ${isVatPayer ? 'grid-cols-[3fr_repeat(8,1fr)]' : 'grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr]'} gap-2 px-4 py-2 bg-gray-100 font-bold border-t text-sm`}>
                               <div className={isVatPayer ? 'col-span-8' : 'col-span-5'}>{isVatPayer ? 'Celková částka s DPH' : 'Celková částka'}</div>
-                              <div className="text-center">
+                              <div className={isVatPayer ? 'text-center' : 'text-right'}>
                                 {(() => {
                                   // Pro plátce DPH spočítáme celkovou částku včetně DPH
                                   const total = order.items.reduce((sum, item) => {

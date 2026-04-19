@@ -1734,7 +1734,7 @@ export default function CustomerOrdersPage() {
                               {/* Celková částka po slevě */}
                               <div className={`grid ${isVatPayer ? 'grid-cols-[3fr_repeat(8,1fr)]' : 'grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr]'} gap-2 px-4 py-2 bg-gray-100 font-bold border-t text-sm`}>
                                 <div className={isVatPayer ? 'col-span-8' : 'col-span-5'}>{isVatPayer ? 'Celková částka s DPH' : 'Celková částka'}</div>
-                                <div className="text-center">
+                                <div className={isVatPayer ? 'text-center' : 'text-right'}>
                                   {formatPrice(order.totalAmount)}
                                 </div>
                               </div>
@@ -1743,7 +1743,7 @@ export default function CustomerOrdersPage() {
                             /* Celková částka bez slevy */
                             <div className={`grid ${isVatPayer ? 'grid-cols-[3fr_repeat(8,1fr)]' : 'grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr]'} gap-2 px-4 py-2 bg-gray-100 font-bold border-t text-sm`}>
                               <div className={isVatPayer ? 'col-span-8' : 'col-span-5'}>{isVatPayer ? 'Celková částka s DPH' : 'Celková částka'}</div>
-                              <div className="text-center">
+                              <div className={isVatPayer ? 'text-center' : 'text-right'}>
                                 {formatPrice(order.totalAmount)}
                               </div>
                             </div>

@@ -1035,7 +1035,7 @@ export default function ReceivedInvoicesPage() {
                               {/* Mezisoučet před slevou */}
                               <div className={`grid ${isVatPayer ? 'grid-cols-[3fr_repeat(6,1fr)]' : 'grid-cols-[2fr_1fr_1fr_1fr]'} gap-2 px-4 py-2 bg-gray-50 border-t text-sm`}>
                                 <div className={isVatPayer ? 'col-span-6' : 'col-span-3'} style={{ fontWeight: 500, color: '#374151' }}>Mezisoučet</div>
-                                <div className="text-center font-medium text-gray-700">
+                                <div className={`${isVatPayer ? 'text-center' : 'text-right'} font-medium text-gray-700`}>
                                   {(() => {
                                     const subtotal = parseFloat(invoice.totalAmount.toString()) + parseFloat((invoice as any).discountAmount.toString())
                                     return formatPrice(subtotal)
@@ -1058,7 +1058,7 @@ export default function ReceivedInvoicesPage() {
                                     </span>
                                   )}
                                 </div>
-                                <div className="text-center font-medium text-red-600">
+                                <div className={`${isVatPayer ? 'text-center' : 'text-right'} font-medium text-red-600`}>
                                   -{formatPrice((invoice as any).discountAmount)}
                                 </div>
                               </div>
@@ -1066,7 +1066,7 @@ export default function ReceivedInvoicesPage() {
                               {/* Celková částka po slevě */}
                               <div className={`grid ${isVatPayer ? 'grid-cols-[3fr_repeat(6,1fr)]' : 'grid-cols-[2fr_1fr_1fr_1fr]'} gap-2 px-4 py-2 bg-gray-100 font-bold border-t text-sm`}>
                                 <div className={isVatPayer ? 'col-span-6' : 'col-span-3'}>{isVatPayer ? 'Celková částka s DPH' : 'Celková částka'}</div>
-                                <div className="text-center">
+                                <div className={isVatPayer ? 'text-center' : 'text-right'}>
                                   {formatPrice(invoice.totalAmount)}
                                 </div>
                               </div>
@@ -1075,7 +1075,7 @@ export default function ReceivedInvoicesPage() {
                             /* Celková částka bez slevy */
                             <div className={`grid ${isVatPayer ? 'grid-cols-[3fr_repeat(6,1fr)]' : 'grid-cols-[2fr_1fr_1fr_1fr]'} gap-2 px-4 py-2 bg-gray-100 font-bold border-t text-sm`}>
                               <div className={isVatPayer ? 'col-span-6' : 'col-span-3'}>{isVatPayer ? 'Celková částka s DPH' : 'Celková částka'}</div>
-                              <div className="text-center">
+                              <div className={isVatPayer ? 'text-center' : 'text-right'}>
                                 {formatPrice(invoice.totalAmount)}
                               </div>
                             </div>
