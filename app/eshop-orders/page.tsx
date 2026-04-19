@@ -862,28 +862,29 @@ export default function EshopOrdersPage() {
                                 : null
                             : null
                           return (
-                            <div className="border border-gray-200 rounded-lg overflow-hidden">
+                            <div className="md:col-span-2 border border-gray-200 rounded-lg overflow-hidden">
 
                               {/* Hlavička */}
-                              <div className="px-4 py-2.5 bg-gray-100 border-b border-gray-200 flex items-center justify-between gap-2">
+                              <div className="px-4 py-2 bg-gray-100 border-b border-gray-200 flex items-center justify-between gap-2">
                                 <div className="flex items-center gap-2">
                                   <Truck className="w-4 h-4 text-gray-500 shrink-0" />
                                   <span className="font-bold text-sm text-gray-900">Doručení</span>
                                 </div>
                                 <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                                  hasTracking                                                        ? 'bg-blue-100 text-blue-700'
-                                  : ['shipped','delivered'].includes(order.status)                   ? 'bg-green-100 text-green-700'
-                                                                                                    : 'bg-gray-100 text-gray-500'
+                                  hasTracking                                          ? 'bg-blue-100 text-blue-700'
+                                  : ['shipped','delivered'].includes(order.status)     ? 'bg-green-100 text-green-700'
+                                                                                       : 'bg-gray-100 text-gray-500'
                                 }`}>
                                   <span className={`w-1.5 h-1.5 rounded-full ${hasTracking ? 'bg-blue-500' : ['shipped','delivered'].includes(order.status) ? 'bg-green-500' : 'bg-gray-400'}`} />
                                   {hasTracking ? 'Sledováno' : order.status === 'shipped' ? 'Odesláno' : order.status === 'delivered' ? 'Doručeno' : 'Čeká'}
                                 </span>
                               </div>
 
-                              <div className="divide-y divide-gray-100 bg-white text-sm">
+                              {/* Tři sloupce vedle sebe */}
+                              <div className="flex divide-x divide-gray-100 bg-white text-sm">
 
                                 {/* 1 — Způsob dopravy */}
-                                <div className="px-4 py-3">
+                                <div className="px-4 py-3 w-56 shrink-0">
                                   <p className="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">Způsob dopravy</p>
                                   <p className="font-semibold text-gray-900 text-sm leading-snug">
                                     {order.shippingMethod ? shippingMethodLabel(order.shippingMethod) : <span className="text-gray-400">—</span>}
@@ -896,7 +897,7 @@ export default function EshopOrdersPage() {
                                 </div>
 
                                 {/* 2 — Destinace */}
-                                <div className="px-4 py-3">
+                                <div className="px-4 py-3 flex-1">
                                   <p className="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-2">
                                     {order.pickupPointId ? 'Výdejní místo' : 'Doručovací adresa'}
                                   </p>
@@ -930,7 +931,7 @@ export default function EshopOrdersPage() {
                                 </div>
 
                                 {/* 3 — Zásilka / tracking */}
-                                <div className="px-4 py-3">
+                                <div className="px-4 py-3 w-72 shrink-0">
                                   <p className="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-2">Zásilka</p>
 
                                   {isEditing ? (
