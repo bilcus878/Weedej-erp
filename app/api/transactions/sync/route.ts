@@ -24,7 +24,7 @@ export async function POST(request: Request) {
 
     for (const sumupTx of sumupTransactions) {
       console.log('='.repeat(80))
-      console.log('ZPRACOVÁVÁM TRANSAKCI:', JSON.stringify(sumupTx, null, 2))
+      console.log(`ZPRACOVÁVÁM TRANSAKCI: id=${sumupTx.id} amount=${sumupTx.amount} status=${sumupTx.status}`)
       console.log('='.repeat(80))
 
       // Zkontroluj jestli už transakce není v databázi

@@ -1,7 +1,7 @@
 Zmeny a soubory vytvarej rovnou ve slozce C:\Users\bilcu\Dropbox\Krámek\UcetniP
 Ucetni program napojený na sumup api klič : 
 
-1) Program bude mít katalog zboží prevzaný ze sumupu přes api klic : sup_sk_pXdK8RIux1haKPXeeKHEHFXkpp7rHmCvO
+1) Program bude mít katalog zboží prevzaný ze sumupu přes api klic : sup_sk_YOUR_KEY_HERE
 2) Program bude mít skladovou evidenci ve které půjde naskladňovat zboží z katalogu zboží buď v gramech nebo v kusech ( přidej ještě tlačítko pro opravu kdyby člověk zadal špatný počet ks nebo g do nakladnění ) - samozrejme to musí vypadat to naskladneni aby tam byl datum dodavatel všechno..
 3) Program bude evidovat všechny karetní i hotovostní transakce přes api
 4) Transakce se evidují tak, že když je na jedné transakci více položek tak se musí rozepsat zvlášt pod jednou fakturou.. FA napíšeme u všech ale cenu cele transakce jen u té první položky z FA aby v tom nebyl zmatek 

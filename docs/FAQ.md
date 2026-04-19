@@ -113,7 +113,7 @@ scripts\reset-db.bat
 
 API klíč je neplatný. Zkontroluj `.env`:
 ```env
-SUMUP_API_KEY="sup_sk_pXdK8RIux1haKPXeeKHEHFXkpp7rHmCvO"
+SUMUP_API_KEY="sup_sk_YOUR_KEY_HERE"
 ```
 
 ### Transakce se nesynchronizují

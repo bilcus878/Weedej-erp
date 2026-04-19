@@ -56,6 +56,9 @@ export async function PATCH(
     const body = await request.json()
     const { status, customerName, customerEmail, customerPhone, customerAddress, note } = body
 
+    const existing = await prisma.customerOrder.findUnique({ where: { id: params.id }, select: { id: true } })
+    if (!existing) return NextResponse.json({ error: 'Objednávka nenalezena' }, { status: 404 })
+
     const order = await prisma.customerOrder.update({
       where: { id: params.id },
       data: {
@@ -78,7 +81,10 @@ export async function PATCH(
     })
 
     return NextResponse.json(order)
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.code === 'P2025') {
+      return NextResponse.json({ error: 'Objednávka nenalezena' }, { status: 404 })
+    }
     console.error('Chyba při aktualizaci objednávky:', error)
     return NextResponse.json(
       { error: 'Nepodařilo se aktualizovat objednávku' },
@@ -99,7 +105,10 @@ export async function DELETE(
     })
 
     return NextResponse.json({ message: 'Objednávka smazána' })
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.code === 'P2025') {
+      return NextResponse.json({ error: 'Objednávka nenalezena' }, { status: 404 })
+    }
     console.error('Chyba při mazání objednávky:', error)
     return NextResponse.json(
       { error: 'Nepodařilo se smazat objednávku' },
