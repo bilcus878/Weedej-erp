@@ -193,15 +193,29 @@ export async function generateInvoicePDF(
   }
 
   // ── Tabulka položek ────────────────────────────────────────────────────────
-  const itemRows = invoice.items.map((item, idx) => {
-    const name         = item.productName || item.product?.name || '(Neznámý produkt)'
+  const isShippingItem = (item: InvoiceItem) =>
+    item.product == null && /(doprav|shipping)/i.test(item.productName || '')
+
+  const sortedItems = [...invoice.items].sort((a, b) => {
+    const aShip = isShippingItem(a) ? 1 : 0
+    const bShip = isShippingItem(b) ? 1 : 0
+    return aShip - bShip
+  })
+
+  const itemRows = sortedItems.map((item, idx) => {
     const storedName   = item.productName || ''
+    const baseName     = item.product?.name || (storedName.includes(' — ') ? storedName.split(' — ')[0] : storedName) || '(Neznámý produkt)'
     const variantPart  = storedName.includes(' — ') ? storedName.split(' — ').slice(1).join(' — ') : null
+    const name         = variantPart ? `${baseName} — ${variantPart}` : baseName
     const qty          = variantPart
       ? (/^\d+[xX×]/.test(variantPart) ? variantPart : `${item.quantity}x ${variantPart}`)
       : `${item.quantity} ${item.unit}`
-    const unitNet   = item.price ?? 0
     const vatRate   = item.vatRate ?? 0
+    const unitNet   = isVatPayer
+      ? (item.price != null && item.price > 0
+          ? item.price
+          : (item.priceWithVat != null && vatRate > 0 ? item.priceWithVat / (1 + vatRate / 100) : 0))
+      : (item.priceWithVat != null && item.priceWithVat > 0 ? item.priceWithVat : (item.price ?? 0))
     const lineNet   = unitNet * item.quantity
     const vatAmt    = item.vatAmount ?? (lineNet * vatRate / 100)
     const lineGross = item.priceWithVat != null
