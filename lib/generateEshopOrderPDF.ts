@@ -23,6 +23,7 @@ export interface EshopOrderForPDF {
   totalVatAmount?: number
   items: Array<{
     productName?: string | null
+    product?: { name: string } | null
     quantity: number
     unit: string
     price: number
@@ -175,30 +176,36 @@ export async function generateEshopOrderPDF(
   })
 
   const itemRows = sortedItems.map((item, idx) => {
-    const name = item.productName || '(Neznámý produkt)'
+    // Název z ERP katalogu má přednost před složeným eshop názvem
     const storedName = item.productName || ''
+    const baseName   = item.product?.name
+      || (storedName.includes(' — ') ? storedName.split(' — ')[0] : storedName)
+      || '(Neznámý produkt)'
     const variantPart = storedName.includes(' — ') ? storedName.split(' — ').slice(1).join(' — ') : null
     const qty = variantPart
       ? (/^\d+[xX×]/.test(variantPart) ? variantPart : `${item.quantity}x ${variantPart}`)
       : `${item.quantity} ${item.unit}`
 
     const vatRate   = item.vatRate ?? 0
-    const lineGross = item.priceWithVat != null
+    const lineGross = (item.priceWithVat != null && item.priceWithVat > 0)
       ? item.priceWithVat * item.quantity
       : (item.price ?? 0) * item.quantity * (1 + vatRate / 100)
-    // Pokud price (bez DPH) chybí nebo je 0, odvodíme ho z brutto ceny
-    const unitNet = (item.price != null && item.price > 0)
-      ? item.price
-      : (item.priceWithVat != null && vatRate > 0 ? item.priceWithVat / (1 + vatRate / 100) : 0)
-    const lineNet   = unitNet * item.quantity
-    const vatAmt    = item.vatAmount != null && item.vatAmount > 0
+
+    // Pro plátce DPH: zobraz netto cenu (bez DPH). Pro neplátce: zobraz brutto (co zákazník platí).
+    const unitNet = isVatPayer
+      ? ((item.price != null && item.price > 0)
+          ? item.price
+          : (item.priceWithVat != null && vatRate > 0 ? item.priceWithVat / (1 + vatRate / 100) : 0))
+      : (item.priceWithVat != null && item.priceWithVat > 0 ? item.priceWithVat : (item.price ?? 0))
+    const lineNet = unitNet * item.quantity
+    const vatAmt  = item.vatAmount != null && item.vatAmount > 0
       ? item.vatAmount * item.quantity
       : (lineGross - lineNet)
 
     if (isVatPayer) {
       return [
         { text: String(idx + 1), style: 'tableCell', alignment: 'center' },
-        { text: name,            style: 'tableCell' },
+        { text: baseName,        style: 'tableCell' },
         { text: qty,             style: 'tableCell', alignment: 'center' },
         { text: czk(unitNet),    style: 'tableCell', alignment: 'right' },
         { text: `${vatRate} %`,  style: 'tableCell', alignment: 'center' },
@@ -208,7 +215,7 @@ export async function generateEshopOrderPDF(
     } else {
       return [
         { text: String(idx + 1), style: 'tableCell', alignment: 'center' },
-        { text: name,            style: 'tableCell' },
+        { text: baseName,        style: 'tableCell' },
         { text: qty,             style: 'tableCell', alignment: 'center' },
         { text: czk(unitNet),    style: 'tableCell', alignment: 'right' },
         { text: czk(lineNet),    style: 'tableCell', alignment: 'right', bold: true },
