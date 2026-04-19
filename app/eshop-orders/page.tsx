@@ -25,6 +25,7 @@ import {
   CreditCard,
   XCircle,
   RefreshCw,
+  MapPin,
 } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
@@ -115,6 +116,20 @@ interface EshopOrder {
   discountType?: string | null
   discountValue?: number | null
   note?: string | null
+  // Shipping snapshot
+  shippingMethod?:     string | null
+  pickupPointId?:      string | null
+  pickupPointName?:    string | null
+  pickupPointAddress?: string | null
+  pickupPointCarrier?: string | null
+  // Billing address snapshot (null = same as delivery)
+  billingName?:        string | null
+  billingCompany?:     string | null
+  billingIco?:         string | null
+  billingStreet?:      string | null
+  billingCity?:        string | null
+  billingZip?:         string | null
+  billingCountry?:     string | null
   items: EshopOrderItem[]
   issuedInvoice?: IssuedInvoiceSummary | null
   EshopUser?: EshopUser | null
@@ -175,6 +190,18 @@ function getStatusBadge(status: string) {
         </span>
       )
   }
+}
+
+function shippingMethodLabel(method: string): string {
+  const labels: Record<string, string> = {
+    DPD_HOME:          'DPD — Doručení na adresu',
+    DPD_PICKUP:        'DPD — Výdejní místo',
+    ZASILKOVNA_HOME:   'Zásilkovna — Doručení na adresu',
+    ZASILKOVNA_PICKUP: 'Zásilkovna — Výdejní místo / Z-BOX',
+    COURIER:           'Kurýr',
+    PICKUP_IN_STORE:   'Osobní odběr',
+  }
+  return labels[method] ?? method
 }
 
 function getCustomerName(order: EshopOrder): string {
@@ -736,6 +763,60 @@ export default function EshopOrdersPage() {
                             </div>
                           </div>
                         </div>
+
+                        {/* Způsob dopravy / Výdejní místo / Fakturační adresa */}
+                        {(order.shippingMethod || order.pickupPointId || order.billingName) && (
+                          <div className={order.trackingNumber || order.carrier || ['cancelled','storno'].includes(order.status) ? 'border-b' : ''}>
+                            <h5 className="text-sm font-semibold text-gray-800 px-4 py-3 bg-gray-50">Doprava &amp; Adresa</h5>
+                            <div className="px-4 py-3 space-y-3 bg-white text-sm">
+
+                              {/* Způsob dopravy */}
+                              {order.shippingMethod && (
+                                <div className="flex items-center gap-2">
+                                  <Truck className="w-4 h-4 text-gray-400 shrink-0" />
+                                  <span className="text-gray-600">Způsob dopravy:</span>
+                                  <span className="font-medium text-gray-800">{shippingMethodLabel(order.shippingMethod)}</span>
+                                </div>
+                              )}
+
+                              {/* Výdejní místo — zvýrazněný box */}
+                              {order.pickupPointId && (
+                                <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+                                  <MapPin className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                                  <div className="space-y-0.5">
+                                    <p className="text-xs font-bold uppercase tracking-wide text-amber-700">
+                                      {order.pickupPointCarrier === 'zasilkovna' ? 'Zásilkovna' : order.pickupPointCarrier === 'dpd' ? 'DPD' : 'Výdejní místo'}
+                                    </p>
+                                    <p className="font-semibold text-amber-900">{order.pickupPointName || '-'}</p>
+                                    {order.pickupPointAddress && (
+                                      <p className="text-amber-700 text-xs">{order.pickupPointAddress}</p>
+                                    )}
+                                    <p className="text-amber-600 text-xs font-mono">ID: {order.pickupPointId}</p>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Fakturační adresa — pouze pokud se liší od doručovací */}
+                              {order.billingName && (
+                                <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
+                                  <FileText className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
+                                  <div className="space-y-0.5">
+                                    <p className="text-xs font-bold uppercase tracking-wide text-blue-700">Fakturační adresa</p>
+                                    <p className="font-semibold text-blue-900">{order.billingCompany || order.billingName}</p>
+                                    {order.billingCompany && order.billingName !== order.billingCompany && (
+                                      <p className="text-blue-700 text-xs">{order.billingName}</p>
+                                    )}
+                                    {order.billingIco && (
+                                      <p className="text-blue-600 text-xs">IČO: <span className="font-mono">{order.billingIco}</span></p>
+                                    )}
+                                    <p className="text-blue-800 text-xs">{order.billingStreet}</p>
+                                    <p className="text-blue-800 text-xs">{order.billingZip} {order.billingCity}{order.billingCountry && order.billingCountry !== 'CZ' ? `, ${order.billingCountry}` : ''}</p>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
 
                         {/* Expedice — pouze pokud je trackingNumber nebo carrier */}
                         {(order.trackingNumber || order.carrier) && (

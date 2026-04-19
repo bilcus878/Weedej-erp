@@ -44,6 +44,23 @@ const ItemSchema = z.object({
   variantUnit:  z.string().optional().nullable(),             // "g", "ml"
 })
 
+const PickupPointSchema = z.object({
+  id:      z.string().min(1),
+  name:    z.string().default(''),
+  address: z.string().default(''),
+  carrier: z.string().default(''),          // "zasilkovna" | "dpd"
+})
+
+const BillingAddressSchema = z.object({
+  name:    z.string().min(1),
+  company: z.string().nullable().optional(),
+  ico:     z.string().nullable().optional(),
+  street:  z.string().default(''),
+  city:    z.string().default(''),
+  zip:     z.string().default(''),
+  country: z.string().default('CZ'),
+})
+
 const OrderSchema = z.object({
   eshopOrderId:     z.string().min(1, 'eshopOrderId is required'),
   items:            z.array(ItemSchema).min(1),
@@ -55,6 +72,11 @@ const OrderSchema = z.object({
   totalCzk:         z.number().positive(),   // CZK incl. VAT
   paymentReference: z.string().min(1),
   paidAt:           z.string().datetime({ offset: true }),
+
+  // Optional shipping fields — present for all eshop orders
+  shippingMethod:  z.string().optional(),
+  pickupPoint:     PickupPointSchema.optional(),
+  billingAddress:  BillingAddressSchema.optional(),
 })
 
 // ─── OPTIONS ─────────────────────────────────────────────────────────────────
@@ -135,6 +157,17 @@ export async function POST(request: NextRequest) {
   }
 
   const body = parsed.data
+
+  // Cross-field validation: pickup orders must include pickup point data
+  const isPickupMethod = body.shippingMethod &&
+    ['DPD_PICKUP', 'ZASILKOVNA_PICKUP'].includes(body.shippingMethod)
+  if (isPickupMethod && !body.pickupPoint) {
+    return NextResponse.json(
+      { error: 'Pickup orders must include pickupPoint data', code: 'MISSING_PICKUP_POINT' },
+      { status: 422, headers: corsHeaders(origin) }
+    )
+  }
+
   // Log using order ID only (GDPR: no PII in logs)
   console.log(`[ERP /api/orders] Processing order eshopOrderId=${body.eshopOrderId}`)
 
@@ -206,6 +239,20 @@ export async function POST(request: NextRequest) {
           totalAmountWithoutVat,
           totalVatAmount,
           note:               `Platba: ${body.paymentReference}`,
+          // Shipping snapshot
+          shippingMethod:     body.shippingMethod     ?? null,
+          pickupPointId:      body.pickupPoint?.id    ?? null,
+          pickupPointName:    body.pickupPoint?.name  ?? null,
+          pickupPointAddress: body.pickupPoint?.address ?? null,
+          pickupPointCarrier: body.pickupPoint?.carrier ?? null,
+          // Billing address snapshot (null = same as delivery)
+          billingName:        body.billingAddress?.name    ?? null,
+          billingCompany:     body.billingAddress?.company ?? null,
+          billingIco:         body.billingAddress?.ico     ?? null,
+          billingStreet:      body.billingAddress?.street  ?? null,
+          billingCity:        body.billingAddress?.city    ?? null,
+          billingZip:         body.billingAddress?.zip     ?? null,
+          billingCountry:     body.billingAddress?.country ?? null,
           items: {
             create: resolvedItems.map(item => {
               const price        = item.unitPriceCzk

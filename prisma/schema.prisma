@@ -473,6 +473,22 @@ model CustomerOrder {
   trackingNumber        String?
   carrier               String?
   paymentReference      String?
+  // ── Shipping snapshot — immutable after order creation ────────────────────
+  shippingMethod        String?   // DPD_HOME | DPD_PICKUP | ZASILKOVNA_HOME | ZASILKOVNA_PICKUP
+  pickupPointId         String?   // External carrier branch ID (Zásilkovna/DPD)
+  pickupPointName       String?   // Human-readable pickup point name
+  pickupPointAddress    String?   // Full formatted address of pickup point
+  pickupPointCarrier    String?   // "zasilkovna" | "dpd"
+  // ── Billing address snapshot — immutable after order creation ─────────────
+  // Null = billing same as customerAddress (delivery address)
+  billingName           String?
+  billingCompany        String?
+  billingIco            String?
+  billingDic            String?
+  billingStreet         String?
+  billingCity           String?
+  billingZip            String?
+  billingCountry        String?
   customer              Customer?           @relation(fields: [customerId], references: [id])
   EshopUser             EshopUser?          @relation(fields: [eshopUserId], references: [id])
   items                 CustomerOrderItem[]
@@ -490,6 +506,8 @@ model CustomerOrder {
   @@index([source])
   @@index([stripeSessionId])
   @@index([eshopOrderId])
+  @@index([shippingMethod])
+  @@index([pickupPointCarrier])
 }
 
 model CustomerOrderItem {

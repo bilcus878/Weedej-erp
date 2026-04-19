@@ -116,6 +116,31 @@ export async function createIssuedInvoiceFromCustomerOrder(
     return existingInvoice
   }
 
+  // Billing address resolution:
+  // If the order has explicit billing fields, use them for the invoice.
+  // Otherwise fall back to the delivery address (customerAddress).
+  const hasBilling = Boolean(order.billingName && order.billingStreet)
+
+  const invoiceCustomerName = hasBilling
+    ? (order.billingCompany || order.billingName)
+    : (order.customerName || order.customer?.name || null)
+
+  const invoiceCustomerAddress = hasBilling
+    ? [
+        order.billingStreet,
+        `${order.billingZip} ${order.billingCity}`.trim(),
+        order.billingCountry && order.billingCountry !== 'CZ' ? order.billingCountry : null,
+      ].filter(Boolean).join(', ')
+    : (order.customerAddress || order.customer?.address || null)
+
+  const invoiceCustomerIco = hasBilling
+    ? (order.billingIco || null)
+    : (order.customer?.ico || null)
+
+  const invoiceCustomerDic = hasBilling
+    ? null   // DPH číslo není v billing snapshot — bude doplněno ručně pokud potřeba
+    : (order.customer?.dic || null)
+
   // Vytvoř vystavenou fakturu v transakci (ON-COMMIT číslování)
   const invoice = await prisma.$transaction(async (tx) => {
     // 1. Získej další číslo faktury (ON-COMMIT)
@@ -127,17 +152,17 @@ export async function createIssuedInvoiceFromCustomerOrder(
         invoiceNumber,
         customerOrderId: order.id,
         customerId: order.customerId,
-        customerName: order.customerName,
+        customerName: invoiceCustomerName,
         customerEntityType: order.customerEntityType || order.customer?.entityType || null,
-        // Zkopíruj údaje zákazníka z objednávky
+        // Billing-resolved customer data
         customerEmail: order.customerEmail || order.customer?.email || null,
         customerPhone: order.customerPhone || order.customer?.phone || null,
-        customerAddress: order.customerAddress || order.customer?.address || null,
-        customerContactPerson: order.customer?.contact || null, // Customer má "contact", ne "contactPerson"
-        customerIco: order.customer?.ico || null,
-        customerDic: order.customer?.dic || null,
+        customerAddress: invoiceCustomerAddress,
+        customerContactPerson: order.customer?.contact || null,
+        customerIco: invoiceCustomerIco,
+        customerDic: invoiceCustomerDic,
         customerBankAccount: order.customer?.bankAccount || null,
-        customerWebsite: null, // Customer model nemá website pole
+        customerWebsite: null,
         invoiceDate: new Date(),
         dueDate: paymentDetails?.dueDate ? new Date(paymentDetails.dueDate) : null,
         totalAmount: order.totalAmount,
