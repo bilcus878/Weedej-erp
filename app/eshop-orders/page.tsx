@@ -668,34 +668,6 @@ export default function EshopOrdersPage() {
                   {isExpanded && (
                     <div className="border-t p-4 bg-gray-50">
 
-                      {/* Rozcestník — odkaz na propojenou fakturu */}
-                      {order.issuedInvoice && (
-                        <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded">
-                          <div className="text-sm text-center">
-                            <div className="flex items-center justify-center gap-4 flex-wrap">
-                              <div className="flex items-center gap-2">
-                                <span className="text-gray-600">Faktura:</span>
-                                <Link
-                                  href={`/invoices/issued?highlight=${order.issuedInvoice.id}`}
-                                  className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
-                                  onClick={e => e.stopPropagation()}
-                                >
-                                  {order.issuedInvoice.invoiceNumber}
-                                  <ExternalLink className="w-3 h-3 inline ml-1" />
-                                </Link>
-                                <span className={`text-xs px-1.5 py-0.5 rounded ${
-                                  order.issuedInvoice.paymentStatus === 'paid'
-                                    ? 'bg-green-100 text-green-700'
-                                    : 'bg-yellow-100 text-yellow-700'
-                                }`}>
-                                  {order.issuedInvoice.paymentStatus === 'paid' ? 'Zaplaceno' : 'Nezaplaceno'}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
                       {/* ══ DETAIL OBJEDNÁVKY ══════════════════════════════════ */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
@@ -774,59 +746,80 @@ export default function EshopOrdersPage() {
                             <CreditCard className="w-4 h-4 text-gray-500" />
                             Shrnutí objednávky
                           </h4>
-
-                          {/* Body */}
-                          <div className="flex-1 px-5 pt-4 pb-4 space-y-4 bg-white">
-
-                            {/* Order number + status */}
-                            <div className="flex items-start justify-between gap-3">
-                              <div>
-                                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Číslo objednávky</p>
-                                <p className="font-mono font-bold text-2xl text-gray-900 tracking-tight leading-none">{order.orderNumber}</p>
+                          <div className="flex-1 px-4 py-3 text-sm bg-white divide-y divide-gray-100">
+                            <div className="space-y-2 pb-3">
+                              <div className="flex justify-between gap-2">
+                                <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Číslo objednávky</span>
+                                <span className="font-mono font-semibold text-gray-900 text-right">{order.orderNumber}</span>
                               </div>
-                              <div className="pt-1">{getStatusBadge(order.status)}</div>
-                            </div>
-
-                            {/* 3-stat date bar */}
-                            <div className="grid grid-cols-3 rounded-lg border border-gray-100 overflow-hidden divide-x divide-gray-100 bg-gray-50">
-                              <div className="px-3 py-2.5 text-center">
-                                <p className="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-1">Objednáno</p>
-                                <p className="text-sm font-semibold text-gray-800 tabular-nums">{new Date(order.orderDate).toLocaleDateString('cs-CZ')}</p>
+                              <div className="flex justify-between gap-2">
+                                <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Status</span>
+                                <span>{getStatusBadge(order.status)}</span>
                               </div>
-                              <div className="px-3 py-2.5 text-center">
-                                <p className="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-1">Zaplaceno</p>
-                                <p className="text-sm font-semibold text-gray-800 tabular-nums">{order.paidAt ? new Date(order.paidAt).toLocaleDateString('cs-CZ') : <span className="text-gray-300">—</span>}</p>
+                              <div className="flex justify-between gap-2">
+                                <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Datum objednávky</span>
+                                <span className="font-medium text-gray-800 text-right">{new Date(order.orderDate).toLocaleDateString('cs-CZ')}</span>
                               </div>
-                              <div className="px-3 py-2.5 text-center">
-                                <p className="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-1">Odesláno</p>
-                                <p className="text-sm font-semibold text-gray-800 tabular-nums">
+                              <div className="flex justify-between gap-2">
+                                <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Zaplaceno</span>
+                                <span className="font-medium text-gray-800 text-right">{order.paidAt ? new Date(order.paidAt).toLocaleDateString('cs-CZ') : <span className="text-gray-400">—</span>}</span>
+                              </div>
+                              <div className="flex justify-between gap-2">
+                                <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Odesláno</span>
+                                <span className="font-medium text-gray-800 text-right">
                                   {order.shippedAt
                                     ? new Date(order.shippedAt).toLocaleDateString('cs-CZ')
                                     : (order.deliveryNotes?.find(dn => dn.status === 'active')
                                         ? new Date(order.deliveryNotes.find(dn => dn.status === 'active')!.deliveryDate).toLocaleDateString('cs-CZ')
-                                        : <span className="text-gray-300">—</span>)}
-                                </p>
+                                        : <span className="text-gray-400">—</span>)}
+                                </span>
                               </div>
-                            </div>
-
-                            {/* Payment ref */}
-                            <div className="flex items-center justify-between gap-3">
-                              <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 shrink-0">Ref. platby</span>
-                              <span className="font-mono text-xs text-gray-500 truncate text-right">{order.paymentReference || '—'}</span>
-                            </div>
-
-                            {order.note && !order.note.startsWith('Platba:') && (
-                              <div className="flex items-start justify-between gap-3 border-t border-gray-100 pt-3">
-                                <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 shrink-0">Poznámka</span>
-                                <span className="text-xs text-gray-700 text-right">{order.note}</span>
+                              <div className="flex justify-between gap-2">
+                                <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Celková částka</span>
+                                <span className="font-bold text-gray-900 text-right">{formatPrice(Number(order.totalAmount))}</span>
                               </div>
-                            )}
-                          </div>
-
-                          {/* Total price — dark footer strip */}
-                          <div className="bg-gray-900 px-5 py-4 flex items-center justify-between shrink-0">
-                            <span className="text-xs font-bold uppercase tracking-widest text-gray-400">Celková částka</span>
-                            <span className="text-2xl font-bold tabular-nums tracking-tight text-white">{formatPrice(Number(order.totalAmount))}</span>
+                              <div className="flex justify-between gap-2">
+                                <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Ref. platby</span>
+                                <span className="font-mono text-xs text-gray-600 text-right break-all">{order.paymentReference || <span className="text-gray-400">—</span>}</span>
+                              </div>
+                              {order.note && !order.note.startsWith('Platba:') && (
+                                <div className="flex justify-between gap-2">
+                                  <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Poznámka</span>
+                                  <span className="font-medium text-gray-800 text-right">{order.note}</span>
+                                </div>
+                              )}
+                            </div>
+                            {/* Faktura — odkaz */}
+                            <div className="space-y-2 pt-3">
+                              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2.5 flex items-center gap-1.5">
+                                <FileText className="w-3 h-3" />
+                                Faktura
+                              </p>
+                              {order.issuedInvoice ? (
+                                <div className="flex justify-between items-center gap-2">
+                                  <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Číslo faktury</span>
+                                  <div className="flex items-center gap-2">
+                                    <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
+                                      order.issuedInvoice.paymentStatus === 'paid'
+                                        ? 'bg-green-100 text-green-700'
+                                        : 'bg-yellow-100 text-yellow-700'
+                                    }`}>
+                                      {order.issuedInvoice.paymentStatus === 'paid' ? 'Zaplaceno' : 'Nezaplaceno'}
+                                    </span>
+                                    <Link
+                                      href={`/invoices/issued?highlight=${order.issuedInvoice.id}`}
+                                      className="font-mono font-semibold text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
+                                      onClick={e => e.stopPropagation()}
+                                    >
+                                      {order.issuedInvoice.invoiceNumber}
+                                      <ExternalLink className="w-3 h-3" />
+                                    </Link>
+                                  </div>
+                                </div>
+                              ) : (
+                                <p className="text-xs text-gray-400 italic">Faktura nebyla vystavena</p>
+                              )}
+                            </div>
                           </div>
                         </div>
 
