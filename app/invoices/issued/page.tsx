@@ -1131,14 +1131,14 @@ export default function TransactionsPage() {
                               {(transaction as any).shippingMethod && (
                                 <div className="flex items-center gap-2">
                                   <span className="text-gray-600">Způsob dopravy:</span>
-                                  <span className="font-medium">{{
+                                  <span className="font-medium">{({
                                     DPD_HOME: 'DPD — Doručení na adresu',
                                     DPD_PICKUP: 'DPD — Výdejní místo',
                                     ZASILKOVNA_HOME: 'Zásilkovna — Doručení na adresu',
                                     ZASILKOVNA_PICKUP: 'Zásilkovna — Výdejní místo / Z-BOX',
                                     COURIER: 'Kurýr',
                                     PICKUP_IN_STORE: 'Osobní odběr',
-                                  }[(transaction as any).shippingMethod] ?? (transaction as any).shippingMethod}</span>
+                                  } as Record<string, string>)[(transaction as any).shippingMethod] ?? (transaction as any).shippingMethod}</span>
                                 </div>
                               )}
                               {(transaction as any).pickupPointId && (
