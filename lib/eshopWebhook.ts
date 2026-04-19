@@ -108,7 +108,8 @@ async function attemptDelivery(logId: string): Promise<void> {
   if (!log) return
   if (log.status === 'delivered' || log.status === 'dead') return
 
-  const signature = signPayload(log.payload)
+  const signature    = signPayload(log.payload)
+  const erpTimestamp = String(Math.floor(Date.now() / 1000))
   let httpStatus: number | null = null
   let error: string | null = null
 
@@ -118,6 +119,7 @@ async function attemptDelivery(logId: string): Promise<void> {
       headers: {
         'Content-Type':    'application/json',
         'X-ERP-Signature': signature,
+        'X-ERP-Timestamp': erpTimestamp,
       },
       body:   log.payload,
       signal: AbortSignal.timeout(10_000),

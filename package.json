@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "node scripts/dev-with-browser.js",
     "dev:only": "next dev",
-    "build": "prisma generate && prisma db push --accept-data-loss && next build",
+    "build": "prisma generate && prisma migrate deploy && next build",
     "start": "next start",
     "lint": "next lint",
     "db:generate": "prisma generate",

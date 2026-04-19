@@ -5,7 +5,6 @@ import { NextRequest, NextResponse } from 'next/server'
 const PUBLIC_API_PREFIXES = [
   '/api/external/',
   '/api/orders',
-  '/api/invoices/',
   '/api/cron/',
 ]
 

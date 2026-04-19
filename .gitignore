@@ -53,3 +53,10 @@ FILTER_PATTERN.md
 HEADER_PATTERN.md
 ORDER_DETAIL_PATTERN.md
 PAGINATION_HIGHLIGHT_PATTERN.md
+
+# Backup files
+*.backup
+*.bak
+
+# Production env (never commit)
+.env.production

@@ -164,36 +164,66 @@ export async function getAllProductsStock(): Promise<Array<{
   productId: string
   productName: string
   unit: string
-  physicalStock: number      // Fyzický sklad (skladem)
-  reservedStock: number      // Rezervované množství
-  availableStock: number     // Dostupné = Fyzický - Rezervace
-  expectedStock: number      // Očekáváno z objednávek
-  totalExpectedStock: number // Celkem očekáváno = Dostupné + Očekáváno
+  physicalStock: number
+  reservedStock: number
+  availableStock: number
+  expectedStock: number
+  totalExpectedStock: number
 }>> {
-  const products = await prisma.product.findMany({
-    where: { active: true },
-    select: { id: true, name: true, unit: true }
+  const [products, inventoryAgg, reservations, orderItems] = await Promise.all([
+    prisma.product.findMany({
+      where: { active: true },
+      select: { id: true, name: true, unit: true },
+    }),
+    prisma.inventoryItem.groupBy({
+      by: ['productId'],
+      _sum: { quantity: true },
+    }),
+    prisma.reservation.findMany({
+      where: { status: 'active' },
+      select: { productId: true, quantity: true, unit: true, variantValue: true, variantUnit: true },
+    }),
+    prisma.purchaseOrderItem.findMany({
+      where: { purchaseOrder: { status: { in: ['pending', 'confirmed', 'partially_received'] } } },
+      select: { productId: true, quantity: true, alreadyReceivedQuantity: true },
+    }),
+  ])
+
+  const physicalMap = new Map<string, number>()
+  for (const row of inventoryAgg) {
+    physicalMap.set(row.productId, Number(row._sum.quantity ?? 0))
+  }
+
+  const reservedMap = new Map<string, number>()
+  for (const r of reservations) {
+    const qty = Number(r.quantity)
+    const vv  = r.variantValue != null ? Number(r.variantValue) : null
+    const vu  = r.variantUnit
+    const isVariant = r.unit === 'ks' && vv != null && vu != null && vu !== 'ks'
+    const base = isVariant ? qty * vv! : qty
+    reservedMap.set(r.productId, (reservedMap.get(r.productId) ?? 0) + base)
+  }
+
+  const expectedMap = new Map<string, number>()
+  for (const oi of orderItems) {
+    const remaining = Number(oi.quantity) - Number(oi.alreadyReceivedQuantity)
+    expectedMap.set(oi.productId, (expectedMap.get(oi.productId) ?? 0) + remaining)
+  }
+
+  return products.map((product) => {
+    const physicalStock  = physicalMap.get(product.id) ?? 0
+    const reservedStock  = reservedMap.get(product.id) ?? 0
+    const availableStock = physicalStock - reservedStock
+    const expectedStock  = expectedMap.get(product.id) ?? 0
+    return {
+      productId: product.id,
+      productName: product.name,
+      unit: product.unit,
+      physicalStock,
+      reservedStock,
+      availableStock,
+      expectedStock,
+      totalExpectedStock: availableStock + expectedStock,
+    }
   })
-
-  const stockData = await Promise.all(
-    products.map(async (product) => {
-      const physicalStock = await calculateCurrentStock(product.id)
-      const reservedStock = await calculateReservedStock(product.id)
-      const availableStock = physicalStock - reservedStock
-      const expectedStock = await calculateExpectedStock(product.id)
-
-      return {
-        productId: product.id,
-        productName: product.name,
-        unit: product.unit,
-        physicalStock,      // Skladem
-        reservedStock,      // Rezervováno
-        availableStock,     // Dostupné
-        expectedStock,      // Očekáváno
-        totalExpectedStock: availableStock + expectedStock // Celkem očekáváno
-      }
-    })
-  )
-
-  return stockData
 }

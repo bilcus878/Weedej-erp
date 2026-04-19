@@ -56,12 +56,13 @@ export async function notifyEshopStockUpdate(erpProductIds: string[]): Promise<v
     }))
   )
 
-  const payload   = JSON.stringify({ products: stockUpdates })
-  const signature = `sha256=${crypto.createHmac('sha256', secret).update(payload).digest('hex')}`
+  const payload      = JSON.stringify({ products: stockUpdates })
+  const signature    = `sha256=${crypto.createHmac('sha256', secret).update(payload).digest('hex')}`
+  const erpTimestamp = String(Math.floor(Date.now() / 1000))
 
   fetch(`${eshopUrl}/api/webhooks/erp/stock-update`, {
     method:  'POST',
-    headers: { 'Content-Type': 'application/json', 'X-ERP-Signature': signature },
+    headers: { 'Content-Type': 'application/json', 'X-ERP-Signature': signature, 'X-ERP-Timestamp': erpTimestamp },
     body:    payload,
     signal:  AbortSignal.timeout(8_000),
   }).then(res => {

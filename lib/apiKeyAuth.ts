@@ -83,12 +83,18 @@ export async function verifyApiKey(request: NextRequest): Promise<ApiKeyAuth> {
   }
 }
 
+const ALLOWED_ORIGINS = [
+  process.env.ESHOP_URL,
+  process.env.NEXTAUTH_URL,
+].filter(Boolean) as string[]
+
 /**
  * CORS hlavičky pro externí endpointy
  */
 export function corsHeaders(origin?: string | null) {
+  const allowed = origin && ALLOWED_ORIGINS.includes(origin) ? origin : (ALLOWED_ORIGINS[0] ?? '')
   return {
-    'Access-Control-Allow-Origin': origin ?? '*',
+    'Access-Control-Allow-Origin': allowed,
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, X-API-Key, Authorization',
   }

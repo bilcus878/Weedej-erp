@@ -10,7 +10,7 @@ const globalForPrisma = global as unknown as { prisma: PrismaClient }
 export const prisma =
   globalForPrisma.prisma ||
   new PrismaClient({
-    log: ['query', 'error', 'warn'],
+    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
   })
 
 // V development režimu ulož Prisma klienta do globální proměnné

@@ -70,43 +70,34 @@ export async function PATCH(
       )
     }
 
-    // Pokud se mění položky, přepsat je
-    if (items) {
-      // Smaž staré položky
-      await prisma.deliveryNoteItem.deleteMany({
-        where: { deliveryNoteId: params.id }
-      })
-
-      // Vytvoř nové položky
-      for (const item of items) {
-        await prisma.deliveryNoteItem.create({
-          data: {
-            deliveryNoteId: params.id,
-            productId: item.isManual ? null : item.productId,
-            productName: item.isManual ? item.productName : null,
-            quantity: Number(item.quantity),
-            unit: item.unit
-          }
-        })
-      }
-    }
-
-    // Aktualizuj výdejku
-    const updated = await prisma.deliveryNote.update({
-      where: { id: params.id },
-      data: {
-        deliveryDate: deliveryDate ? new Date(deliveryDate) : undefined,
-        note: note !== undefined ? note : undefined
-      },
-      include: {
-        customer: true,
-        transaction: true,
-        items: {
-          include: {
-            product: true
-          }
+    const updated = await prisma.$transaction(async (tx) => {
+      if (items) {
+        await tx.deliveryNoteItem.deleteMany({ where: { deliveryNoteId: params.id } })
+        for (const item of items) {
+          await tx.deliveryNoteItem.create({
+            data: {
+              deliveryNoteId: params.id,
+              productId: item.isManual ? null : item.productId,
+              productName: item.isManual ? item.productName : null,
+              quantity: Number(item.quantity),
+              unit: item.unit,
+            },
+          })
         }
       }
+
+      return tx.deliveryNote.update({
+        where: { id: params.id },
+        data: {
+          deliveryDate: deliveryDate ? new Date(deliveryDate) : undefined,
+          note: note !== undefined ? note : undefined,
+        },
+        include: {
+          customer: true,
+          transaction: true,
+          items: { include: { product: true } },
+        },
+      })
     })
 
     return NextResponse.json(updated)
@@ -136,14 +127,14 @@ export async function DELETE(
       )
     }
 
-    // DOČASNĚ: Povolit mazání všech výdejek (pro testování)
-    // TODO: V produkci omezit jen na draft
-    console.log(`⚠️  Mažu výdejku ${deliveryNote.deliveryNumber} (status: ${deliveryNote.status})`)
+    if (deliveryNote.status !== 'draft') {
+      return NextResponse.json(
+        { error: 'Lze smazat pouze výdejky ve stavu "draft"' },
+        { status: 400 }
+      )
+    }
 
-    // Smaž výdejku (cascade smaže i položky)
-    await prisma.deliveryNote.delete({
-      where: { id: params.id }
-    })
+    await prisma.deliveryNote.delete({ where: { id: params.id } })
 
     return NextResponse.json({ message: 'Výdejka smazána' })
   } catch (error) {

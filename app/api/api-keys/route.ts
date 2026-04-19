@@ -2,6 +2,8 @@
 // Správa API klíčů pro přístup externích systémů (e-shop) k ERP API
 
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import crypto from 'crypto'
 
@@ -9,6 +11,9 @@ export const dynamic = 'force-dynamic'
 
 // GET /api/api-keys — seznam všech klíčů (bez zobrazení samotného klíče)
 export async function GET() {
+  const session = await getServerSession(authOptions)
+  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
   try {
     const keys = await prisma.apiKey.findMany({
       orderBy: { createdAt: 'desc' },
@@ -42,6 +47,9 @@ export async function GET() {
 
 // POST /api/api-keys — vytvoří nový API klíč a vrátí ho JEDNOU (pak se nezobrazí)
 export async function POST(request: NextRequest) {
+  const session = await getServerSession(authOptions)
+  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
   try {
     const body = await request.json()
     const { name } = body
