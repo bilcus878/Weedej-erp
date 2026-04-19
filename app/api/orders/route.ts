@@ -67,6 +67,7 @@ const OrderSchema = z.object({
   customer: z.object({
     name:    z.string().min(1),
     email:   z.string().email(),
+    phone:   z.string().optional(),
     address: AddressSchema,
   }),
   totalCzk:         z.number().positive(),   // CZK incl. VAT
@@ -258,6 +259,7 @@ export async function POST(request: NextRequest) {
           paymentReference:   body.paymentReference,
           customerName:       body.customer.name,
           customerEmail:      body.customer.email,
+          customerPhone:      body.customer.phone ?? null,
           customerAddress,
           customerEntityType: 'individual',
           totalAmount,
