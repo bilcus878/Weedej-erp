@@ -129,6 +129,12 @@ export async function GET() {
             return sum + (packs * priceWithVat)
           }, 0) || 0
         })),
+        // Shipping snapshot (from customerOrder — eshop orders only)
+        shippingMethod:     invoice.customerOrder?.shippingMethod     ?? null,
+        pickupPointId:      invoice.customerOrder?.pickupPointId      ?? null,
+        pickupPointName:    invoice.customerOrder?.pickupPointName    ?? null,
+        pickupPointAddress: invoice.customerOrder?.pickupPointAddress ?? null,
+        pickupPointCarrier: invoice.customerOrder?.pickupPointCarrier ?? null,
         // Původní data pro debugging
         _original: {
           deliveryNote: invoice.deliveryNote,
