@@ -142,6 +142,8 @@ export default function CustomerOrdersPage() {
   const categoryMenuRef = useRef<HTMLDivElement>(null)
   const hideSubmenuTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
+  const [orderDate, setOrderDate] = useState(() => new Date().toISOString().split('T')[0])
+
   // Nová pole pro platební detaily (POVINNÉ pro vystavené objednávky)
   const [dueDate, setDueDate] = useState(() => {
     const today = new Date()
@@ -406,6 +408,7 @@ export default function CustomerOrdersPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          orderDate,
           customerId: isManualCustomer || isAnonymousCustomer ? null : customerId,
           customerName,
           customerEmail,
@@ -452,6 +455,7 @@ export default function CustomerOrdersPage() {
   }
 
   function resetForm() {
+    setOrderDate(new Date().toISOString().split('T')[0])
     setOrderNumber('')
     setCustomerId('')
     setCustomerName('')
@@ -651,11 +655,11 @@ export default function CustomerOrdersPage() {
           <CardContent className="p-6 bg-white">
             <form onSubmit={handleSubmit} className="space-y-3">
 
-              {/* Grid 2×2: Zákazník | Platební údaje / Poznámka */}
+              {/* Grid 2×2: Zákazník | Termíny / Platební údaje | Poznámka */}
               <div className="grid grid-cols-2 gap-3 items-stretch">
 
                 {/* Zákazník */}
-                <div className="border border-gray-200 rounded-lg flex flex-col row-span-2">
+                <div className="border border-gray-200 rounded-lg flex flex-col">
                   <div className="bg-gray-50 px-3 py-2 border-b border-gray-200 rounded-t-lg">
                     <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Zákazník <span className="text-red-400">*</span></h3>
                   </div>
@@ -676,6 +680,19 @@ export default function CustomerOrdersPage() {
                         onSaveToDatabaseChange={setSaveCustomerToDatabase}
                         required={true}
                       />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Termíny */}
+                <div className="border border-gray-200 rounded-lg flex flex-col">
+                  <div className="bg-gray-50 px-3 py-2 border-b border-gray-200 rounded-t-lg">
+                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Termíny</h3>
+                  </div>
+                  <div className="flex-1 flex items-center p-3">
+                    <div className="w-full">
+                      <label className="text-xs text-gray-500 mb-1 block">Datum objednávky</label>
+                      <Input type="date" value={orderDate} onChange={(e) => setOrderDate(e.target.value)} />
                     </div>
                   </div>
                 </div>

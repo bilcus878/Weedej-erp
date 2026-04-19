@@ -60,6 +60,7 @@ export async function POST(request: Request) {
       isAnonymousCustomer,
       saveCustomerToDatabase,
       manualCustomerData,
+      orderDate,
       note,
       items, // Array<{ productId?, productName?, quantity, unit, price, vatRate? }>
       sumupTransactionId,
@@ -212,6 +213,7 @@ export async function POST(request: Request) {
         data: {
           orderNumber,
           ...customerData,
+          orderDate: orderDate ? new Date(orderDate) : new Date(),
           totalAmount,
           note,
           sumupTransactionId,
