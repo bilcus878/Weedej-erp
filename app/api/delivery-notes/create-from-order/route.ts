@@ -205,7 +205,11 @@ export async function POST(request: Request) {
         const vv            = isVariantItem ? Number(orderItem.variantValue) : 1
 
         // qty shipped in this delivery, in base units (g/ml) or packs
-        const baseShipped   = Number(deliveryItem.baseQuantity ?? deliveryItem.quantity)
+        // Always derive base quantity from variant metadata — never trust client-supplied baseQuantity
+        // for variant items, as the UI may not set it correctly (isVariant not in API response).
+        const baseShipped = isVariantItem
+          ? Number(deliveryItem.quantity) * vv
+          : Number(deliveryItem.baseQuantity ?? deliveryItem.quantity)
         const newShippedBase = Number(orderItem.shippedBaseQty ?? 0) + baseShipped
         // Pack-level count: for variant items, compute fractional packs; for ks items, just add quantity
         const newShippedQty  = isVariantItem
