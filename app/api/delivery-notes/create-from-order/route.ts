@@ -13,10 +13,11 @@ import { isItemFullyShipped } from '@/lib/variantConversion'
 export const dynamic = 'force-dynamic'
 
 interface CreateDeliveryNoteItem {
+  orderItemId?:  string
   productId:    string | null
   productName:  string | null
   quantity:     number          // packs for non-variant, base units (g/ml) for variant
-  unit:         string          // 'ks' for non-variant, 'g'/'ml' for variant
+  unit:         string          // "ks" for non-variant, "g"/"ml" for variant
   baseQuantity?: number         // explicit base quantity (optional, equals quantity for variant items)
   baseUnit?:     string         // explicit base unit (optional)
 }
@@ -194,9 +195,10 @@ export async function POST(request: Request) {
 
       // Aktualizuj shippedQuantity + shippedBaseQty
       for (const deliveryItem of items) {
-        const orderItem = order.items.find(
-          oi => oi.productId === deliveryItem.productId && oi.productName === deliveryItem.productName
-        ) ?? order.items.find(oi => oi.productId === deliveryItem.productId)
+        const orderItem = deliveryItem.orderItemId
+          ? order.items.find(oi => oi.id === deliveryItem.orderItemId)
+          : (order.items.find(oi => oi.productId === deliveryItem.productId && oi.productName === deliveryItem.productName)
+             ?? order.items.find(oi => oi.productId === deliveryItem.productId))
         if (!orderItem) continue
 
         const isVariantItem = orderItem.unit === 'ks' && orderItem.variantValue != null && orderItem.variantUnit != null
