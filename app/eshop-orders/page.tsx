@@ -889,20 +889,32 @@ export default function EshopOrdersPage() {
                                     {order.pickupPointId ? 'Výdejní místo' : 'Doručovací adresa'}
                                   </p>
                                   {order.pickupPointId ? (
-                                    <div className="flex items-start gap-2.5">
-                                      <div className="shrink-0 w-8 h-8 rounded-md bg-amber-50 border border-amber-200 flex items-center justify-center">
-                                        <Package className="w-4 h-4 text-amber-500" />
-                                      </div>
-                                      <div className="min-w-0">
-                                        <p className="font-bold text-sm text-gray-900 leading-tight">{order.pickupPointName || '—'}</p>
-                                        {order.pickupPointAddress && (
-                                          <p className="text-gray-500 text-xs mt-0.5 leading-relaxed">{order.pickupPointAddress}</p>
-                                        )}
-                                        <div className="mt-1.5 flex items-center gap-1.5">
-                                          <span className="text-[9px] font-bold uppercase tracking-widest text-gray-400">ID</span>
-                                          <code className="text-xs font-mono bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">{order.pickupPointId}</code>
+                                    <div className="space-y-2.5">
+                                      <div className="flex items-start gap-2.5">
+                                        <div className="shrink-0 w-8 h-8 rounded-md bg-amber-50 border border-amber-200 flex items-center justify-center">
+                                          <Package className="w-4 h-4 text-amber-500" />
+                                        </div>
+                                        <div className="min-w-0">
+                                          <p className="font-bold text-sm text-gray-900 leading-tight">{order.pickupPointName || '—'}</p>
+                                          {order.pickupPointAddress && (
+                                            <p className="text-gray-500 text-xs mt-0.5 leading-relaxed">{order.pickupPointAddress}</p>
+                                          )}
+                                          <div className="mt-1.5 flex items-center gap-1.5">
+                                            <span className="text-[9px] font-bold uppercase tracking-widest text-gray-400">ID</span>
+                                            <code className="text-xs font-mono bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">{order.pickupPointId}</code>
+                                          </div>
                                         </div>
                                       </div>
+                                      {/* Mapa výdejního místa */}
+                                      {(order.pickupPointAddress || order.pickupPointName) && (
+                                        <iframe
+                                          src={`https://maps.google.com/maps?q=${encodeURIComponent((order.pickupPointAddress || order.pickupPointName)!)}&output=embed&z=16`}
+                                          className="w-full h-36 rounded-md border border-gray-200"
+                                          loading="lazy"
+                                          referrerPolicy="no-referrer-when-downgrade"
+                                          title="Mapa výdejního místa"
+                                        />
+                                      )}
                                     </div>
                                   ) : (
                                     <div className="flex items-start gap-2.5">
