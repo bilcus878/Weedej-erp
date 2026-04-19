@@ -692,7 +692,7 @@ export default function EshopOrdersPage() {
 
                   {/* ── Rozbalený detail ── */}
                   {isExpanded && (
-                    <div className="border-t p-4 bg-gray-50">
+                    <div className="border-t p-4 bg-gray-50 space-y-4">
 
                       {/* ══ DETAIL OBJEDNÁVKY ══════════════════════════════════ */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1240,7 +1240,7 @@ export default function EshopOrdersPage() {
                       })()}
 
                       {/* ── Footer: PDF vlevo, akce vpravo ── */}
-                      <div className="flex items-center justify-between pt-2 mt-1 border-t border-gray-200">
+                      <div className="flex items-center justify-between pt-2 border-t border-gray-200">
                         {/* PDF tlačítko */}
                         <Button
                           size="sm"
