@@ -207,7 +207,7 @@ export async function getAllProductsStock(): Promise<Array<{
   const expectedMap = new Map<string, number>()
   for (const oi of orderItems) {
     const remaining = Number(oi.quantity) - Number(oi.alreadyReceivedQuantity)
-    expectedMap.set(oi.productId, (expectedMap.get(oi.productId) ?? 0) + remaining)
+    if (oi.productId) expectedMap.set(oi.productId, (expectedMap.get(oi.productId) ?? 0) + remaining)
   }
 
   return products.map((product) => {
