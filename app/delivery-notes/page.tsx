@@ -464,27 +464,13 @@ export default function DeliveryNotesPage() {
 
       if (isCustomerOrder) {
         // VYTVÁŘÍME NOVOU VÝDEJKU z objednávky
-<<<<<<< HEAD
-        const items = processingNoteItems.map(item => {
-          const qty = shippedQuantities[item.id!] || 0
-          return {
-            productId:    item.productId || null,
-            productName:  item.productName || null,
-            quantity:     qty,
-            unit:         item.unit,                           // already base unit for variant items
-            baseQuantity: item.isVariant ? qty : undefined,   // explicit for API
-            baseUnit:     item.isVariant ? item.unit : undefined,
-          }
-        })
-=======
         const items = processingNoteItems.map(item => ({
           orderItemId: item.id,
-          productId: item.productId || null,
+          productId:   item.productId || null,
           productName: item.productName || null,
-          quantity: shippedQuantities[item.id!] || 0,
-          unit: item.unit
+          quantity:    shippedQuantities[item.id!] || 0,
+          unit:        item.unit,
         }))
->>>>>>> 862263c (fix: match order items by ID in dispatch to prevent stale-in-pending bug)
 
         const payload: any = { customerOrderId: processingNoteId, items }
         if (processNote.trim()) payload.note = processNote.trim()
