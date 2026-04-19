@@ -931,48 +931,39 @@ export default function EshopOrdersPage() {
                                 )}
 
                                 {/* 3 — Zásilka / tracking */}
-                                <div className="px-4 py-3 flex-1">
+                                <div className="px-4 py-3 flex-1 min-w-0">
                                   <p className="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-2">Zásilka</p>
 
                                   {isEditing ? (
                                     /* ── Inline editor ── */
-                                    <div className="space-y-2" onClick={e => e.stopPropagation()}>
-                                      <div>
-                                        <label className="text-[9px] font-bold uppercase tracking-widest text-gray-400 block mb-1">Tracking číslo</label>
+                                    <div onClick={e => e.stopPropagation()}>
+                                      <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-400 transition-all">
                                         <input
                                           type="text"
                                           value={trackingForm.trackingNumber}
                                           onChange={e => setTrackingForm(f => ({ ...f, trackingNumber: e.target.value }))}
-                                          placeholder="např. Z123456789"
-                                          className="w-full text-xs font-mono border border-gray-300 rounded-md px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                                          onKeyDown={e => { if (e.key === 'Enter') handleSaveTracking(order.id); if (e.key === 'Escape') setTrackingEditId(null) }}
+                                          placeholder="Číslo zásilky…"
+                                          className="flex-1 min-w-0 text-xs font-mono bg-transparent border-none outline-none text-gray-900 placeholder-gray-400"
                                           autoFocus
                                         />
+                                        <div className="flex items-center gap-1 shrink-0">
+                                          <button
+                                            onClick={() => handleSaveTracking(order.id)}
+                                            disabled={savingTracking}
+                                            className="px-2.5 py-1 bg-gray-900 hover:bg-gray-700 text-white text-xs font-semibold rounded-md transition-colors disabled:opacity-50"
+                                          >
+                                            {savingTracking ? '…' : 'Uložit'}
+                                          </button>
+                                          <button
+                                            onClick={e => { e.stopPropagation(); setTrackingEditId(null) }}
+                                            className="px-2 py-1 text-gray-400 hover:text-gray-700 text-xs rounded-md transition-colors"
+                                          >
+                                            ✕
+                                          </button>
+                                        </div>
                                       </div>
-                                      <div>
-                                        <label className="text-[9px] font-bold uppercase tracking-widest text-gray-400 block mb-1">Dopravce</label>
-                                        <input
-                                          type="text"
-                                          value={trackingForm.carrier}
-                                          onChange={e => setTrackingForm(f => ({ ...f, carrier: e.target.value }))}
-                                          placeholder="např. Zásilkovna"
-                                          className="w-full text-xs border border-gray-300 rounded-md px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-400"
-                                        />
-                                      </div>
-                                      <div className="flex gap-2 pt-1">
-                                        <button
-                                          onClick={() => handleSaveTracking(order.id)}
-                                          disabled={savingTracking}
-                                          className="flex-1 px-3 py-1.5 bg-gray-900 hover:bg-gray-700 text-white text-xs font-semibold rounded-md transition-colors disabled:opacity-50"
-                                        >
-                                          {savingTracking ? 'Ukládám…' : 'Uložit'}
-                                        </button>
-                                        <button
-                                          onClick={e => { e.stopPropagation(); setTrackingEditId(null) }}
-                                          className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs font-medium rounded-md transition-colors"
-                                        >
-                                          Zrušit
-                                        </button>
-                                      </div>
+                                      <p className="text-[9px] text-gray-400 mt-1.5 ml-0.5">Enter pro uložení · Esc pro zrušení</p>
                                     </div>
                                   ) : hasTracking ? (
                                     /* ── Tracking existuje ── */
