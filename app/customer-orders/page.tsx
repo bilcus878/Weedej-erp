@@ -305,17 +305,6 @@ export default function CustomerOrdersPage() {
     } catch (error: any) { alert(error.message || 'Nepodařilo se změnit status') }
   }
 
-  async function handleCreateInvoice(order: CustomerOrder) {
-    if (!confirm(`Vystavit fakturu pro objednávku ${order.orderNumber}?`)) return
-    try {
-      const res = await fetch(`/api/customer-orders/${order.id}/create-invoice`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}),
-      })
-      if (!res.ok) { const err = await res.json(); throw new Error(err.error) }
-      await ep.refresh()
-      alert('Faktura vystavena')
-    } catch (error: any) { alert(error.message || 'Nepodařilo se vystavit fakturu') }
-  }
 
   const columns: ColumnDef<CustomerOrder>[] = [
     {
@@ -695,8 +684,7 @@ export default function CustomerOrdersPage() {
                 await generateInvoicePDF(fakeTransaction as any, settings)
               } catch { alert('Nepodařilo se vygenerovat PDF') }
             }}
-            onCreateInvoice={!order.issuedInvoice ? () => handleCreateInvoice(order) : undefined}
-            onUpdateStatus={status => handleUpdateStatus(order.id, status)}
+onUpdateStatus={status => handleUpdateStatus(order.id, status)}
             onRefresh={ep.refresh}
           />
         )}

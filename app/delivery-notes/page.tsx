@@ -247,7 +247,7 @@ export default function DeliveryNotesPage() {
       clearInterval(interval)
       document.removeEventListener('visibilitychange', handleVisibility)
     }
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     let filtered = [...pendingOrders]

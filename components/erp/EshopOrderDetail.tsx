@@ -99,11 +99,10 @@ export interface OrderDetailData {
 interface Props {
   order: OrderDetailData
   isVatPayer: boolean
+  orderHref?: string
   onPrintPdf?: () => void
-  onCreateInvoice?: () => void
   onUpdateStatus?: (status: string) => void
   onRefresh?: () => Promise<void>
-  processingInvoice?: boolean
   processingStatus?: boolean
 }
 
@@ -174,11 +173,10 @@ function shippingMethodLabel(method: string): string {
 export function EshopOrderDetail({
   order,
   isVatPayer,
+  orderHref,
   onPrintPdf,
-  onCreateInvoice,
   onUpdateStatus,
   onRefresh,
-  processingInvoice,
   processingStatus,
 }: Props) {
   const isCancelled = ['cancelled', 'storno'].includes(order.status)
@@ -306,7 +304,7 @@ export function EshopOrderDetail({
               <div className="flex justify-between items-center gap-2">
                 <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Objednávka</span>
                 <Link
-                  href={`/eshop-orders?highlight=${order.id}`}
+                  href={orderHref ?? `/eshop-orders?highlight=${order.id}`}
                   className="font-mono font-semibold text-blue-600 hover:underline flex items-center gap-0.5 text-right"
                   onClick={e => e.stopPropagation()}
                 >
@@ -751,7 +749,7 @@ export function EshopOrderDetail({
       })()}
 
       {/* ── Footer: akce ────────────────────────────────────────────────────── */}
-      {(onPrintPdf || onCreateInvoice || onUpdateStatus) && (
+      {(onPrintPdf || onUpdateStatus) && (
       <div className="flex items-center justify-between pt-2 border-t border-gray-200">
         <div>
           {onPrintPdf && (
@@ -762,16 +760,6 @@ export function EshopOrderDetail({
           )}
         </div>
         <div className="flex flex-wrap gap-2 justify-end">
-          {onCreateInvoice && !order.issuedInvoice && !isCancelled && (
-            <button
-              onClick={e => { e.stopPropagation(); onCreateInvoice() }}
-              disabled={processingInvoice}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <FileText className="w-3.5 h-3.5" />
-              {processingInvoice ? 'Vytváří se...' : 'Vystavit fakturu'}
-            </button>
-          )}
           {onUpdateStatus && (order.status === 'paid' || order.status === 'processing') && !order.deliveryNotes?.some(dn => dn.status === 'active') && (
             <Link
               href="/delivery-notes"
