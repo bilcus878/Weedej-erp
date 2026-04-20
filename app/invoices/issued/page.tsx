@@ -8,7 +8,7 @@ import { useSearchParams } from 'next/navigation'
 import { formatPrice } from '@/lib/utils'
 import { generateInvoicePDF } from '@/lib/generateInvoicePDF'
 import { ChevronDown, ChevronRight, Trash2, FileText, ExternalLink, XCircle, FileOutput, Plus, X } from 'lucide-react'
-import { PageHeader, LinkedDocumentBanner, ActionToolbar, EshopOrderDetail } from '@/components/erp'
+import { PageHeader, ActionToolbar, EshopOrderDetail } from '@/components/erp'
 import type { OrderDetailData } from '@/components/erp'
 import { DEFAULT_VAT_RATE } from '@/lib/vatCalculation'
 
@@ -1008,37 +1008,7 @@ export default function TransactionsPage() {
                       <div className="border-t p-4 bg-gray-50 space-y-4">
                         <div className="space-y-4">
 
-                          {/* Propojené dokumenty */}
-                          {(transaction.customerOrderId || transaction.transactionId || transaction.receiptId) && (() => {
-                            const links: { label: string; value: string; href: string }[] = []
-                            if (transaction.customerOrderId) {
-                              links.push({
-                                label: 'Objednávka',
-                                value: transaction.customerOrderNumber || 'Zobrazit objednávku',
-                                href: `/${transaction.customerOrderSource === 'eshop' ? 'eshop-orders' : 'customer-orders'}?highlight=${transaction.customerOrderId}`,
-                              })
-                            }
-                            if (transaction.transactionId && !transaction.customerOrderId) {
-                              links.push({
-                                label: 'Transakce',
-                                value: transaction.transactionCode_sumup || 'Zobrazit transakci',
-                                href: `/transactions?highlight=${transaction.transactionId}`,
-                              })
-                            }
-                            if (transaction.receiptId) {
-                              const match = transaction.receiptId.match(/urn:sumup:pos:sale:([^:]+):([a-f0-9-]{36})[:;]/)
-                              if (match) {
-                                links.push({
-                                  label: 'Účtenka',
-                                  value: 'Zobrazit',
-                                  href: `https://sales-receipt.sumup.com/pos/public/v1/${match[1]}/receipt/${match[2]}?format=html`,
-                                })
-                              }
-                            }
-                            return links.length > 0 ? <LinkedDocumentBanner links={links} color="blue" /> : null
-                          })()}
-
-                        </div>
+                          </div>
 
                         <EshopOrderDetail
                           order={transactionToOrderDetail(transaction)}
