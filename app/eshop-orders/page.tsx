@@ -5,10 +5,10 @@ import { useSearchParams } from 'next/navigation'
 import Button from '@/components/ui/Button'
 import { formatPrice, formatDate } from '@/lib/utils'
 import { generateEshopOrderPDF } from '@/lib/generateEshopOrderPDF'
-import { Globe, FileText } from 'lucide-react'
+import { Globe } from 'lucide-react'
 import {
   useEntityPage, EntityPage, FilterInput, FilterSelect, LoadingState, ErrorState,
-  CustomerOrderDetail, ActionToolbar, EmptyState,
+  CustomerOrderDetail, EmptyState,
 } from '@/components/erp'
 import type { ColumnDef, SelectOption, OrderDetailData } from '@/components/erp'
 
@@ -198,9 +198,8 @@ const statusOptions: SelectOption[] = [
 export default function EshopOrdersPage() {
   const highlightId = useSearchParams().get('highlight')
 
-  const [isVatPayer,        setIsVatPayer]        = useState(true)
-  const [processingInvoice, setProcessingInvoice] = useState<string | null>(null)
-  const [processingStatus,  setProcessingStatus]  = useState<string | null>(null)
+  const [isVatPayer,       setIsVatPayer]       = useState(true)
+  const [processingStatus, setProcessingStatus] = useState<string | null>(null)
 
   const ep = useEntityPage<EshopOrder>({
     fetchData: async () => {
@@ -272,16 +271,6 @@ export default function EshopOrdersPage() {
     },
   ]
 
-  async function handleCreateInvoice(orderId: string) {
-    setProcessingInvoice(orderId)
-    try {
-      const res = await fetch(`/api/eshop-orders/${orderId}/invoice`, { method: 'POST' })
-      if (!res.ok) { const e = await res.json(); alert(e.error || 'Nepodařilo se vytvořit fakturu'); return }
-      await ep.refresh()
-    } catch { alert('Chyba při vytváření faktury') }
-    finally { setProcessingInvoice(null) }
-  }
-
   async function handleUpdateStatus(orderId: string, newStatus: string) {
     setProcessingStatus(orderId)
     try {
@@ -345,30 +334,14 @@ export default function EshopOrdersPage() {
           />
         }
         renderDetail={order => (
-          <>
-            <CustomerOrderDetail
-              order={orderToDetailData(order)}
-              isVatPayer={isVatPayer}
-              onPrintPdf={() => handlePrintInvoice(order)}
-              onUpdateStatus={status => handleUpdateStatus(order.id, status)}
-              onRefresh={ep.refresh}
-              processingStatus={processingStatus === order.id}
-            />
-            {!order.issuedInvoice && !['cancelled','storno'].includes(order.status) && (
-              <ActionToolbar
-                right={
-                  <button
-                    onClick={e => { e.stopPropagation(); handleCreateInvoice(order.id) }}
-                    disabled={processingInvoice === order.id}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <FileText className="w-3.5 h-3.5" />
-                    {processingInvoice === order.id ? 'Vytváří se...' : 'Vystavit fakturu'}
-                  </button>
-                }
-              />
-            )}
-          </>
+          <CustomerOrderDetail
+            order={orderToDetailData(order)}
+            isVatPayer={isVatPayer}
+            onPrintPdf={() => handlePrintInvoice(order)}
+            onUpdateStatus={status => handleUpdateStatus(order.id, status)}
+            onRefresh={ep.refresh}
+            processingStatus={processingStatus === order.id}
+          />
         )}
       />
 
