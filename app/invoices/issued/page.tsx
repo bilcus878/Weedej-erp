@@ -5,14 +5,12 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
-import Button from '@/components/ui/Button'
-import Input from '@/components/ui/Input'
-import { formatPrice, formatQuantity, formatDateTime } from '@/lib/utils'
-import { formatVariantQty } from '@/lib/formatVariantQty'
+import { formatPrice } from '@/lib/utils'
 import { generateInvoicePDF } from '@/lib/generateInvoicePDF'
-import { ChevronDown, ChevronRight, Trash2, FileText, ExternalLink, XCircle, FileOutput, Plus, X, Package, RefreshCw } from 'lucide-react'
-import { PageHeader, DetailSection, DetailRow, LinkedDocumentBanner, PartySection, ItemsTable, ActionToolbar } from '@/components/erp'
-import { isNonVatPayer, NON_VAT_PAYER_RATE, DEFAULT_VAT_RATE } from '@/lib/vatCalculation'
+import { ChevronDown, ChevronRight, Trash2, FileText, ExternalLink, XCircle, FileOutput, Plus, X } from 'lucide-react'
+import { PageHeader, LinkedDocumentBanner, ActionToolbar, EshopOrderDetail } from '@/components/erp'
+import type { OrderDetailData } from '@/components/erp'
+import { DEFAULT_VAT_RATE } from '@/lib/vatCalculation'
 
 export const dynamic = 'force-dynamic'
 
@@ -127,11 +125,6 @@ export default function TransactionsPage() {
   const [expandedTransactions, setExpandedTransactions] = useState<Set<string>>(new Set())
   const [showSyncForm, setShowSyncForm] = useState(false)
   const [isVatPayer, setIsVatPayer] = useState<boolean>(true) // Nastavení z settings
-
-  // Tracking editor (same pattern as eshop-orders)
-  const [trackingEditId, setTrackingEditId] = useState<string | null>(null)
-  const [trackingForm, setTrackingForm] = useState({ trackingNumber: '', carrier: '' })
-  const [savingTracking, setSavingTracking] = useState(false)
 
   // Dobropisy
   const [creditNotesMap, setCreditNotesMap] = useState<Record<string, CreditNoteData[]>>({})
@@ -433,28 +426,6 @@ export default function TransactionsPage() {
     }
   }
 
-  // Uložit tracking (volá eshop-orders API přes customerOrderId)
-  async function handleSaveTracking(eshopOrderId: string) {
-    setSavingTracking(true)
-    try {
-      const res = await fetch(`/api/eshop-orders/${eshopOrderId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          trackingNumber: trackingForm.trackingNumber.trim() || null,
-          carrier: trackingForm.carrier.trim() || null,
-        }),
-      })
-      if (!res.ok) { alert('Nepodařilo se uložit tracking'); return }
-      await fetchData()
-      setTrackingEditId(null)
-    } catch {
-      alert('Chyba při ukládání trackingu')
-    } finally {
-      setSavingTracking(false)
-    }
-  }
-
   // Otevřít formulář pro synchronizaci
   function handleOpenSyncForm() {
     setSyncFromDate(new Date().toISOString().split('T')[0]) // Vždy dnešní datum
@@ -632,6 +603,80 @@ export default function TransactionsPage() {
         {transaction.status || 'Aktivní'}
       </span>
     )
+  }
+
+  function transactionToOrderDetail(transaction: Transaction): OrderDetailData {
+    const t = transaction as any
+    const isPaid = ['paid', 'shipped', 'delivered'].includes(transaction.status)
+    const custName = t.customerName || transaction.customer?.name || 'Anonymní zákazník'
+    const paidAt = t._original?.customerOrder?.paidAt
+      || (isPaid ? transaction.transactionDate : null)
+
+    return {
+      id: transaction.customerOrderId || transaction.id,
+      orderNumber: transaction.customerOrderNumber || transaction.transactionCode,
+      orderDate: transaction.transactionDate,
+      status: transaction.status,
+      totalAmount: transaction.totalAmount,
+      paidAt: paidAt || null,
+      shippedAt: t.shippedAt || null,
+      customerName: custName,
+      customerEmail: t.customerEmail || (transaction.customer as any)?.email || null,
+      customerPhone: t.customerPhone || (transaction.customer as any)?.phone || null,
+      customerAddress: t.customerAddress || null,
+      paymentReference: t.paymentReference || t.variableSymbol || null,
+      trackingNumber: t.trackingNumber || null,
+      carrier: t.carrier || null,
+      note: t.note || null,
+      shippingMethod: t.shippingMethod || null,
+      pickupPointId: t.pickupPointId || null,
+      pickupPointName: t.pickupPointName || null,
+      pickupPointAddress: t.pickupPointAddress || null,
+      pickupPointCarrier: t.pickupPointCarrier || null,
+      billingName: t.billingName || null,
+      billingCompany: t.billingCompany || null,
+      billingIco: t.billingIco || t.customerIco || (transaction.customer as any)?.ico || null,
+      billingStreet: t.billingStreet || null,
+      billingCity: t.billingCity || null,
+      billingZip: t.billingZip || null,
+      billingCountry: t.billingCountry || null,
+      items: transaction.items.map(item => ({
+        id: item.id,
+        productId: item.productId || item.product?.id || null,
+        productName: item.productName || item.product?.name || null,
+        quantity: Number(item.quantity),
+        unit: item.unit,
+        price: Number(item.price ?? 0),
+        vatRate: Number(item.vatRate ?? DEFAULT_VAT_RATE),
+        vatAmount: Number(item.vatAmount ?? 0),
+        priceWithVat: Number(item.priceWithVat ?? item.price ?? 0),
+        product: item.product ? { id: item.product.id, name: item.product.name, price: Number((item.product as any).price ?? 0), unit: item.unit } : null,
+      })),
+      issuedInvoice: {
+        id: transaction.id,
+        invoiceNumber: transaction.transactionCode,
+        paymentStatus: isPaid ? 'paid' : 'unpaid',
+        status: transaction.status,
+        invoiceDate: transaction.transactionDate,
+      },
+      deliveryNotes: (transaction.deliveryNotes || []).map(dn => ({
+        id: dn.id,
+        deliveryNumber: dn.deliveryNumber,
+        deliveryDate: dn.deliveryDate,
+        status: dn.status || 'active',
+        items: (dn.items || []).map(item => ({
+          id: item.id,
+          quantity: Number(item.quantity),
+          unit: item.unit,
+          productName: item.productName || null,
+          price: item.price != null ? Number(item.price) : null,
+          priceWithVat: item.priceWithVat != null ? Number(item.priceWithVat) : null,
+          vatRate: item.vatRate != null ? Number(item.vatRate) : null,
+          vatAmount: item.vatAmount != null ? Number(item.vatAmount) : null,
+          product: item.product ? { id: '', name: '', price: Number(item.product.price || 0) } : null,
+        })),
+      })),
+    }
   }
 
   if (loading) {
@@ -993,600 +1038,15 @@ export default function TransactionsPage() {
                             return links.length > 0 ? <LinkedDocumentBanner links={links} color="blue" /> : null
                           })()}
 
-                          {/* 2-sloupcová mřížka: Zákazník (vlevo) + Přehled objednávky (vpravo) */}
-                          {(() => {
-                            const t = transaction as any
-                            const isSumUp = transaction.transactionId && !transaction.customerOrderId && !transaction.customer && !t.customerName
-                            const custName = isSumUp ? 'Anonymní zákazník' : (t.customerName || transaction.customer?.name || 'Anonymní zákazník')
-                            const paidAt = t._original?.customerOrder?.paidAt
-                              ? new Date(t._original.customerOrder.paidAt).toLocaleDateString('cs-CZ')
-                              : (transaction.status === 'paid' || transaction.status === 'delivered')
-                                ? new Date(transaction.transactionDate).toLocaleDateString('cs-CZ')
-                                : null
-                            const shippedAt = transaction.customerOrderId && transaction.deliveryNotes && transaction.deliveryNotes.length > 0
-                              ? transaction.deliveryNotes.map((dn: any) => new Date(dn.deliveryDate).toLocaleDateString('cs-CZ')).join(', ')
-                              : null
-                            const isPaid = ['paid', 'shipped', 'delivered'].includes(transaction.status)
-                            const email = t.customerEmail || (transaction.customer as any)?.email
-                            const phone = t.customerPhone || (transaction.customer as any)?.phone
-                            const ico = t.billingIco || t.customerIco || (transaction.customer as any)?.ico
-                            const payRef = t.paymentReference || t.variableSymbol
-
-                            const card = "bg-white border border-[#e5e7eb] rounded-[10px] shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden flex flex-col"
-                            const cardHeader = "flex items-center gap-2 px-4 bg-[#f8fafc] border-b border-[#e5e7eb] min-h-[34px]"
-                            const cardTitle = "text-[15px] font-semibold text-[#111827]"
-                            const row = "py-2 flex justify-between items-center gap-4"
-                            const lbl = "text-[11px] uppercase tracking-wider font-semibold text-[#9ca3af] shrink-0"
-                            const val = "text-sm font-medium text-[#111827] text-right"
-
-                            return (
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-                                {/* ── A) Zákazník / Odběratel ── */}
-                                <div className={card}>
-                                  <div className={cardHeader}>
-                                    <FileText className="w-3.5 h-3.5 text-[#6b7280]" />
-                                    <span className={cardTitle}>Zákazník / Odběratel</span>
-                                  </div>
-                                  <div className="px-4 py-1 divide-y divide-[#f3f4f6]">
-                                    <div className={row}>
-                                      <span className={lbl}>Jméno</span>
-                                      <span className={val}>{custName}</span>
-                                    </div>
-                                    <div className={row}>
-                                      <span className={lbl}>E-mail</span>
-                                      {email
-                                        ? <a href={`mailto:${email}`} className="text-sm font-medium text-blue-600 hover:underline text-right" onClick={e => e.stopPropagation()}>{email}</a>
-                                        : <span className="text-sm text-[#9ca3af]">—</span>}
-                                    </div>
-                                    <div className={row}>
-                                      <span className={lbl}>Telefon</span>
-                                      <span className={phone ? val : 'text-sm text-[#9ca3af] text-right'}>{phone || '—'}</span>
-                                    </div>
-                                    {t.billingCompany && (
-                                      <div className={row}>
-                                        <span className={lbl}>Firma</span>
-                                        <span className={val}>{t.billingCompany}</span>
-                                      </div>
-                                    )}
-                                    {ico && (
-                                      <div className={row}>
-                                        <span className={lbl}>IČO</span>
-                                        <span className="font-mono text-sm font-medium text-[#111827] text-right">{ico}</span>
-                                      </div>
-                                    )}
-                                    {/* Fakturační adresa subheading */}
-                                    <div className="pt-3 pb-1.5">
-                                      <p className="text-[10px] font-bold uppercase tracking-widest text-[#9ca3af] flex items-center gap-1.5">
-                                        <FileText className="w-3 h-3" />
-                                        Fakturační adresa
-                                      </p>
-                                    </div>
-                                    <div className={row}>
-                                      <span className={lbl}>Příjemce</span>
-                                      <span className={val}>{t.billingCompany || t.billingName || custName}</span>
-                                    </div>
-                                    <div className={row}>
-                                      <span className={lbl}>Ulice</span>
-                                      <span className={t.billingStreet ? val : 'text-sm text-[#9ca3af] text-right'}>{t.billingStreet || '—'}</span>
-                                    </div>
-                                    <div className={row}>
-                                      <span className={lbl}>Město / PSČ</span>
-                                      <span className={val}>{[t.billingZip, t.billingCity].filter(Boolean).join(' ') || '—'}</span>
-                                    </div>
-                                    <div className={row}>
-                                      <span className={lbl}>Země</span>
-                                      <span className={val}>{t.billingCountry || 'CZ'}</span>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {/* ── B) Shrnutí objednávky ── */}
-                                <div className={card}>
-                                  <div className={cardHeader}>
-                                    <FileText className="w-3.5 h-3.5 text-[#6b7280]" />
-                                    <span className={cardTitle}>Shrnutí objednávky</span>
-                                  </div>
-                                  <div className="px-4 py-1 divide-y divide-[#f3f4f6]">
-                                    {transaction.customerOrderId && (
-                                      <div className={row}>
-                                        <span className={lbl}>Objednávka</span>
-                                        <a
-                                          href={`/${transaction.customerOrderSource === 'eshop' ? 'eshop-orders' : 'customer-orders'}?highlight=${transaction.customerOrderId}`}
-                                          className="font-mono text-sm font-semibold text-blue-600 hover:underline flex items-center gap-0.5"
-                                          onClick={e => e.stopPropagation()}
-                                        >
-                                          {transaction.customerOrderNumber}
-                                          <ExternalLink className="w-3 h-3" />
-                                        </a>
-                                      </div>
-                                    )}
-                                    <div className={row}>
-                                      <span className={lbl}>Faktura</span>
-                                      <div className="flex items-center gap-1.5">
-                                        {isPaid && (
-                                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-green-100 text-green-700 leading-none">
-                                            Zap.
-                                          </span>
-                                        )}
-                                        <span className="font-mono text-sm font-semibold text-[#111827]">{transaction.transactionCode}</span>
-                                      </div>
-                                    </div>
-                                    <div className={row}>
-                                      <span className={lbl}>Status</span>
-                                      {getStatusBadge(transaction)}
-                                    </div>
-                                    {transaction.paymentType && (
-                                      <div className={row}>
-                                        <span className={lbl}>Typ platby</span>
-                                        <span className="text-sm font-medium text-[#6b7280]">
-                                          {transaction.paymentType === 'cash' ? 'Hotovost' :
-                                           transaction.paymentType === 'card' ? 'Karta' :
-                                           transaction.paymentType === 'transfer' ? 'Bankovní převod' : transaction.paymentType}
-                                        </span>
-                                      </div>
-                                    )}
-                                    <div className={row}>
-                                      <span className={lbl}>Objednáno</span>
-                                      <span className="text-sm font-medium text-[#6b7280]">{new Date(transaction.transactionDate).toLocaleDateString('cs-CZ')}</span>
-                                    </div>
-                                    {paidAt && (
-                                      <div className={row}>
-                                        <span className={lbl}>Zaplaceno</span>
-                                        <span className="text-sm font-medium text-[#6b7280]">{paidAt}</span>
-                                      </div>
-                                    )}
-                                    <div className={row}>
-                                      <span className={lbl}>Odesláno</span>
-                                      <span className={`text-sm font-medium ${shippedAt ? 'text-[#6b7280]' : 'text-[#9ca3af]'}`}>{shippedAt || '—'}</span>
-                                    </div>
-                                    {t.dueDate && (
-                                      <div className={row}>
-                                        <span className={lbl}>Datum splatnosti</span>
-                                        <span className="text-sm font-medium text-[#6b7280]">{new Date(t.dueDate).toLocaleDateString('cs-CZ')}</span>
-                                      </div>
-                                    )}
-                                    {/* Celkem — larger + bolder */}
-                                    <div className={row}>
-                                      <span className={lbl}>Celkem</span>
-                                      <span className="text-base font-bold text-[#111827]">{formatPrice(transaction.totalAmount)}</span>
-                                    </div>
-                                    {/* Ref. platby — monospace, compact */}
-                                    {payRef && (
-                                      <div className={row}>
-                                        <span className={lbl}>Ref. platby</span>
-                                        <span className="font-mono text-[11px] text-[#6b7280] text-right break-all">{payRef}</span>
-                                      </div>
-                                    )}
-                                    {t.note && (
-                                      <div className={row}>
-                                        <span className={lbl}>Poznámka</span>
-                                        <span className="text-sm font-medium text-[#6b7280] text-right">{t.note}</span>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-
-                              </div>
-                            )
-                          })()}
                         </div>
 
-                        {/* Doprava — 4-column layout (mirrors eshop-orders) */}
-                        {((transaction as any).shippingMethod || (transaction as any).pickupPointId) && (() => {
-                          const td = transaction as any
-                          const methodLabel = ({
-                            DPD_HOME:          'DPD — Doručení na adresu',
-                            DPD_PICKUP:        'DPD — Výdejní místo',
-                            ZASILKOVNA_HOME:   'Zásilkovna — Doručení na adresu',
-                            ZASILKOVNA_PICKUP: 'Zásilkovna — Výdejní místo / Z-BOX',
-                            COURIER:           'Kurýr',
-                            PICKUP_IN_STORE:   'Osobní odběr',
-                          } as Record<string, string>)[td.shippingMethod] ?? td.shippingMethod
-                          const hasTracking = !!(td.trackingNumber || td.carrier)
-                          const isEditing   = trackingEditId === transaction.id
-                          const carrierKey  = (td.pickupPointCarrier || td.carrier || '').toLowerCase()
-                          const trackingUrl = td.trackingNumber
-                            ? carrierKey === 'zasilkovna'
-                              ? `https://www.zasilkovna.cz/sledovani-zasilky?barcode=${td.trackingNumber}`
-                              : carrierKey === 'dpd'
-                                ? `https://tracking.dpd.de/status/cs/parcel/${td.trackingNumber}`
-                                : null
-                            : null
-                          const colLbl = "text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-1.5"
-                          return (
-                            <div className="border border-gray-200 rounded-lg overflow-hidden">
-                              <div className="px-4 py-2 bg-gray-100 border-b border-gray-200 flex items-center gap-2">
-                                <FileOutput className="w-4 h-4 text-gray-500 shrink-0" />
-                                <span className="font-bold text-sm text-gray-900">Doprava</span>
-                              </div>
-                              <div className="grid grid-cols-4 divide-x divide-gray-200 bg-white text-sm">
+                        <EshopOrderDetail
+                          order={transactionToOrderDetail(transaction)}
+                          isVatPayer={isVatPayer}
+                          onRefresh={fetchData}
+                        />
 
-                                {/* Col 1: Způsob dopravy */}
-                                <div className="px-4 py-3">
-                                  <p className={colLbl}>Způsob dopravy</p>
-                                  <p className="font-semibold text-gray-900 text-sm leading-snug">
-                                    {methodLabel || <span className="text-gray-400">—</span>}
-                                  </p>
-                                  {td.pickupPointCarrier && (
-                                    <span className="mt-1.5 inline-block text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
-                                      {td.pickupPointCarrier}
-                                    </span>
-                                  )}
-                                </div>
 
-                                {/* Col 2: Výdejní místo */}
-                                <div className="px-4 py-3">
-                                  <p className={colLbl}>
-                                    {td.pickupPointId ? 'Výdejní místo' : 'Doručovací adresa'}
-                                  </p>
-                                  {td.pickupPointId ? (
-                                    <div className="flex items-start gap-2.5">
-                                      <div className="shrink-0 w-8 h-8 rounded-md bg-amber-50 border border-amber-200 flex items-center justify-center">
-                                        <Package className="w-4 h-4 text-amber-500" />
-                                      </div>
-                                      <div className="min-w-0">
-                                        <p className="font-bold text-sm text-gray-900 leading-tight">{td.pickupPointName || '—'}</p>
-                                        {td.pickupPointAddress && (
-                                          <p className="text-gray-500 text-xs mt-0.5 leading-relaxed">{td.pickupPointAddress}</p>
-                                        )}
-                                        <div className="mt-1.5 flex items-center gap-1.5">
-                                          <span className="text-[9px] font-bold uppercase tracking-widest text-gray-400">ID</span>
-                                          <code className="text-xs font-mono bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">{td.pickupPointId}</code>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <p className="text-gray-400 text-xs italic">—</p>
-                                  )}
-                                </div>
-
-                                {/* Col 3: Mapa (Google Maps iframe — same as eshop-orders) */}
-                                {td.pickupPointId && (td.pickupPointAddress || td.pickupPointName)
-                                  ? (
-                                    <div className="overflow-hidden">
-                                      <iframe
-                                        src={`https://maps.google.com/maps?q=${encodeURIComponent((td.pickupPointAddress || td.pickupPointName)!)}&output=embed&z=16`}
-                                        className="w-full h-full min-h-[110px]"
-                                        loading="lazy"
-                                        referrerPolicy="no-referrer-when-downgrade"
-                                        title="Mapa výdejního místa"
-                                      />
-                                    </div>
-                                  ) : (
-                                    <div />
-                                  )
-                                }
-
-                                {/* Col 4: Zásilka / tracking editor */}
-                                <div className="px-4 py-3 min-w-0">
-                                  <p className={colLbl}>Zásilka</p>
-
-                                  {isEditing ? (
-                                    <div onClick={e => e.stopPropagation()}>
-                                      <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-400 transition-all">
-                                        <input
-                                          type="text"
-                                          value={trackingForm.trackingNumber}
-                                          onChange={e => setTrackingForm(f => ({ ...f, trackingNumber: e.target.value }))}
-                                          onKeyDown={e => { if (e.key === 'Enter') handleSaveTracking(transaction.customerOrderId!); if (e.key === 'Escape') setTrackingEditId(null) }}
-                                          placeholder="Číslo zásilky…"
-                                          className="flex-1 min-w-0 text-xs font-mono bg-transparent border-none outline-none text-gray-900 placeholder-gray-400"
-                                          autoFocus
-                                        />
-                                        <div className="flex items-center gap-1 shrink-0">
-                                          <button
-                                            onClick={() => handleSaveTracking(transaction.customerOrderId!)}
-                                            disabled={savingTracking}
-                                            className="px-2.5 py-1 bg-gray-900 hover:bg-gray-700 text-white text-xs font-semibold rounded-md transition-colors disabled:opacity-50"
-                                          >
-                                            {savingTracking ? '…' : 'Uložit'}
-                                          </button>
-                                          <button
-                                            onClick={e => { e.stopPropagation(); setTrackingEditId(null) }}
-                                            className="px-2 py-1 text-gray-400 hover:text-gray-700 text-xs rounded-md transition-colors"
-                                          >
-                                            ✕
-                                          </button>
-                                        </div>
-                                      </div>
-                                      <p className="text-[9px] text-gray-400 mt-1.5 ml-0.5">Enter pro uložení · Esc pro zrušení</p>
-                                    </div>
-                                  ) : hasTracking ? (
-                                    <div className="space-y-1.5">
-                                      {td.trackingNumber && (
-                                        <div className="flex items-center justify-between gap-2">
-                                          <span className="font-mono text-xs font-bold text-gray-800">{td.trackingNumber}</span>
-                                          <button
-                                            onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(td.trackingNumber!) }}
-                                            className="text-gray-400 hover:text-gray-700 transition-colors"
-                                            title="Kopírovat"
-                                          >
-                                            <RefreshCw className="w-3.5 h-3.5" />
-                                          </button>
-                                        </div>
-                                      )}
-                                      {td.carrier && <p className="text-xs text-gray-500">{td.carrier}</p>}
-                                      <div className="flex items-center gap-2 pt-1.5">
-                                        {trackingUrl && (
-                                          <a
-                                            href={trackingUrl}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            onClick={e => e.stopPropagation()}
-                                            className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors"
-                                          >
-                                            <ExternalLink className="w-3 h-3" />
-                                            Sledovat
-                                          </a>
-                                        )}
-                                        {transaction.customerOrderId && (
-                                          <button
-                                            onClick={e => { e.stopPropagation(); setTrackingForm({ trackingNumber: td.trackingNumber || '', carrier: td.carrier || '' }); setTrackingEditId(transaction.id) }}
-                                            className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
-                                          >
-                                            Upravit
-                                          </button>
-                                        )}
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <div className="space-y-2">
-                                      <p className="text-xs text-gray-400">Zásilka nebyla předána dopravci.</p>
-                                      {transaction.customerOrderId && (
-                                        <button
-                                          onClick={e => { e.stopPropagation(); setTrackingForm({ trackingNumber: '', carrier: td.pickupPointCarrier || '' }); setTrackingEditId(transaction.id) }}
-                                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
-                                        >
-                                          <Package className="w-3.5 h-3.5" />
-                                          Přidat tracking
-                                        </button>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-
-                              </div>
-                            </div>
-                          )
-                        })()}
-
-                        {/* Položky */}
-                        {transaction.items.length === 0 ? (
-                          <p className="text-red-600">Faktura nemá žádné položky!</p>
-                        ) : (
-                          <div className="border border-gray-200 rounded-lg overflow-hidden">
-                            <h4 className="font-bold text-base text-gray-900 px-4 py-3 bg-gray-100 border-b border-gray-200">Položky ({transaction.items.filter((item: any) => item.productId !== null || item.productName === 'Doprava').length})</h4>
-                            <div className="text-sm">
-                              {/* Hlavička - různá pro plátce a neplátce DPH */}
-                              {isVatPayer ? (
-                                <div className="grid grid-cols-[3fr_repeat(6,1fr)] gap-2 px-4 py-2 bg-gray-50 font-semibold text-gray-700 border-b text-xs">
-                                  <div>Produkt</div>
-                                  <div className="text-center">Množství</div>
-                                  <div className="text-center">DPH</div>
-                                  <div className="text-center">Cena/ks</div>
-                                  <div className="text-center">DPH/ks</div>
-                                  <div className="text-center">S DPH/ks</div>
-                                  <div className="text-center">Celkem</div>
-                                </div>
-                              ) : (
-                                <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-3 px-4 py-2 bg-gray-50 font-semibold text-gray-700 border-b">
-                                  <div>Produkt</div>
-                                  <div className="text-right">Množství</div>
-                                  <div className="text-right">Cena za kus</div>
-                                  <div className="text-right">Celkem</div>
-                                </div>
-                              )}
-
-                              {/* Řádky položek */}
-                              {transaction.items
-                                .filter((item: any) => item.productId !== null)
-                                .sort((a: any, b: any) => {
-                                  const aShip = /(doprav|shipping)/i.test(a.productName || '') ? 1 : 0
-                                  const bShip = /(doprav|shipping)/i.test(b.productName || '') ? 1 : 0
-                                  return aShip - bShip
-                                })
-                                .map((item: any, i: number) => {
-                                  const catalogProduct = products.find(p => p.id === item.product?.id)
-                                  const qty         = Number(item.quantity)
-                                  const qtyDisplay  = formatVariantQty(qty, item.productName, item.unit)
-                                  const unitPrice   = Number(item.price ?? catalogProduct?.price ?? 0)
-                                  const itemVatRate = Number(item.vatRate ?? catalogProduct?.vatRate ?? DEFAULT_VAT_RATE)
-                                  const isItemNonVat = isNonVatPayer(itemVatRate)
-
-                                  // Preferuj uložené hodnoty (stejný přístup jako eshop-orders)
-                                  const vatPerUnit     = item.vatAmount != null
-                                    ? Number(item.vatAmount)
-                                    : (isItemNonVat ? 0 : unitPrice * itemVatRate / 100)
-                                  const priceWithVatPU = item.priceWithVat != null
-                                    ? Number(item.priceWithVat)
-                                    : unitPrice + vatPerUnit
-
-                                  // Backward-compat: staré záznamy mají priceWithVat = celková cena řádku
-                                  const rawRowTotal = priceWithVatPU * qty
-                                  const rowTotal = rawRowTotal > Number(transaction.totalAmount) * 1.05
-                                    ? priceWithVatPU
-                                    : rawRowTotal
-
-                                  return isVatPayer ? (
-                                    <div key={item.id} className={`grid grid-cols-[3fr_repeat(6,1fr)] gap-2 px-4 py-2 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'} text-xs`}>
-                                      <div className="font-medium text-gray-900">
-                                        {item.product?.name || item.productName}
-                                        {item.productName && !item.product?.name && <span className="text-xs ml-1 text-gray-400">(ruční)</span>}
-                                      </div>
-                                      <div className="text-center text-gray-600">{qtyDisplay}</div>
-                                      <div className="text-center text-gray-500">{isItemNonVat ? '-' : `${itemVatRate}%`}</div>
-                                      <div className="text-center text-gray-600">{formatPrice(unitPrice)}</div>
-                                      <div className="text-center text-gray-500">{isItemNonVat ? '-' : formatPrice(vatPerUnit)}</div>
-                                      <div className="text-center text-gray-700">{formatPrice(priceWithVatPU)}</div>
-                                      <div className="text-center font-semibold text-gray-900">{formatPrice(rowTotal)}</div>
-                                    </div>
-                                  ) : (
-                                    <div key={item.id} className={`grid grid-cols-[2fr_1fr_1fr_1fr] gap-3 px-4 py-2 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                                      <div className="font-medium text-gray-900">
-                                        {item.product?.name || item.productName}
-                                        {item.productName && !item.product?.name && <span className="text-xs ml-1 text-gray-400">(ruční)</span>}
-                                      </div>
-                                      <div className="text-right text-gray-600">{qtyDisplay}</div>
-                                      <div className="text-right text-gray-600">{formatPrice(priceWithVatPU)}</div>
-                                      <div className="text-right font-semibold text-gray-900">{formatPrice(rowTotal)}</div>
-                                    </div>
-                                  )
-                              })}
-
-                              {/* Mezisoučet / Doprava / Sleva */}
-                              {(() => {
-                                const colGrid  = isVatPayer ? 'grid-cols-[3fr_repeat(6,1fr)]' : 'grid-cols-[2fr_1fr_1fr_1fr]'
-                                const labelSpan = isVatPayer ? 'col-span-6' : 'col-span-3'
-
-                                // Katalogové položky (productId !== null) — stejný rowTotal výpočet jako výše
-                                const catalogSubtotal = transaction.items
-                                  .filter((item: any) => item.productId !== null)
-                                  .reduce((sum: number, item: any) => {
-                                    const pwv = item.priceWithVat != null
-                                      ? Number(item.priceWithVat)
-                                      : (Number(item.price ?? 0) * (1 + Number(item.vatRate ?? DEFAULT_VAT_RATE) / 100))
-                                    const raw = pwv * Number(item.quantity)
-                                    return sum + (raw > Number(transaction.totalAmount) * 1.05 ? pwv : raw)
-                                  }, 0)
-
-                                // Rozlišení: doprava vs. sleva podle názvu
-                                const nullItems    = transaction.items.filter((item: any) => item.productId === null)
-                                const shippingItem = nullItems.find((item: any) =>
-                                  /(doprav|shipping)/i.test(item.productName || '')
-                                )
-                                const discountItem = nullItems.find((item: any) =>
-                                  !/(doprav|shipping)/i.test(item.productName || '')
-                                )
-
-                                const shippingTotal = shippingItem
-                                  ? Number(shippingItem.priceWithVat ?? shippingItem.price ?? 0) * Number(shippingItem.quantity ?? 1)
-                                  : 0
-                                const discountTotal = discountItem
-                                  ? Number(discountItem.priceWithVat ?? discountItem.price ?? 0) * Number(discountItem.quantity ?? 1)
-                                  : 0
-
-                                if (shippingTotal === 0 && discountTotal === 0) return null
-
-                                return (
-                                  <>
-                                    {/* Mezisoučet — vždy zobrazen pokud existuje extra řádek */}
-                                    <div className={`grid ${colGrid} gap-2 px-4 py-2 bg-gray-50 border-t text-sm`}>
-                                      <div className={`${labelSpan} text-gray-600`}>Mezisoučet</div>
-                                      <div className={`${isVatPayer ? 'text-center' : 'text-right'} font-medium text-gray-800`}>{formatPrice(catalogSubtotal)}</div>
-                                    </div>
-
-                                    {/* Doprava */}
-                                    {shippingTotal !== 0 && (
-                                      <div className={`grid ${colGrid} gap-2 px-4 py-2 bg-blue-50 border-t text-sm`}>
-                                        <div className={`${labelSpan} font-medium text-gray-900`}>
-                                          {shippingItem?.productName || 'Doprava'}
-                                        </div>
-                                        <div className={`${isVatPayer ? 'text-center' : 'text-right'} text-blue-700 font-medium`}>{formatPrice(shippingTotal)}</div>
-                                      </div>
-                                    )}
-
-                                    {/* Sleva */}
-                                    {discountTotal !== 0 && (
-                                      <div className={`grid ${colGrid} gap-2 px-4 py-2 bg-yellow-50 border-t text-sm`}>
-                                        <div className={`${labelSpan} font-medium text-gray-900`}>
-                                          {discountItem?.productName || 'Sleva'}
-                                        </div>
-                                        <div className={`${isVatPayer ? 'text-center' : 'text-right'} text-red-600 font-medium`}>{formatPrice(discountTotal)}</div>
-                                      </div>
-                                    )}
-                                  </>
-                                )
-                              })()}
-
-                              {/* Celkem zaplaceno */}
-                              <div className={`grid ${isVatPayer ? 'grid-cols-[3fr_repeat(6,1fr)]' : 'grid-cols-[2fr_1fr_1fr_1fr]'} gap-2 px-4 py-2 bg-gray-100 font-bold border-t text-sm`}>
-                                <div className={isVatPayer ? 'col-span-6' : 'col-span-3'}>{isVatPayer ? 'Celková částka s DPH' : 'Celková částka'}</div>
-                                <div className={isVatPayer ? 'text-center' : 'text-right'}>{formatPrice(transaction.totalAmount)}</div>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Výdejky */}
-                        {(transaction as any).deliveryNotes && (transaction as any).deliveryNotes.length > 0 && (
-                          <div className="border border-gray-200 rounded-lg overflow-hidden">
-                            <h4 className="font-bold text-base text-gray-900 px-4 py-3 bg-gray-100 border-b border-gray-200">Výdejky ({(transaction as any).deliveryNotes.length})</h4>
-
-                            <div className="text-sm">
-                              {/* Hlavička mini-tabulky */}
-                              <div className="grid grid-cols-[1.5fr_1fr_0.8fr_1fr_auto] gap-3 px-4 py-2 bg-gray-50 font-semibold text-gray-700 border-b">
-                                <div>Číslo výdejky</div>
-                                <div>Datum</div>
-                                <div className="text-center">Položek</div>
-                                <div className="text-right">Částka</div>
-                                <div className="w-4"></div>
-                              </div>
-
-                              {/* Řádky výdejek */}
-                              {(transaction as any).deliveryNotes.map((deliveryNote: any, idx: number) => {
-                                const deliveryTotal = (deliveryNote.items as DeliveryNote['items'] ?? []).reduce((sum, item) => {
-                                  const hasSaved = item.price != null && item.priceWithVat != null
-                                  const unitPrice = hasSaved ? Number(item.price) : Number(item.product?.price || 0)
-                                  const itemVatRate = hasSaved ? Number(item.vatRate ?? DEFAULT_VAT_RATE) : Number((item.product as any)?.vatRate || DEFAULT_VAT_RATE)
-                                  const isItemNonVat = isNonVatPayer(itemVatRate)
-                                  const vatPerUnit = hasSaved ? Number(item.vatAmount ?? 0) : (isItemNonVat ? 0 : unitPrice * itemVatRate / 100)
-                                  const priceWithVatPU = hasSaved ? Number(item.priceWithVat) : (unitPrice + vatPerUnit)
-                                  // Convert base-unit qty → pack count for variant items (e.g. 9 ml / 3 ml = 3 packs)
-                                  let packs = Number(item.quantity)
-                                  if (item.productName?.includes(' — ') && item.unit !== 'ks') {
-                                    const variantLabel = item.productName.split(' — ').slice(-1)[0]
-                                    const match = variantLabel.match(/^([\d.]+)/)
-                                    if (match) {
-                                      const packSize = parseFloat(match[1])
-                                      if (packSize > 0) packs = Math.round((packs / packSize) * 1000) / 1000
-                                    }
-                                  }
-                                  return sum + (packs * (isVatPayer ? priceWithVatPU : unitPrice))
-                                }, 0)
-
-                                return (
-                                  <a
-                                    key={deliveryNote.id}
-                                    href={`/delivery-notes?highlight=${deliveryNote.id}`}
-                                    className={`grid grid-cols-[1.5fr_1fr_0.8fr_1fr_auto] gap-3 px-4 py-3 hover:bg-blue-50 transition-colors items-center ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                      {/* Číslo výdejky + Status */}
-                                      <div className="flex items-center gap-2">
-                                        <span className="font-medium text-blue-600 hover:underline text-sm">
-                                          {deliveryNote.deliveryNumber}
-                                        </span>
-                                        {deliveryNote.status === 'storno' && (
-                                          <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded font-medium">
-                                            STORNO
-                                          </span>
-                                        )}
-                                      </div>
-
-                                      <div className="text-sm text-gray-700">
-                                        {new Date(deliveryNote.deliveryDate).toLocaleDateString('cs-CZ')}
-                                      </div>
-
-                                      <div className="text-sm text-gray-700 text-center">
-                                        {deliveryNote.items?.length || 0}
-                                      </div>
-
-                                      <div className="text-sm font-semibold text-gray-900 text-right">
-                                        {deliveryTotal.toLocaleString('cs-CZ')} Kč
-                                      </div>
-
-                                      <div className="flex justify-end">
-                                        <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                        </svg>
-                                      </div>
-                                    </a>
-                                  )
-                              })}
-                            </div>
-                          </div>
-                        )}
 
                         {/* Dobropisy */}
                         {(() => {
