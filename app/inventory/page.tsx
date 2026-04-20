@@ -1,7 +1,3 @@
-// Stránka skladové evidence (/inventory)
-// Přehled skladu + rozklikávací detail produktu + skladové pohyby
-// Moderní design s purple theme podle HEADER_PATTERN a COMPACT_TABLE_PATTERN
-
 'use client'
 
 import { useEffect, useState, useMemo, useRef } from 'react'
@@ -10,7 +6,10 @@ import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import { formatPrice, formatQuantity, formatDate } from '@/lib/utils'
 import { isNonVatPayer } from '@/lib/vatCalculation'
-import { ArrowLeft, ChevronDown, ChevronUp, ChevronRight, Edit2, RefreshCw } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronUp, ChevronRight, Edit2, RefreshCw, Warehouse } from 'lucide-react'
+import {
+  useEntityPage, EntityPage, LoadingState, ErrorState,
+} from '@/components/erp'
 
 export const dynamic = 'force-dynamic'
 
@@ -42,12 +41,7 @@ interface StockMovement {
   purchasePrice?: number
   supplier?: { id: string; name: string } | null
   note?: string | null
-  transaction?: {
-    id: string
-    transactionCode: string
-    invoiceType?: string
-    receiptId?: string | null
-  }
+  transaction?: { id: string; transactionCode: string; invoiceType?: string; receiptId?: string | null }
   receipt?: { id: string; receiptNumber: string }
   deliveryNote?: { id: string; deliveryNumber: string }
   customerOrder?: { id: string; orderNumber: string }
@@ -56,13 +50,7 @@ interface StockMovement {
   issuedInvoice?: { id: string; invoiceNumber: string }
 }
 
-interface Product {
-  id: string
-  name: string
-  price: number
-  purchasePrice?: number | null
-  unit: string
-}
+interface Product { id: string; name: string; price: number; purchasePrice?: number | null; unit: string }
 
 type SortField = 'productName' | 'category' | 'physicalStock' | 'reservedStock' | 'availableStock' | 'expectedQuantity'
 type SortDirection = 'asc' | 'desc'
@@ -71,199 +59,151 @@ export default function InventoryPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const highlightId = searchParams.get('highlight')
-  const sectionRef = useRef<HTMLDivElement>(null)
+  const sectionRef  = useRef<HTMLDivElement>(null)
 
-  const [summary, setSummary] = useState<InventorySummary[]>([])
-  const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const [products,   setProducts]   = useState<Product[]>([])
   const [isVatPayer, setIsVatPayer] = useState(true)
 
-  // Detail produktu - skladové pohyby
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null)
-  const [stockMovements, setStockMovements] = useState<StockMovement[]>([])
-  const [expandedMovements, setExpandedMovements] = useState<Set<string>>(new Set())
+  const [stockMovements,    setStockMovements]     = useState<StockMovement[]>([])
+  const [expandedMovements, setExpandedMovements]  = useState<Set<string>>(new Set())
   const highlightMovementId = searchParams.get('highlightMovement')
   const movementsSectionRef = useRef<HTMLDivElement>(null)
 
-  // Řazení a filtry hlavní tabulky
-  const [sortField, setSortField] = useState<SortField>('productName')
+  const [sortField,     setSortField]     = useState<SortField>('productName')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
-  const [filterName, setFilterName] = useState('')
-  const [filterCategory, setFilterCategory] = useState('')
+  const [filterName,       setFilterName]       = useState('')
+  const [filterCategory,   setFilterCategory]   = useState('')
   const [filterCategoryDropdownOpen, setFilterCategoryDropdownOpen] = useState(false)
-  const [filterMinStock, setFilterMinStock] = useState('')
+  const [filterMinStock,   setFilterMinStock]   = useState('')
   const [filterMinReserved, setFilterMinReserved] = useState('')
   const [filterMinAvailable, setFilterMinAvailable] = useState('')
   const [filterMinExpected, setFilterMinExpected] = useState('')
-  const [filterStatus, setFilterStatus] = useState('all')
+  const [filterStatus,     setFilterStatus]     = useState('all')
   const [filterStatusDropdownOpen, setFilterStatusDropdownOpen] = useState(false)
 
-  // Filtry pro pohyby
-  const [filterDate, setFilterDate] = useState('')
-  const [filterType, setFilterType] = useState('all')
+  const [filterDate,        setFilterDate]        = useState('')
+  const [filterType,        setFilterType]        = useState('all')
   const [filterTypeDropdownOpen, setFilterTypeDropdownOpen] = useState(false)
   const [filterMinQuantity, setFilterMinQuantity] = useState('')
-  const [filterNote, setFilterNote] = useState('')
+  const [filterNote,        setFilterNote]        = useState('')
 
-  // Paginace - hlavní tabulka
-  const [currentPage, setCurrentPage] = useState(1)
+  const [currentPage,  setCurrentPage]  = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(20)
-
-  // Paginace - pohyby
-  const [movementsPage, setMovementsPage] = useState(1)
+  const [movementsPage,    setMovementsPage]    = useState(1)
   const [movementsPerPage, setMovementsPerPage] = useState(20)
 
-  // Refs pro dropdowny
   const filterCategoryRef = useRef<HTMLDivElement>(null)
-  const filterStatusRef = useRef<HTMLDivElement>(null)
-  const filterTypeRef = useRef<HTMLDivElement>(null)
+  const filterStatusRef   = useRef<HTMLDivElement>(null)
+  const filterTypeRef     = useRef<HTMLDivElement>(null)
 
-  // Formulář pro manuální úpravu
   const [showManualAdjustmentForm, setShowManualAdjustmentForm] = useState(false)
-  const [adjustmentType, setAdjustmentType] = useState<'increase' | 'decrease'>('increase')
+  const [adjustmentType,     setAdjustmentType]     = useState<'increase' | 'decrease'>('increase')
   const [adjustmentQuantity, setAdjustmentQuantity] = useState('')
-  const [adjustmentDate, setAdjustmentDate] = useState(new Date().toISOString().split('T')[0])
-  const [adjustmentNote, setAdjustmentNote] = useState('')
+  const [adjustmentDate,     setAdjustmentDate]     = useState(new Date().toISOString().split('T')[0])
+  const [adjustmentNote,     setAdjustmentNote]     = useState('')
 
-  useEffect(() => {
-    fetchData()
-  }, [])
+  const ep = useEntityPage<InventorySummary>({
+    fetchData: async () => {
+      const [summaryRes, productsRes, categoriesRes, settingsRes] = await Promise.all([
+        fetch('/api/inventory/summary', { cache: 'no-store' }),
+        fetch('/api/products',  { cache: 'no-store' }),
+        fetch('/api/categories'),
+        fetch('/api/settings'),
+      ])
+      const [summaryData, productsData, categoriesData, settingsData] = await Promise.all([
+        summaryRes.json(), productsRes.json(), categoriesRes.json(), settingsRes.json(),
+      ])
+      setProducts(Array.isArray(productsData)   ? productsData   : [])
+      setCategories(Array.isArray(categoriesData) ? categoriesData : [])
+      setIsVatPayer(settingsData.isVatPayer !== false)
+      return Array.isArray(summaryData) ? summaryData : []
+    },
+    getRowId:    r => r.productId,
+    filterFn:    () => true,
+    highlightId,
+  })
 
-  // Highlight pro hlavní tabulku
   useEffect(() => {
     if (highlightId && filteredAndSortedSummary.length > 0) {
       const index = filteredAndSortedSummary.findIndex(item => item.productId === highlightId)
       if (index !== -1) {
-        const pageNumber = Math.floor(index / itemsPerPage) + 1
-        setCurrentPage(pageNumber)
+        setCurrentPage(Math.floor(index / itemsPerPage) + 1)
         setTimeout(() => {
-          const element = document.getElementById(`product-${highlightId}`)
-          if (element) {
-            element.scrollIntoView({ behavior: 'smooth', block: 'center' })
-          }
+          document.getElementById(`product-${highlightId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
         }, 100)
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [highlightId, summary, itemsPerPage])
+  }, [highlightId, ep.rows, itemsPerPage])
 
-  // Auto-otevři detail produktu z URL
   useEffect(() => {
     const productId = searchParams.get('selectedProduct')
-    if (productId && summary.length > 0) {
-      setSelectedProductId(productId)
-    }
-  }, [searchParams, summary])
+    if (productId && ep.rows.length > 0) setSelectedProductId(productId)
+  }, [searchParams, ep.rows])
 
   useEffect(() => {
-    if (selectedProductId) {
-      fetchProductMovements(selectedProductId)
-    }
+    if (selectedProductId) fetchProductMovements(selectedProductId)
   }, [selectedProductId])
 
-  // Highlight pro pohyby
   useEffect(() => {
     if (highlightMovementId && filteredMovements.length > 0) {
       const index = filteredMovements.findIndex(m => m.id === highlightMovementId)
       if (index !== -1) {
-        const pageNumber = Math.floor(index / movementsPerPage) + 1
-        setMovementsPage(pageNumber)
+        setMovementsPage(Math.floor(index / movementsPerPage) + 1)
         setExpandedMovements(new Set([highlightMovementId]))
         setTimeout(() => {
-          const element = document.getElementById(`movement-${highlightMovementId}`)
-          if (element) {
-            element.scrollIntoView({ behavior: 'smooth', block: 'center' })
-          }
+          document.getElementById(`movement-${highlightMovementId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
         }, 100)
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [highlightMovementId, stockMovements, movementsPerPage])
 
-  // Zavření dropdownů
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (filterCategoryRef.current && !filterCategoryRef.current.contains(event.target as Node)) {
-        setFilterCategoryDropdownOpen(false)
-      }
-      if (filterStatusRef.current && !filterStatusRef.current.contains(event.target as Node)) {
-        setFilterStatusDropdownOpen(false)
-      }
-      if (filterTypeRef.current && !filterTypeRef.current.contains(event.target as Node)) {
-        setFilterTypeDropdownOpen(false)
-      }
+      if (filterCategoryRef.current && !filterCategoryRef.current.contains(event.target as Node)) setFilterCategoryDropdownOpen(false)
+      if (filterStatusRef.current   && !filterStatusRef.current.contains(event.target as Node))   setFilterStatusDropdownOpen(false)
+      if (filterTypeRef.current     && !filterTypeRef.current.contains(event.target as Node))     setFilterTypeDropdownOpen(false)
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  async function fetchData() {
-    try {
-      const [summaryRes, productsRes, categoriesRes, settingsRes] = await Promise.all([
-        fetch('/api/inventory/summary', { cache: 'no-store' }),
-        fetch('/api/products', { cache: 'no-store' }),
-        fetch('/api/categories'),
-        fetch('/api/settings'),
-      ])
-      const [summaryData, productsData, categoriesData, settingsData] = await Promise.all([
-        summaryRes.json(),
-        productsRes.json(),
-        categoriesRes.json(),
-        settingsRes.json(),
-      ])
-      setSummary(summaryData)
-      setProducts(productsData)
-      setCategories(categoriesData)
-      setIsVatPayer(settingsData.isVatPayer !== false)
-    } catch (error) {
-      console.error('Chyba při načítání dat:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
   async function fetchProductMovements(productId: string) {
     try {
       const response = await fetch(`/api/products/${productId}`)
       const data = await response.json()
-
       const movements: StockMovement[] = []
       if (data.inventoryItems) {
         data.inventoryItems.forEach((item: any) => {
           const isNegative = item.quantity < 0
           const deliveryNoteItems = item.deliveryNoteItems || []
           const deliveryNote = deliveryNoteItems[0]?.deliveryNote
-
           movements.push({
-            id: item.id,
-            type: isNegative ? 'stock_out' : 'stock_in',
-            date: item.date,
-            quantity: item.quantity,
-            unit: item.unit,
+            id:           item.id,
+            type:         isNegative ? 'stock_out' : 'stock_in',
+            date:         item.date,
+            quantity:     item.quantity,
+            unit:         item.unit,
             purchasePrice: item.purchasePrice,
-            supplier: item.supplier,
-            note: item.note,
-            createdAt: item.createdAt || item.date,
-            transaction: item.transaction ? {
-              id: item.transaction.id,
-              transactionCode: item.transaction.transactionCode,
-              receiptId: item.transaction.receiptId,
-              invoiceType: item.transaction.invoiceType,
-            } : undefined,
-            receipt: item.receipt ? { id: item.receipt.id, receiptNumber: item.receipt.receiptNumber } : undefined,
+            supplier:     item.supplier,
+            note:         item.note,
+            createdAt:    item.createdAt || item.date,
+            transaction:  item.transaction ? { id: item.transaction.id, transactionCode: item.transaction.transactionCode, receiptId: item.transaction.receiptId, invoiceType: item.transaction.invoiceType } : undefined,
+            receipt:      item.receipt ? { id: item.receipt.id, receiptNumber: item.receipt.receiptNumber } : undefined,
             receivedInvoice: item.receipt?.receivedInvoice ? { id: item.receipt.receivedInvoice.id, invoiceNumber: item.receipt.receivedInvoice.invoiceNumber } : undefined,
-            purchaseOrder: item.receipt?.purchaseOrder ? { id: item.receipt.purchaseOrder.id, orderNumber: item.receipt.purchaseOrder.orderNumber } : undefined,
+            purchaseOrder:   item.receipt?.purchaseOrder ? { id: item.receipt.purchaseOrder.id, orderNumber: item.receipt.purchaseOrder.orderNumber } : undefined,
             deliveryNote: deliveryNote ? { id: deliveryNote.id, deliveryNumber: deliveryNote.deliveryNumber } : undefined,
             customerOrder: deliveryNote?.customerOrder ? { id: deliveryNote.customerOrder.id, orderNumber: deliveryNote.customerOrder.orderNumber } : undefined,
             issuedInvoice: deliveryNote?.customerOrder?.issuedInvoice || item.transaction?.issuedInvoice ? {
-              id: deliveryNote?.customerOrder?.issuedInvoice?.id || item.transaction?.issuedInvoice?.id,
+              id:            deliveryNote?.customerOrder?.issuedInvoice?.id || item.transaction?.issuedInvoice?.id,
               invoiceNumber: deliveryNote?.customerOrder?.issuedInvoice?.invoiceNumber || item.transaction?.issuedInvoice?.invoiceNumber,
             } : undefined,
           })
         })
       }
-
       movements.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       setStockMovements(movements)
     } catch (error) {
@@ -272,38 +212,26 @@ export default function InventoryPage() {
   }
 
   function toggleMovement(movementId: string) {
-    const newExpanded = new Set(expandedMovements)
-    if (newExpanded.has(movementId)) {
-      newExpanded.delete(movementId)
-    } else {
-      newExpanded.add(movementId)
-    }
-    setExpandedMovements(newExpanded)
+    setExpandedMovements(prev => {
+      const next = new Set(prev)
+      next.has(movementId) ? next.delete(movementId) : next.add(movementId)
+      return next
+    })
   }
 
   function handleSort(field: SortField) {
-    if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
-    } else {
-      setSortField(field)
-      setSortDirection('asc')
-    }
+    if (sortField === field) setSortDirection(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortField(field); setSortDirection('asc') }
   }
 
   async function handleManualAdjustment(e: React.FormEvent) {
     e.preventDefault()
-    if (!selectedProductId || !adjustmentQuantity) {
-      alert('Vyplňte všechna pole')
-      return
-    }
-
+    if (!selectedProductId || !adjustmentQuantity) { alert('Vyplňte všechna pole'); return }
     const selectedProduct = products.find(p => p.id === selectedProductId)
     if (!selectedProduct) return
-
     try {
       const quantity = parseFloat(adjustmentQuantity)
-      const response = await fetch(`/api/products/${selectedProductId}`)
-      const productData = await response.json()
+      const productData = await fetch(`/api/products/${selectedProductId}`).then(r => r.json())
       const avgPrice = productData.inventoryItems?.length > 0
         ? productData.inventoryItems.reduce((sum: number, item: any) => sum + Number(item.purchasePrice), 0) / productData.inventoryItems.length
         : selectedProduct.purchasePrice || 0
@@ -312,26 +240,14 @@ export default function InventoryPage() {
         const res = await fetch('/api/inventory', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            productId: selectedProductId,
-            quantity: quantity,
-            unit: selectedProduct.unit,
-            purchasePrice: avgPrice,
-            date: adjustmentDate,
-            note: adjustmentNote || 'Manuální úprava - přebytek',
-          }),
+          body: JSON.stringify({ productId: selectedProductId, quantity, unit: selectedProduct.unit, purchasePrice: avgPrice, date: adjustmentDate, note: adjustmentNote || 'Manuální úprava - přebytek' }),
         })
         if (!res.ok) throw new Error('Chyba při ukládání')
       } else {
         const res = await fetch('/api/inventory/decrease', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            productId: selectedProductId,
-            quantity: quantity,
-            note: adjustmentNote || 'Manuální úprava - manko',
-            date: adjustmentDate,
-          }),
+          body: JSON.stringify({ productId: selectedProductId, quantity, note: adjustmentNote || 'Manuální úprava - manko', date: adjustmentDate }),
         })
         if (!res.ok) throw new Error('Chyba při odečítání')
       }
@@ -340,95 +256,57 @@ export default function InventoryPage() {
       setAdjustmentQuantity('')
       setAdjustmentNote('')
       setAdjustmentDate(new Date().toISOString().split('T')[0])
-      await fetchData()
+      await ep.refresh()
       if (selectedProductId) await fetchProductMovements(selectedProductId)
     } catch (error) {
-      console.error('Chyba:', error)
       alert('Nepodařilo se uložit úpravu')
     }
   }
 
-  // Filtrování a řazení
   const filteredAndSortedSummary = useMemo(() => {
-    let filtered = summary
-    if (filterName) {
-      filtered = filtered.filter(item => item.productName.toLowerCase().includes(filterName.toLowerCase()))
-    }
-    if (filterCategory) {
-      filtered = filtered.filter(item => item.category?.id === filterCategory)
-    }
-    if (filterMinStock) {
-      const minStock = parseFloat(filterMinStock)
-      filtered = filtered.filter(item => item.physicalStock >= minStock)
-    }
-    if (filterMinReserved) {
-      const minValue = parseFloat(filterMinReserved)
-      filtered = filtered.filter(item => item.reservedStock >= minValue)
-    }
-    if (filterMinAvailable) {
-      const minValue = parseFloat(filterMinAvailable)
-      filtered = filtered.filter(item => item.availableStock >= minValue)
-    }
-    if (filterMinExpected) {
-      const minValue = parseFloat(filterMinExpected)
-      filtered = filtered.filter(item => item.expectedQuantity >= minValue)
-    }
-    if (filterStatus !== 'all') {
-      filtered = filtered.filter(item => item.stockStatus === filterStatus)
-    }
+    let filtered = ep.rows
+    if (filterName)        filtered = filtered.filter(item => item.productName.toLowerCase().includes(filterName.toLowerCase()))
+    if (filterCategory)    filtered = filtered.filter(item => item.category?.id === filterCategory)
+    if (filterMinStock)    filtered = filtered.filter(item => item.physicalStock  >= parseFloat(filterMinStock))
+    if (filterMinReserved) filtered = filtered.filter(item => item.reservedStock  >= parseFloat(filterMinReserved))
+    if (filterMinAvailable) filtered = filtered.filter(item => item.availableStock >= parseFloat(filterMinAvailable))
+    if (filterMinExpected) filtered = filtered.filter(item => item.expectedQuantity >= parseFloat(filterMinExpected))
+    if (filterStatus !== 'all') filtered = filtered.filter(item => item.stockStatus === filterStatus)
     return [...filtered].sort((a, b) => {
       let aVal: any = a[sortField as keyof InventorySummary]
       let bVal: any = b[sortField as keyof InventorySummary]
-      if (sortField === 'category') {
-        aVal = a.category?.name || ''
-        bVal = b.category?.name || ''
-      }
+      if (sortField === 'category') { aVal = a.category?.name || ''; bVal = b.category?.name || '' }
       if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1
-      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1
+      if (aVal > bVal) return sortDirection === 'asc' ? 1  : -1
       return 0
     })
-  }, [summary, sortField, sortDirection, filterName, filterCategory, filterMinStock, filterMinReserved, filterMinAvailable, filterMinExpected, filterStatus])
+  }, [ep.rows, sortField, sortDirection, filterName, filterCategory, filterMinStock, filterMinReserved, filterMinAvailable, filterMinExpected, filterStatus])
 
-  // Filtrování pohybů
   const filteredMovements = useMemo(() => {
     let filtered = [...stockMovements]
-    if (filterDate) {
-      filtered = filtered.filter(item => new Date(item.date).toISOString().split('T')[0] === filterDate)
-    }
+    if (filterDate)        filtered = filtered.filter(item => new Date(item.date).toISOString().split('T')[0] === filterDate)
     if (filterType !== 'all') {
-      if (filterType === 'in') filtered = filtered.filter(item => item.quantity > 0)
-      else if (filterType === 'out') filtered = filtered.filter(item => item.quantity < 0)
+      if (filterType === 'in')  filtered = filtered.filter(item => item.quantity > 0)
+      if (filterType === 'out') filtered = filtered.filter(item => item.quantity < 0)
     }
-    if (filterMinQuantity) {
-      const minQty = parseFloat(filterMinQuantity)
-      filtered = filtered.filter(item => Math.abs(item.quantity) >= minQty)
-    }
-    if (filterNote) {
-      filtered = filtered.filter(item => item.note?.toLowerCase().includes(filterNote.toLowerCase()))
-    }
+    if (filterMinQuantity) filtered = filtered.filter(item => Math.abs(item.quantity) >= parseFloat(filterMinQuantity))
+    if (filterNote)        filtered = filtered.filter(item => item.note?.toLowerCase().includes(filterNote.toLowerCase()))
     return filtered
   }, [stockMovements, filterDate, filterType, filterMinQuantity, filterNote])
-
 
   function SortIcon({ field }: { field: SortField }) {
     if (sortField !== field) return null
     return sortDirection === 'asc' ? <ChevronUp className="h-4 w-4 inline ml-1" /> : <ChevronDown className="h-4 w-4 inline ml-1" />
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <p className="text-gray-500">Načítání...</p>
-      </div>
-    )
-  }
+  if (ep.loading) return <LoadingState />
+  if (ep.error)   return <ErrorState message={ep.error} onRetry={ep.refresh} />
 
-  // ============ DETAIL PRODUKTU - SKLADOVÉ POHYBY ============
+  // ──────────────────── Product detail view ────────────────────
   if (selectedProductId) {
-    const productSummary = summary.find(s => s.productId === selectedProductId)
+    const productSummary = ep.rows.find(s => s.productId === selectedProductId)
     const movementsTotalPages = Math.ceil(filteredMovements.length / movementsPerPage)
 
-    // Paginace pohybů - logika
     const movementsPages: (number | string)[] = []
     if (movementsTotalPages <= 7) {
       for (let i = 1; i <= movementsTotalPages; i++) movementsPages.push(i)
@@ -445,14 +323,11 @@ export default function InventoryPage() {
 
     const handleMovementsPageChange = (newPage: number) => {
       setMovementsPage(newPage)
-      setTimeout(() => {
-        movementsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      }, 50)
+      setTimeout(() => movementsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
     }
 
     return (
       <div className="space-y-6">
-        {/* Hlavička */}
         <div className="bg-gradient-to-r from-slate-50 to-purple-50 border-l-4 border-purple-500 rounded-lg shadow-sm py-4 px-6">
           <div className="relative">
             <div className="text-center">
@@ -464,27 +339,20 @@ export default function InventoryPage() {
               </h1>
             </div>
             <div className="absolute top-0 left-0">
-              <button
-                onClick={() => { setSelectedProductId(null); setStockMovements([]) }}
-                className="px-4 py-2 bg-gradient-to-r from-purple-500 to-purple-600 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl hover:from-purple-600 hover:to-purple-700 transform hover:scale-105 transition-all duration-200 flex items-center gap-2"
-              >
+              <button onClick={() => { setSelectedProductId(null); setStockMovements([]) }} className="px-4 py-2 bg-gradient-to-r from-purple-500 to-purple-600 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl hover:from-purple-600 hover:to-purple-700 transform hover:scale-105 transition-all duration-200 flex items-center gap-2">
                 <ArrowLeft className="h-4 w-4" />
-                <span>Zpět</span>
+                Zpět
               </button>
             </div>
             <div className="absolute top-0 right-0">
-              <button
-                onClick={() => setShowManualAdjustmentForm(!showManualAdjustmentForm)}
-                className="px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl hover:from-orange-600 hover:to-orange-700 transform hover:scale-105 transition-all duration-200 flex items-center gap-2"
-              >
+              <button onClick={() => setShowManualAdjustmentForm(!showManualAdjustmentForm)} className="px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl hover:from-orange-600 hover:to-orange-700 transform hover:scale-105 transition-all duration-200 flex items-center gap-2">
                 <Edit2 className="h-4 w-4" />
-                <span>Manko/Přebytek</span>
+                Manko/Přebytek
               </button>
             </div>
           </div>
         </div>
 
-        {/* Modal Manko/Přebytek */}
         {showManualAdjustmentForm && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -505,7 +373,7 @@ export default function InventoryPage() {
               <form onSubmit={handleManualAdjustment} className="p-6 space-y-6">
                 <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-5 border-l-4 border-purple-500">
                   <h3 className="text-lg font-semibold mb-4 text-gray-800">Typ úpravy *</h3>
-                  <select value={adjustmentType} onChange={(e) => setAdjustmentType(e.target.value as 'increase' | 'decrease')} className="w-full border-2 border-purple-200 rounded-lg px-3 py-2 bg-white">
+                  <select value={adjustmentType} onChange={e => setAdjustmentType(e.target.value as 'increase' | 'decrease')} className="w-full border-2 border-purple-200 rounded-lg px-3 py-2 bg-white">
                     <option value="increase">Přebytek (+)</option>
                     <option value="decrease">Manko (-)</option>
                   </select>
@@ -515,17 +383,17 @@ export default function InventoryPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Množství *</label>
-                      <Input type="number" step="0.001" value={adjustmentQuantity} onChange={(e) => setAdjustmentQuantity(e.target.value)} required />
+                      <Input type="number" step="0.001" value={adjustmentQuantity} onChange={e => setAdjustmentQuantity(e.target.value)} required />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Datum</label>
-                      <Input type="date" value={adjustmentDate} onChange={(e) => setAdjustmentDate(e.target.value)} />
+                      <Input type="date" value={adjustmentDate} onChange={e => setAdjustmentDate(e.target.value)} />
                     </div>
                   </div>
                 </div>
                 <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-lg p-5 border-l-4 border-amber-500">
                   <h3 className="text-lg font-semibold mb-3 text-gray-800">Poznámka</h3>
-                  <Input type="text" value={adjustmentNote} onChange={(e) => setAdjustmentNote(e.target.value)} placeholder="Důvod úpravy..." />
+                  <Input type="text" value={adjustmentNote} onChange={e => setAdjustmentNote(e.target.value)} placeholder="Důvod úpravy..." />
                 </div>
                 <div className="flex gap-3 justify-end pt-4 border-t-2 border-gray-200">
                   <Button type="button" variant="secondary" onClick={() => { setShowManualAdjustmentForm(false); setAdjustmentQuantity(''); setAdjustmentNote('') }}>Zrušit</Button>
@@ -541,23 +409,23 @@ export default function InventoryPage() {
         {/* Filtry pohybů */}
         <div className="grid grid-cols-[auto_1fr_1fr_1fr_1fr] items-center gap-4 px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg">
           <button onClick={() => { setFilterDate(''); setFilterType('all'); setFilterMinQuantity(''); setFilterNote('') }} className="w-8 h-8 bg-gray-200 hover:bg-gray-300 text-gray-600 text-xs rounded flex items-center justify-center" title="Vymazat filtry">✕</button>
-          <input type="date" value={filterDate} onChange={(e) => setFilterDate(e.target.value)} className="px-2 py-1.5 border border-gray-300 rounded text-xs text-center focus:ring-1 focus:ring-purple-500" />
+          <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} className="px-2 py-1.5 border border-gray-300 rounded text-xs text-center focus:ring-1 focus:ring-purple-500" />
           <div ref={filterTypeRef} className="relative">
             <div onClick={() => setFilterTypeDropdownOpen(!filterTypeDropdownOpen)} className="px-2 py-1.5 border border-gray-300 rounded text-xs text-center cursor-pointer bg-white hover:border-purple-500">
               {filterType === 'all' && 'Vše'}
-              {filterType === 'in' && <span className="text-green-600">Příjem (+)</span>}
+              {filterType === 'in'  && <span className="text-green-600">Příjem (+)</span>}
               {filterType === 'out' && <span className="text-red-600">Výdej (-)</span>}
             </div>
             {filterTypeDropdownOpen && (
               <div className="absolute z-50 mt-1 w-full bg-white border border-gray-300 rounded shadow-lg">
-                <div onClick={() => { setFilterType('all'); setFilterTypeDropdownOpen(false) }} className="px-3 py-2 hover:bg-purple-50 cursor-pointer text-xs text-center">Vše</div>
-                <div onClick={() => { setFilterType('in'); setFilterTypeDropdownOpen(false) }} className="px-3 py-2 hover:bg-purple-50 cursor-pointer text-xs text-center text-green-600">Příjem (+)</div>
-                <div onClick={() => { setFilterType('out'); setFilterTypeDropdownOpen(false) }} className="px-3 py-2 hover:bg-purple-50 cursor-pointer text-xs text-center text-red-600">Výdej (-)</div>
+                <div onClick={() => { setFilterType('all');  setFilterTypeDropdownOpen(false) }} className="px-3 py-2 hover:bg-purple-50 cursor-pointer text-xs text-center">Vše</div>
+                <div onClick={() => { setFilterType('in');   setFilterTypeDropdownOpen(false) }} className="px-3 py-2 hover:bg-purple-50 cursor-pointer text-xs text-center text-green-600">Příjem (+)</div>
+                <div onClick={() => { setFilterType('out');  setFilterTypeDropdownOpen(false) }} className="px-3 py-2 hover:bg-purple-50 cursor-pointer text-xs text-center text-red-600">Výdej (-)</div>
               </div>
             )}
           </div>
-          <input type="number" value={filterMinQuantity} onChange={(e) => setFilterMinQuantity(e.target.value)} placeholder="Min. množství" className="px-2 py-1.5 border border-gray-300 rounded text-xs text-center focus:ring-1 focus:ring-purple-500" />
-          <input type="text" value={filterNote} onChange={(e) => setFilterNote(e.target.value)} placeholder="Poznámka..." className="px-2 py-1.5 border border-gray-300 rounded text-xs text-center focus:ring-1 focus:ring-purple-500" />
+          <input type="number" value={filterMinQuantity} onChange={e => setFilterMinQuantity(e.target.value)} placeholder="Min. množství" className="px-2 py-1.5 border border-gray-300 rounded text-xs text-center focus:ring-1 focus:ring-purple-500" />
+          <input type="text"   value={filterNote}         onChange={e => setFilterNote(e.target.value)}         placeholder="Poznámka..."    className="px-2 py-1.5 border border-gray-300 rounded text-xs text-center focus:ring-1 focus:ring-purple-500" />
         </div>
 
         {/* Tabulka pohybů */}
@@ -648,9 +516,9 @@ export default function InventoryPage() {
                             <div className="text-sm flex items-center justify-center gap-6 flex-wrap">
                               {movement.supplier && <div><span className="text-gray-600">Dodavatel:</span> <span className="ml-2 font-medium">{movement.supplier.name}</span></div>}
                               {movement.purchasePrice && (() => {
-                                const productVatRate = summary.find(s => s.productId === selectedProductId)?.vatRate ?? 21
-                                const itemIsNonVat = isNonVatPayer(productVatRate)
-                                const vatPerUnit = (isVatPayer && !itemIsNonVat) ? movement.purchasePrice * productVatRate / 100 : 0
+                                const productVatRate = ep.rows.find(s => s.productId === selectedProductId)?.vatRate ?? 21
+                                const itemIsNonVat   = isNonVatPayer(productVatRate)
+                                const vatPerUnit     = (isVatPayer && !itemIsNonVat) ? movement.purchasePrice * productVatRate / 100 : 0
                                 return (
                                   <div>
                                     {isVatPayer && !itemIsNonVat ? (
@@ -674,7 +542,6 @@ export default function InventoryPage() {
                 ))}
               </div>
 
-              {/* Paginace pohybů */}
               {filteredMovements.length > 0 && (
                 <div className="p-4 border-t flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -687,11 +554,10 @@ export default function InventoryPage() {
                   {movementsTotalPages > 1 && (
                     <div className="flex items-center gap-2">
                       <button onClick={() => handleMovementsPageChange(Math.max(1, movementsPage - 1))} disabled={movementsPage === 1} className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 disabled:opacity-50 text-sm font-medium">Předchozí</button>
-                      {movementsPages.map((page, index) => page === '...' ? (
-                        <span key={`ellipsis-${index}`} className="px-2 text-gray-500">...</span>
-                      ) : (
-                        <button key={page} onClick={() => handleMovementsPageChange(page as number)} className={`px-3 py-1.5 rounded text-sm font-medium ${movementsPage === page ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>{page}</button>
-                      ))}
+                      {movementsPages.map((page, index) => page === '...'
+                        ? <span key={`e-${index}`} className="px-2 text-gray-500">...</span>
+                        : <button key={page} onClick={() => handleMovementsPageChange(page as number)} className={`px-3 py-1.5 rounded text-sm font-medium ${movementsPage === page ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>{page}</button>
+                      )}
                       <button onClick={() => handleMovementsPageChange(Math.min(movementsTotalPages, movementsPage + 1))} disabled={movementsPage >= movementsTotalPages} className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 disabled:opacity-50 text-sm font-medium">Další</button>
                     </div>
                   )}
@@ -704,10 +570,9 @@ export default function InventoryPage() {
     )
   }
 
-  // ============ HLAVNÍ PŘEHLED SKLADU ============
+  // ──────────────────── Main inventory view ────────────────────
   const totalPages = Math.ceil(filteredAndSortedSummary.length / itemsPerPage)
 
-  // Paginace - logika
   const pages: (number | string)[] = []
   if (totalPages <= 7) {
     for (let i = 1; i <= totalPages; i++) pages.push(i)
@@ -724,37 +589,24 @@ export default function InventoryPage() {
 
   const handlePageChange = (newPage: number) => {
     setCurrentPage(newPage)
-    setTimeout(() => {
-      sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }, 50)
+    setTimeout(() => sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
   }
 
   return (
-    <div className="space-y-6">
-      {/* Hlavička */}
-      <div className="bg-gradient-to-r from-slate-50 to-purple-50 border-l-4 border-purple-500 rounded-lg shadow-sm py-4 px-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-purple-700">
-            Skladová evidence
-            <span className="text-sm font-normal text-gray-600 ml-3">
-              (Zobrazeno <span className="font-semibold text-purple-600">{filteredAndSortedSummary.length}</span> z <span className="font-semibold text-gray-700">{summary.length}</span>)
-            </span>
-          </h1>
-          <button
-            onClick={() => fetchData()}
-            className="flex items-center gap-2 px-4 py-2 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg text-sm font-medium transition-colors"
-            title="Obnovit data skladu"
-          >
-            <RefreshCw className="h-4 w-4" />
-            Obnovit
-          </button>
-        </div>
-      </div>
+    <EntityPage highlightId={highlightId}>
+      <EntityPage.Header
+        title="Skladová evidence"
+        icon={Warehouse}
+        color="purple"
+        total={ep.rows.length}
+        filtered={filteredAndSortedSummary.length}
+        onRefresh={ep.refresh}
+      />
 
-      {/* Filtry - 6 sloupců */}
+      {/* Filtry */}
       <div className="grid grid-cols-[auto_1fr_1fr_1fr_1fr_1fr_1fr_1fr] items-center gap-4 px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg">
         <button onClick={() => { setFilterName(''); setFilterCategory(''); setFilterMinStock(''); setFilterMinReserved(''); setFilterMinAvailable(''); setFilterMinExpected(''); setFilterStatus('all') }} className="w-8 h-8 bg-gray-200 hover:bg-gray-300 text-gray-600 text-xs rounded flex items-center justify-center" title="Vymazat filtry">✕</button>
-        <input type="text" value={filterName} onChange={(e) => setFilterName(e.target.value)} placeholder="Produkt..." className="px-2 py-1.5 border border-gray-300 rounded text-xs text-center focus:ring-1 focus:ring-purple-500" />
+        <input type="text" value={filterName} onChange={e => setFilterName(e.target.value)} placeholder="Produkt..." className="px-2 py-1.5 border border-gray-300 rounded text-xs text-center focus:ring-1 focus:ring-purple-500" />
         <div ref={filterCategoryRef} className="relative">
           <div onClick={() => setFilterCategoryDropdownOpen(!filterCategoryDropdownOpen)} className="px-2 py-1.5 border border-gray-300 rounded text-xs text-center cursor-pointer bg-white hover:border-purple-500 truncate">
             {filterCategory ? categories.find(c => c.id === filterCategory)?.name || 'Kategorie' : 'Kategorie'}
@@ -762,41 +614,42 @@ export default function InventoryPage() {
           {filterCategoryDropdownOpen && (
             <div className="absolute z-50 mt-1 w-40 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
               <div onClick={() => { setFilterCategory(''); setFilterCategoryDropdownOpen(false) }} className="px-3 py-2 hover:bg-purple-50 cursor-pointer text-xs">Vše</div>
-              {categories.map((cat: any) => <div key={cat.id} onClick={() => { setFilterCategory(cat.id); setFilterCategoryDropdownOpen(false) }} className="px-3 py-2 hover:bg-purple-50 cursor-pointer text-xs truncate">{cat.name}</div>)}
+              {categories.map((cat: any) => (
+                <div key={cat.id} onClick={() => { setFilterCategory(cat.id); setFilterCategoryDropdownOpen(false) }} className="px-3 py-2 hover:bg-purple-50 cursor-pointer text-xs truncate">{cat.name}</div>
+              ))}
             </div>
           )}
         </div>
-        <input type="number" value={filterMinStock} onChange={(e) => setFilterMinStock(e.target.value)} placeholder="≥ Skladem" className="px-2 py-1.5 border border-gray-300 rounded text-xs text-center focus:ring-1 focus:ring-purple-500" />
-        <input type="number" value={filterMinReserved} onChange={(e) => setFilterMinReserved(e.target.value)} placeholder="≥ Rezerv." className="px-2 py-1.5 border border-gray-300 rounded text-xs text-center focus:ring-1 focus:ring-purple-500" />
-        <input type="number" value={filterMinAvailable} onChange={(e) => setFilterMinAvailable(e.target.value)} placeholder="≥ Dostup." className="px-2 py-1.5 border border-gray-300 rounded text-xs text-center focus:ring-1 focus:ring-purple-500" />
-        <input type="number" value={filterMinExpected} onChange={(e) => setFilterMinExpected(e.target.value)} placeholder="≥ Očekáv." className="px-2 py-1.5 border border-gray-300 rounded text-xs text-center focus:ring-1 focus:ring-purple-500" />
+        <input type="number" value={filterMinStock}     onChange={e => setFilterMinStock(e.target.value)}     placeholder="≥ Skladem"  className="px-2 py-1.5 border border-gray-300 rounded text-xs text-center focus:ring-1 focus:ring-purple-500" />
+        <input type="number" value={filterMinReserved}  onChange={e => setFilterMinReserved(e.target.value)}  placeholder="≥ Rezerv."  className="px-2 py-1.5 border border-gray-300 rounded text-xs text-center focus:ring-1 focus:ring-purple-500" />
+        <input type="number" value={filterMinAvailable} onChange={e => setFilterMinAvailable(e.target.value)} placeholder="≥ Dostup."  className="px-2 py-1.5 border border-gray-300 rounded text-xs text-center focus:ring-1 focus:ring-purple-500" />
+        <input type="number" value={filterMinExpected}  onChange={e => setFilterMinExpected(e.target.value)}  placeholder="≥ Očekáv."  className="px-2 py-1.5 border border-gray-300 rounded text-xs text-center focus:ring-1 focus:ring-purple-500" />
         <div ref={filterStatusRef} className="relative">
           <div onClick={() => setFilterStatusDropdownOpen(!filterStatusDropdownOpen)} className="px-2 py-1.5 border border-gray-300 rounded text-xs text-center cursor-pointer bg-white hover:border-purple-500">
-            {filterStatus === 'all' && 'Status'}
-            {filterStatus === 'ok' && <span className="text-green-600">OK</span>}
-            {filterStatus === 'low' && <span className="text-orange-600">Nízký</span>}
+            {filterStatus === 'all'   && 'Status'}
+            {filterStatus === 'ok'    && <span className="text-green-600">OK</span>}
+            {filterStatus === 'low'   && <span className="text-orange-600">Nízký</span>}
             {filterStatus === 'empty' && <span className="text-red-600">Vyprodáno</span>}
           </div>
           {filterStatusDropdownOpen && (
             <div className="absolute z-50 mt-1 w-full bg-white border border-gray-300 rounded shadow-lg">
-              <div onClick={() => { setFilterStatus('all'); setFilterStatusDropdownOpen(false) }} className="px-3 py-2 hover:bg-purple-50 cursor-pointer text-xs text-center">Vše</div>
-              <div onClick={() => { setFilterStatus('ok'); setFilterStatusDropdownOpen(false) }} className="px-3 py-2 hover:bg-purple-50 cursor-pointer text-xs text-center text-green-600">OK</div>
-              <div onClick={() => { setFilterStatus('low'); setFilterStatusDropdownOpen(false) }} className="px-3 py-2 hover:bg-purple-50 cursor-pointer text-xs text-center text-orange-600">Nízký stav</div>
+              <div onClick={() => { setFilterStatus('all');   setFilterStatusDropdownOpen(false) }} className="px-3 py-2 hover:bg-purple-50 cursor-pointer text-xs text-center">Vše</div>
+              <div onClick={() => { setFilterStatus('ok');    setFilterStatusDropdownOpen(false) }} className="px-3 py-2 hover:bg-purple-50 cursor-pointer text-xs text-center text-green-600">OK</div>
+              <div onClick={() => { setFilterStatus('low');   setFilterStatusDropdownOpen(false) }} className="px-3 py-2 hover:bg-purple-50 cursor-pointer text-xs text-center text-orange-600">Nízký stav</div>
               <div onClick={() => { setFilterStatus('empty'); setFilterStatusDropdownOpen(false) }} className="px-3 py-2 hover:bg-purple-50 cursor-pointer text-xs text-center text-red-600">Vyprodáno</div>
             </div>
           )}
         </div>
       </div>
 
-      {/* Tabulka produktů - 8 sloupců */}
+      {/* Tabulka */}
       <div ref={sectionRef} className="bg-white rounded-lg shadow-sm border border-gray-200">
-        {summary.length === 0 ? (
+        {ep.rows.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-gray-500">Zatím není nic naskladněno</p>
           </div>
         ) : (
           <>
-            {/* Hlavička */}
             <div className="grid grid-cols-[auto_1fr_1fr_1fr_1fr_1fr_1fr_1fr] items-center gap-4 px-4 py-3 bg-gray-100 border-b rounded-t-lg text-xs font-semibold text-gray-700">
               <div className="w-8"></div>
               <div className="text-left cursor-pointer hover:text-purple-600" onClick={() => handleSort('productName')}>Produkt <SortIcon field="productName" /></div>
@@ -808,26 +661,17 @@ export default function InventoryPage() {
               <div className="text-center">Status</div>
             </div>
 
-            {/* Data */}
             <div className="divide-y divide-gray-100">
               {filteredAndSortedSummary.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((item) => (
                 <div key={item.productId} id={`product-${item.productId}`} className={`${highlightId === item.productId ? 'border-2 border-purple-500 bg-purple-50' : ''}`}>
                   <div className="grid grid-cols-[auto_1fr_1fr_1fr_1fr_1fr_1fr_1fr] items-center gap-4 px-4 py-3 cursor-pointer hover:bg-purple-50 transition-colors" onClick={() => setSelectedProductId(item.productId)}>
-                    <div className="w-8">
-                      <ChevronRight className="h-5 w-5 text-gray-400" />
-                    </div>
+                    <div className="w-8"><ChevronRight className="h-5 w-5 text-gray-400" /></div>
                     <div className="text-left text-sm font-medium text-gray-900 truncate">{item.productName}</div>
                     <div className="text-center text-sm text-gray-600 truncate">{item.category?.name || '-'}</div>
                     <div className={`text-center text-sm font-semibold ${item.stockStatus === 'empty' ? 'text-red-600' : item.stockStatus === 'low' ? 'text-orange-600' : 'text-green-600'}`}>{formatQuantity(item.physicalStock, item.unit)}</div>
-                    <div className="text-center text-sm font-semibold text-orange-600">
-                      {item.reservedStock > 0 ? formatQuantity(item.reservedStock, item.unit) : '-'}
-                    </div>
-                    <div className="text-center text-sm font-semibold text-green-600">
-                      {formatQuantity(item.availableStock, item.unit)}
-                    </div>
-                    <div className="text-center text-sm font-semibold text-blue-600">
-                      {item.expectedQuantity > 0 ? `+${formatQuantity(item.expectedQuantity, item.unit)}` : '-'}
-                    </div>
+                    <div className="text-center text-sm font-semibold text-orange-600">{item.reservedStock > 0 ? formatQuantity(item.reservedStock, item.unit) : '-'}</div>
+                    <div className="text-center text-sm font-semibold text-green-600">{formatQuantity(item.availableStock, item.unit)}</div>
+                    <div className="text-center text-sm font-semibold text-blue-600">{item.expectedQuantity > 0 ? `+${formatQuantity(item.expectedQuantity, item.unit)}` : '-'}</div>
                     <div className="text-center">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${item.stockStatus === 'empty' ? 'bg-red-100 text-red-800' : item.stockStatus === 'low' ? 'bg-orange-100 text-orange-800' : 'bg-green-100 text-green-800'}`}>
                         {item.stockStatus === 'empty' ? 'Vyprodáno' : item.stockStatus === 'low' ? 'Nízký' : 'OK'}
@@ -837,20 +681,13 @@ export default function InventoryPage() {
                 </div>
               ))}
 
-              {/* Součet */}
               <div className="grid grid-cols-[auto_1fr_1fr_1fr_1fr_1fr_1fr_1fr] items-center gap-4 px-4 py-3 bg-gray-100 font-bold border-t-2 border-gray-300">
                 <div className="w-8"></div>
                 <div className="text-left text-sm">Celkem ({filteredAndSortedSummary.length})</div>
-                <div></div>
-                <div></div>
-                <div></div>
-                <div></div>
-                <div></div>
-                <div></div>
+                <div></div><div></div><div></div><div></div><div></div><div></div>
               </div>
             </div>
 
-            {/* Paginace */}
             {filteredAndSortedSummary.length > 0 && (
               <div className="p-4 border-t flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -863,11 +700,10 @@ export default function InventoryPage() {
                 {totalPages > 1 && (
                   <div className="flex items-center gap-2">
                     <button onClick={() => handlePageChange(Math.max(1, currentPage - 1))} disabled={currentPage === 1} className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 disabled:opacity-50 text-sm font-medium">Předchozí</button>
-                    {pages.map((page, index) => page === '...' ? (
-                      <span key={`ellipsis-${index}`} className="px-2 text-gray-500">...</span>
-                    ) : (
-                      <button key={page} onClick={() => handlePageChange(page as number)} className={`px-3 py-1.5 rounded text-sm font-medium ${currentPage === page ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>{page}</button>
-                    ))}
+                    {pages.map((page, index) => page === '...'
+                      ? <span key={`e-${index}`} className="px-2 text-gray-500">...</span>
+                      : <button key={page} onClick={() => handlePageChange(page as number)} className={`px-3 py-1.5 rounded text-sm font-medium ${currentPage === page ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>{page}</button>
+                    )}
                     <button onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))} disabled={currentPage >= totalPages} className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 disabled:opacity-50 text-sm font-medium">Další</button>
                   </div>
                 )}
@@ -876,6 +712,6 @@ export default function InventoryPage() {
           </>
         )}
       </div>
-    </div>
+    </EntityPage>
   )
 }

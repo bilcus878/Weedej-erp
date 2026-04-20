@@ -1,21 +1,21 @@
-// Stránka pro výdejky (Delivery Notes)
-// URL: /delivery-notes
-
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table'
 import Button from '@/components/ui/Button'
-import Input from '@/components/ui/Input'
-import { ChevronDown, ChevronRight, Trash2, Package, FileDown, XCircle } from 'lucide-react'
-import { formatDate, formatPrice, formatQuantity } from '@/lib/utils'
+import { ChevronDown, ChevronRight, Package, FileDown, XCircle } from 'lucide-react'
+import { formatDate, formatPrice } from '@/lib/utils'
 import { formatVariantQty } from '@/lib/formatVariantQty'
 import { resolveItemQuantities } from '@/lib/variantConversion'
 import { generateDeliveryNotePDF, openPDFInNewTab } from '@/lib/pdfGenerator'
 import { isNonVatPayer, DEFAULT_VAT_RATE } from '@/lib/vatCalculation'
+import {
+  useEntityPage, EntityPage, FilterInput, FilterSelect, LoadingState, ErrorState,
+  ActionToolbar,
+} from '@/components/erp'
+import type { ColumnDef, SelectOption } from '@/components/erp'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,18 +23,16 @@ interface DeliveryNoteItem {
   id: string
   productId?: string
   productName?: string
-  quantity: number       // packs for non-variant; base-units (g/ml) for variant in modal
+  quantity: number
   orderedQuantity?: number
-  unit: string           // 'ks' for non-variant; 'g'/'ml' for variant in modal
+  unit: string
   inventoryItemId?: string
-  // Variant metadata (populated from order item)
   variantValue?: number | null
   variantUnit?:  string | null
   isVariant?:    boolean
-  orderedBaseQty?:   number  // total base units ordered
-  shippedBaseQty?:   number  // already shipped in base units
-  remainingBaseQty?: number  // remaining to ship in base units
-  // Ceny uložené při vytvoření výdejky (zdroj: faktura → objednávka → produkt)
+  orderedBaseQty?:   number
+  shippedBaseQty?:   number
+  remainingBaseQty?: number
   price?: number | null
   priceWithVat?: number | null
   vatAmount?: number | null
@@ -55,23 +53,15 @@ interface DeliveryNote {
   status: string
   processedAt?: string
   note?: string
-  customer?: {
-    id: string
-    name: string
-  }
+  customer?: { id: string; name: string }
   customerName?: string
   customerOrder?: {
     id: string
     orderNumber: string
-    issuedInvoice?: {
-      id: string
-      invoiceNumber: string
-    }
+    issuedInvoice?: { id: string; invoiceNumber: string }
+    [key: string]: any
   }
-  issuedInvoice?: {
-    id: string
-    invoiceNumber: string
-  }
+  issuedInvoice?: { id: string; invoiceNumber: string }
   transaction?: {
     id: string
     transactionCode: string
@@ -87,10 +77,7 @@ interface CustomerOrder {
   orderDate: string
   status: string
   totalAmount: number
-  customer?: {
-    id: string
-    name: string
-  }
+  customer?: { id: string; name: string }
   customerName?: string
   shippingMethod?:     string | null
   pickupPointId?:      string | null
@@ -111,93 +98,151 @@ interface CustomerOrder {
     vatRate?: number
     vatAmount?: number
     priceWithVat?: number
-    product?: {
-      id: string
-      name: string
-      vatRate?: number
-    }
+    product?: { id: string; name: string; vatRate?: number }
   }>
 }
 
-interface Customer {
-  id: string
-  name: string
+interface Customer { id: string; name: string }
+
+function getDNItemPackCount(quantity: number, productName: string | null | undefined, unit: string): number {
+  if (productName?.includes(' — ') && unit !== 'ks') {
+    const variantLabel = productName.split(' — ').slice(-1)[0]
+    const match = variantLabel.match(/^([\d.]+)/)
+    if (match) {
+      const packSize = parseFloat(match[1])
+      if (packSize > 0) return Math.round((quantity / packSize) * 1000) / 1000
+    }
+  }
+  return quantity
+}
+
+function formatDNItemQty(quantity: number, productName: string | null | undefined, unit: string): string {
+  if (productName?.includes(' — ') && unit !== 'ks') {
+    const variantLabel = productName.split(' — ').slice(-1)[0]
+    const match = variantLabel.match(/^([\d.]+)/)
+    if (match) {
+      const packSize = parseFloat(match[1])
+      if (packSize > 0) {
+        const packs = Math.round((quantity / packSize) * 1000) / 1000
+        return `${packs}x ${variantLabel}`
+      }
+    }
+  }
+  return formatVariantQty(quantity, productName, unit)
+}
+
+function getStatusBadge(status: string) {
+  if (status === 'storno') {
+    return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">STORNO</span>
+  }
+  return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Vydáno</span>
+}
+
+const statusOptions: SelectOption[] = [
+  { value: 'all',       label: 'Vše' },
+  { value: 'delivered', label: 'Vydáno',  className: 'text-green-600' },
+  { value: 'storno',    label: 'STORNO',  className: 'text-red-600'   },
+]
+
+const SHIPPING_LABELS: Record<string, string> = {
+  DPD_HOME: 'DPD — Doručení na adresu',
+  DPD_PICKUP: 'DPD — Výdejní místo',
+  ZASILKOVNA_HOME: 'Zásilkovna — Doručení na adresu',
+  ZASILKOVNA_PICKUP: 'Zásilkovna — Výdejní místo / Z-BOX',
+  COURIER: 'Kurýr',
+  PICKUP_IN_STORE: 'Osobní odběr',
 }
 
 export default function DeliveryNotesPage() {
-  const searchParams = useSearchParams()
-  const highlightId = searchParams.get('highlight')
-  const [deliveryNotes, setDeliveryNotes] = useState<DeliveryNote[]>([])
+  const highlightId = useSearchParams().get('highlight')
+
+  const [isVatPayer, setIsVatPayer]   = useState(true)
   const [pendingOrders, setPendingOrders] = useState<CustomerOrder[]>([])
-  const [customers, setCustomers] = useState<Customer[]>([])
-  const [loading, setLoading] = useState(true)
-  const [isVatPayer, setIsVatPayer] = useState<boolean>(true)
-  const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set())
-  const highlightRef = useRef<HTMLDivElement>(null)
-  const [filteredDeliveryNotes, setFilteredDeliveryNotes] = useState<DeliveryNote[]>([])
-  const [filterNumber, setFilterNumber] = useState('')
-  const [filterDate, setFilterDate] = useState('')
-  const [filterStatus, setFilterStatus] = useState('all')
-  const [filterCustomer, setFilterCustomer] = useState('')
-  const [filterMinItems, setFilterMinItems] = useState('')
-  const [filterMinValue, setFilterMinValue] = useState('')
-  const [filterCustomerDropdownOpen, setFilterCustomerDropdownOpen] = useState(false)
-  const [filterStatusDropdownOpen, setFilterStatusDropdownOpen] = useState(false)
-  const filterCustomerRef = useRef<HTMLDivElement>(null)
-  const filterStatusRef = useRef<HTMLDivElement>(null)
-
-  // Stránkování pro výdejky
-  const [deliveryNotesCurrentPage, setDeliveryNotesCurrentPage] = useState(1)
-  const [deliveryNotesItemsPerPage, setDeliveryNotesItemsPerPage] = useState(20)
-  const deliveryNotesSectionRef = useRef<HTMLDivElement>(null)
-
-  // Filtry pro očekávané výdejky
-  const [pendingFilterOrderNumber, setPendingFilterOrderNumber] = useState('')
-  const [pendingFilterCustomer, setPendingFilterCustomer] = useState('')
-  const [pendingFilterDate, setPendingFilterDate] = useState('')
-  const [pendingFilterCustomerDropdownOpen, setPendingFilterCustomerDropdownOpen] = useState(false)
-  const pendingFilterCustomerRef = useRef<HTMLDivElement>(null)
+  const [customers, setCustomers]     = useState<Customer[]>([])
   const [filteredPendingOrders, setFilteredPendingOrders] = useState<CustomerOrder[]>([])
   const [expandedPendingOrders, setExpandedPendingOrders] = useState<Set<string>>(new Set())
-
-  // Rozkliknutí sekce očekávaných výdejek
   const [isPendingSectionExpanded, setIsPendingSectionExpanded] = useState(false)
-
-  // Stránkování pro očekávané výdejky
-  const [pendingCurrentPage, setPendingCurrentPage] = useState(1)
+  const [pendingCurrentPage, setPendingCurrentPage]   = useState(1)
   const [pendingItemsPerPage, setPendingItemsPerPage] = useState(10)
   const pendingSectionRef = useRef<HTMLDivElement>(null)
 
-  // Modal pro zpracování (vyskladnění)
-  const [showProcessModal, setShowProcessModal] = useState(false)
-  const [processingNoteId, setProcessingNoteId] = useState<string | null>(null)
-  const [processingNoteItems, setProcessingNoteItems] = useState<DeliveryNoteItem[]>([])
-  const [shippedQuantities, setShippedQuantities] = useState<Record<string, number>>({})
-  const [processNote, setProcessNote] = useState('')
-  // Safeguard: prevents double-submit during in-flight API call
-  const [isProcessing, setIsProcessing] = useState(false)
-  // Non-blocking notification state (replaces blocking alert())
+  const [pendingFilterOrderNumber, setPendingFilterOrderNumber] = useState('')
+  const [pendingFilterCustomer, setPendingFilterCustomer]       = useState('')
+  const [pendingFilterDate, setPendingFilterDate]               = useState('')
+
+  const [showProcessModal, setShowProcessModal]         = useState(false)
+  const [processingNoteId, setProcessingNoteId]         = useState<string | null>(null)
+  const [processingNoteItems, setProcessingNoteItems]   = useState<DeliveryNoteItem[]>([])
+  const [shippedQuantities, setShippedQuantities]       = useState<Record<string, number>>({})
+  const [processNote, setProcessNote]                   = useState('')
+  const [isProcessing, setIsProcessing]                 = useState(false)
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
-  useEffect(() => {
-    loadData()
+  const ep = useEntityPage<DeliveryNote>({
+    fetchData: async () => {
+      const [dnRes, sRes] = await Promise.all([
+        fetch('/api/delivery-notes',  { cache: 'no-store' }),
+        fetch('/api/settings',        { cache: 'no-store' }),
+      ])
+      const [dn, s] = await Promise.all([dnRes.json(), sRes.json()])
+      setIsVatPayer(s.isVatPayer ?? true)
+      return dn
+    },
+    getRowId: r => r.id,
+    filterFn: (r, f) => {
+      if (f.number   && !r.deliveryNumber.toLowerCase().includes(f.number.toLowerCase())) return false
+      if (f.date)    { const d = new Date(r.deliveryDate).toISOString().split('T')[0]; if (d !== f.date) return false }
+      if (f.customer){ const n = r.customer?.name || r.customerName || ''; if (!n.toLowerCase().includes(f.customer.toLowerCase())) return false }
+      if (f.minItems && (r.items?.length || 0) < parseInt(f.minItems)) return false
+      if (f.minValue) {
+        const total = r.items.reduce((sum, item) => {
+          const hasSaved = item.price != null && item.priceWithVat != null
+          const unitPrice = hasSaved ? Number(item.price) : Number(item.product?.price || 0)
+          const itemVatRate = hasSaved ? Number(item.vatRate ?? DEFAULT_VAT_RATE) : Number((item.product as any)?.vatRate || DEFAULT_VAT_RATE)
+          const isNonVat = isNonVatPayer(itemVatRate)
+          const vatPer = hasSaved ? Number(item.vatAmount ?? 0) : (isNonVat ? 0 : unitPrice * itemVatRate / 100)
+          const withVat = hasSaved ? Number(item.priceWithVat) : (unitPrice + vatPer)
+          const packs = getDNItemPackCount(Number(item.quantity), item.productName, item.unit)
+          return sum + packs * withVat
+        }, 0)
+        if (total < parseFloat(f.minValue)) return false
+      }
+      if (f.status && f.status !== 'all') {
+        if (f.status === 'delivered' && r.status === 'storno') return false
+        if (f.status === 'storno'    && r.status !== 'storno') return false
+      }
+      return true
+    },
+    highlightId,
+  })
 
-    // Auto-refresh každých 30 sekund
+  async function fetchPendingOrders() {
+    try {
+      const [poRes, custRes] = await Promise.all([
+        fetch('/api/customer-orders/pending-shipment', { cache: 'no-store' }),
+        fetch('/api/customers', { cache: 'no-store' }),
+      ])
+      const [po, cust] = await Promise.all([poRes.json(), custRes.json()])
+      setPendingOrders(Array.isArray(po)   ? po   : [])
+      setCustomers(Array.isArray(cust) ? cust : [])
+    } catch { /* silent */ }
+  }
+
+  useEffect(() => {
+    fetchPendingOrders()
     const interval = setInterval(() => {
       fetch('/api/customer-orders/pending-shipment', { cache: 'no-store' })
-        .then(res => res.json())
-        .then(data => {
-          if (Array.isArray(data)) setPendingOrders(data)
-        })
+        .then(r => r.json())
+        .then(data => { if (Array.isArray(data)) setPendingOrders(data) })
         .catch(() => {})
     }, 30000)
-
-    // Refresh při návratu na záložku
     const handleVisibility = () => {
-      if (document.visibilityState === 'visible') loadData()
+      if (document.visibilityState === 'visible') {
+        ep.refresh()
+        fetchPendingOrders()
+      }
     }
     document.addEventListener('visibilitychange', handleVisibility)
-
     return () => {
       clearInterval(interval)
       document.removeEventListener('visibilitychange', handleVisibility)
@@ -205,191 +250,28 @@ export default function DeliveryNotesPage() {
   }, [])
 
   useEffect(() => {
-    if (highlightId && filteredDeliveryNotes.length > 0) {
-      // Najdi index highlightnuté výdejky ve filtrovaných datech
-      const index = filteredDeliveryNotes.findIndex(note => note.id === highlightId)
-
-      if (index !== -1) {
-        // Vypočítej na které stránce se nachází
-        const pageNumber = Math.floor(index / deliveryNotesItemsPerPage) + 1
-        setDeliveryNotesCurrentPage(pageNumber)
-
-        // Rozbal výdejku
-        setExpandedNotes(new Set([highlightId]))
-
-        // Scrolluj k výdejce po malé pauze (aby se stránka načetla)
-        setTimeout(() => {
-          if (highlightRef.current) {
-            highlightRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
-          }
-        }, 100)
-      }
-    }
-  }, [highlightId, filteredDeliveryNotes, deliveryNotesItemsPerPage])
-
-  // Zavřít dropdown filtry při kliknutí mimo
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (filterCustomerRef.current && !filterCustomerRef.current.contains(event.target as Node)) {
-        setFilterCustomerDropdownOpen(false)
-      }
-      if (filterStatusRef.current && !filterStatusRef.current.contains(event.target as Node)) {
-        setFilterStatusDropdownOpen(false)
-      }
-      if (pendingFilterCustomerRef.current && !pendingFilterCustomerRef.current.contains(event.target as Node)) {
-        setPendingFilterCustomerDropdownOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
-
-  useEffect(() => {
-    let filtered = [...deliveryNotes]
-
-    if (filterNumber) {
-      filtered = filtered.filter(dn =>
-        dn.deliveryNumber.toLowerCase().includes(filterNumber.toLowerCase())
-      )
-    }
-
-    if (filterDate) {
-      filtered = filtered.filter(dn => {
-        const dnDate = new Date(dn.deliveryDate).toISOString().split('T')[0]
-        return dnDate === filterDate
-      })
-    }
-
-    if (filterStatus !== 'all') {
-      if (filterStatus === 'delivered') {
-        // "Vydáno" zahrnuje active, delivered a ostatní (kromě storno)
-        filtered = filtered.filter(dn => dn.status !== 'storno')
-      } else if (filterStatus === 'storno') {
-        filtered = filtered.filter(dn => dn.status === 'storno')
-      }
-    }
-
-    if (filterCustomer) {
-      filtered = filtered.filter(dn => {
-        const customerName = dn.customer?.name || dn.customerName || ''
-        return customerName.toLowerCase().includes(filterCustomer.toLowerCase())
-      })
-    }
-
-    // Filtr podle minimálního počtu položek
-    if (filterMinItems) {
-      const minItems = parseInt(filterMinItems)
-      filtered = filtered.filter(dn => (dn.items?.length || 0) >= minItems)
-    }
-
-    // Filtr podle minimální hodnoty
-    if (filterMinValue) {
-      const minVal = parseFloat(filterMinValue)
-      filtered = filtered.filter(dn => {
-        const total = dn.items.reduce((sum, item) => {
-          const hasSavedPrice = item.price != null && item.priceWithVat != null
-          const p = hasSavedPrice ? Number(item.priceWithVat) : Number(item.product?.price || 0)
-          const packs = getDNItemPackCount(Number(item.quantity), item.productName, item.unit)
-          return sum + (packs * p)
-        }, 0)
-        return total >= minVal
-      })
-    }
-
-    setFilteredDeliveryNotes(filtered)
-    setDeliveryNotesCurrentPage(1) // Reset stránky při změně filtrů
-  }, [deliveryNotes, filterNumber, filterDate, filterStatus, filterCustomer, filterMinItems, filterMinValue])
-
-  // Filtrování očekávaných výdejek
-  useEffect(() => {
     let filtered = [...pendingOrders]
-
-    if (pendingFilterOrderNumber) {
-      filtered = filtered.filter(order =>
-        order.orderNumber.toLowerCase().includes(pendingFilterOrderNumber.toLowerCase())
-      )
-    }
-
-    if (pendingFilterCustomer) {
-      filtered = filtered.filter(order => {
-        const customerName = order.customer?.name || order.customerName || ''
-        return customerName.toLowerCase().includes(pendingFilterCustomer.toLowerCase())
-      })
-    }
-
-    if (pendingFilterDate) {
-      filtered = filtered.filter(order => {
-        const orderDate = new Date(order.orderDate).toISOString().split('T')[0]
-        return orderDate === pendingFilterDate
-      })
-    }
-
+    if (pendingFilterOrderNumber) filtered = filtered.filter(o => o.orderNumber.toLowerCase().includes(pendingFilterOrderNumber.toLowerCase()))
+    if (pendingFilterCustomer)    filtered = filtered.filter(o => (o.customer?.name || o.customerName || '').toLowerCase().includes(pendingFilterCustomer.toLowerCase()))
+    if (pendingFilterDate)        filtered = filtered.filter(o => new Date(o.orderDate).toISOString().split('T')[0] === pendingFilterDate)
     setFilteredPendingOrders(filtered)
-    setPendingCurrentPage(1) // Reset stránky při změně filtrů
+    setPendingCurrentPage(1)
   }, [pendingOrders, pendingFilterOrderNumber, pendingFilterCustomer, pendingFilterDate])
 
-  async function loadData() {
-    try {
-      // cache: 'no-store' on every call so a successful fulfillment always gets fresh DB state,
-      // not a stale browser-cache or Next.js Data-Cache response.
-      const [deliveryNotesRes, pendingOrdersRes, customersRes, settingsRes] = await Promise.all([
-        fetch('/api/delivery-notes', { cache: 'no-store' }),
-        fetch('/api/customer-orders/pending-shipment', { cache: 'no-store' }),
-        fetch('/api/customers', { cache: 'no-store' }),
-        fetch('/api/settings', { cache: 'no-store' })
-      ])
-
-      const [deliveryNotesData, pendingOrdersData, customersData, settingsData] = await Promise.all([
-        deliveryNotesRes.json(),
-        pendingOrdersRes.json(),
-        customersRes.json(),
-        settingsRes.json()
-      ])
-
-      setDeliveryNotes(Array.isArray(deliveryNotesData) ? deliveryNotesData : [])
-      setPendingOrders(Array.isArray(pendingOrdersData) ? pendingOrdersData : [])
-      setCustomers(Array.isArray(customersData) ? customersData : [])
-      setIsVatPayer(settingsData.isVatPayer ?? true)
-    } catch (error) {
-      console.error('Chyba při načítání dat:', error)
-      alert('Nepodařilo se načíst data')
-      setDeliveryNotes([])
-      setPendingOrders([])
-      setCustomers([])
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  function toggleExpanded(noteId: string) {
-    const newExpanded = new Set(expandedNotes)
-    if (newExpanded.has(noteId)) {
-      newExpanded.delete(noteId)
-    } else {
-      newExpanded.add(noteId)
-    }
-    setExpandedNotes(newExpanded)
-  }
-
   function togglePendingExpanded(orderId: string) {
-    const newExpanded = new Set(expandedPendingOrders)
-    if (newExpanded.has(orderId)) {
-      newExpanded.delete(orderId)
-    } else {
-      newExpanded.add(orderId)
-    }
-    setExpandedPendingOrders(newExpanded)
+    setExpandedPendingOrders(prev => {
+      const s = new Set(prev)
+      s.has(orderId) ? s.delete(orderId) : s.add(orderId)
+      return s
+    })
   }
-
 
   function handlePrepareShipment(orderId: string) {
     const order = pendingOrders.find(o => o.id === orderId)
     if (!order) return
-
     setProcessingNoteId(orderId)
-
-    const orderItemsAsDeliveryItems: DeliveryNoteItem[] = order.items
-      .filter(item => item.productId !== null)  // no shipping fee lines
+    const items: DeliveryNoteItem[] = order.items
+      .filter(item => item.productId !== null)
       .map(item => {
         const resolved = resolveItemQuantities({
           quantity:        Number(item.quantity),
@@ -421,54 +303,32 @@ export default function DeliveryNotesPage() {
         }
       })
       .filter(item => item.quantity > 0)
-
-    setProcessingNoteItems(orderItemsAsDeliveryItems)
-
-    const initialQuantities: Record<string, number> = {}
-    orderItemsAsDeliveryItems.forEach(item => {
-      initialQuantities[item.id!] = item.quantity  // default = ship everything remaining
-    })
-    setShippedQuantities(initialQuantities)
+    setProcessingNoteItems(items)
+    const init: Record<string, number> = {}
+    items.forEach(item => { init[item.id!] = item.quantity })
+    setShippedQuantities(init)
     setShowProcessModal(true)
   }
 
   function handleProcessDeliveryNote(noteId: string) {
-    // Najdi výdejku
-    const note = deliveryNotes.find(n => n.id === noteId)
+    const note = ep.rows.find(n => n.id === noteId)
     if (!note) return
-
     setProcessingNoteId(noteId)
     setProcessingNoteItems(note.items || [])
-
-    // Inicializuj shippedQuantities s plným množstvím
-    const initialQuantities: Record<string, number> = {}
-    note.items.forEach(item => {
-      if (item.id) {
-        initialQuantities[item.id] = Number(item.quantity)
-      }
-    })
-    setShippedQuantities(initialQuantities)
-
+    const init: Record<string, number> = {}
+    note.items.forEach(item => { if (item.id) init[item.id] = Number(item.quantity) })
+    setShippedQuantities(init)
     setShowProcessModal(true)
   }
 
   async function handleConfirmProcess() {
-    // Idempotency guard: block re-entry while a request is already in flight
     if (!processingNoteId || isProcessing) return
-
     setIsProcessing(true)
-
-    // Optimistic update: remove order from the list immediately so the user
-    // sees it gone without waiting for the network round-trip.
     const isCustomerOrder = pendingOrders.some(o => o.id === processingNoteId)
     const savedOrder = isCustomerOrder ? pendingOrders.find(o => o.id === processingNoteId) ?? null : null
     if (savedOrder) setPendingOrders(prev => prev.filter(o => o.id !== processingNoteId))
-
     try {
-      // Zjisti, jestli je to objednávka (z pendingOrders) nebo existující výdejka (z deliveryNotes)
-
       if (isCustomerOrder) {
-        // VYTVÁŘÍME NOVOU VÝDEJKU z objednávky
         const items = processingNoteItems.map(item => ({
           orderItemId: item.id,
           productId:   item.productId || null,
@@ -476,89 +336,59 @@ export default function DeliveryNotesPage() {
           quantity:    shippedQuantities[item.id!] || 0,
           unit:        item.unit,
         }))
-
         const payload: any = { customerOrderId: processingNoteId, items }
         if (processNote.trim()) payload.note = processNote.trim()
-
         const res = await fetch('/api/delivery-notes/create-from-order', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
         })
-
-        if (!res.ok) {
-          const error = await res.json()
-          throw new Error(error.error || 'Chyba při vytváření výdejky')
-        }
+        if (!res.ok) { const e = await res.json(); throw new Error(e.error || 'Chyba při vytváření výdejky') }
       } else {
-        // ZPRACOVÁVÁME EXISTUJÍCÍ VÝDEJKU (draft → active)
-        const items = processingNoteItems.map(item => ({
-          id: item.id!,
-          shippedQuantity: shippedQuantities[item.id!] || 0
-        }))
-
+        const items = processingNoteItems.map(item => ({ id: item.id!, shippedQuantity: shippedQuantities[item.id!] || 0 }))
         const payload: any = { items }
         if (processNote.trim()) payload.note = processNote.trim()
-
         const res = await fetch(`/api/delivery-notes/${processingNoteId}/process`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
         })
-
-        if (!res.ok) {
-          const error = await res.json()
-          throw new Error(error.error || 'Chyba při zpracování')
-        }
+        if (!res.ok) { const e = await res.json(); throw new Error(e.error || 'Chyba při zpracování') }
       }
-
-      // Close modal immediately so the user sees a clean state while the list refreshes
       setShowProcessModal(false)
       setProcessingNoteId(null)
       setProcessingNoteItems([])
       setShippedQuantities({})
       setProcessNote('')
-
-      // Await the full refresh so the pending list is guaranteed up-to-date before we return.
-      // This is the atomic guarantee: the order cannot remain visible after this resolves.
-      await loadData()
-
+      await Promise.all([ep.refresh(), fetchPendingOrders()])
       setToast({ type: 'success', message: '✅ Výdejka byla vyskladněna!' })
       setTimeout(() => setToast(null), 4000)
     } catch (error: any) {
       console.error('[Výdejky] Chyba při vyskladnění:', error)
-      // Roll back optimistic removal if the API failed
       if (savedOrder) setPendingOrders(prev => [...prev, savedOrder])
       setToast({ type: 'error', message: error.message || 'Nepodařilo se zpracovat výdejku' })
       setTimeout(() => setToast(null), 6000)
     } finally {
-      // Always release the processing lock, even if loadData or the API call threw
       setIsProcessing(false)
     }
   }
 
-
   async function handleDownloadPDF(noteId: string) {
-    const note = deliveryNotes.find(n => n.id === noteId)
+    const note = ep.rows.find(n => n.id === noteId)
     if (!note) return
-
     try {
       const pdfData = {
         noteNumber: note.deliveryNumber,
         noteDate: note.deliveryDate,
-        customerName: (note.customerOrder as any)?.customer?.name || (note.customerOrder as any)?.customerName || note.customerName || 'Neznámý zákazník',
+        customerName: note.customerOrder?.customer?.name || (note.customerOrder as any)?.customerName || note.customerName || 'Neznámý zákazník',
         customerAddress: (note.customerOrder as any)?.customerAddress,
-        customerEmail: (note.customerOrder as any)?.customerEmail,
-        customerPhone: (note.customerOrder as any)?.customerPhone,
-        customerICO: (note.customerOrder as any)?.customer?.ico,
-        customerDIC: (note.customerOrder as any)?.customer?.dic,
+        customerEmail:   (note.customerOrder as any)?.customerEmail,
+        customerPhone:   (note.customerOrder as any)?.customerPhone,
+        customerICO:     note.customerOrder?.customer?.ico,
+        customerDIC:     note.customerOrder?.customer?.dic,
         items: note.items.map(item => {
-          const hasSavedPrice = item.price != null && item.priceWithVat != null
-          const unitPrice = hasSavedPrice ? Number(item.price) : Number(item.product?.price || 0)
-          const itemVatRate = hasSavedPrice ? Number(item.vatRate ?? DEFAULT_VAT_RATE) : Number((item.product as any)?.vatRate || DEFAULT_VAT_RATE)
+          const hasSaved = item.price != null && item.priceWithVat != null
+          const unitPrice = hasSaved ? Number(item.price) : Number(item.product?.price || 0)
+          const itemVatRate = hasSaved ? Number(item.vatRate ?? DEFAULT_VAT_RATE) : Number((item.product as any)?.vatRate || DEFAULT_VAT_RATE)
           const isItemNonVat = isNonVatPayer(itemVatRate)
-          const vatPerUnit = hasSavedPrice ? Number(item.vatAmount ?? 0) : (isItemNonVat ? 0 : unitPrice * itemVatRate / 100)
-          const priceWithVatPerUnit = hasSavedPrice ? Number(item.priceWithVat) : (unitPrice + vatPerUnit)
+          const vatPerUnit = hasSaved ? Number(item.vatAmount ?? 0) : (isItemNonVat ? 0 : unitPrice * itemVatRate / 100)
+          const priceWithVatPerUnit = hasSaved ? Number(item.priceWithVat) : (unitPrice + vatPerUnit)
           const packs = getDNItemPackCount(Number(item.quantity), item.productName, item.unit)
           return {
             productName: item.productName || item.product?.name || 'Neznámý produkt',
@@ -568,19 +398,18 @@ export default function DeliveryNotesPage() {
           }
         }),
         totalAmount: note.items.reduce((sum, item) => {
-          const hasSavedPrice = item.price != null && item.priceWithVat != null
-          const unitPrice = hasSavedPrice ? Number(item.price) : Number(item.product?.price || 0)
-          const itemVatRate = hasSavedPrice ? Number(item.vatRate ?? DEFAULT_VAT_RATE) : Number((item.product as any)?.vatRate || DEFAULT_VAT_RATE)
+          const hasSaved = item.price != null && item.priceWithVat != null
+          const unitPrice = hasSaved ? Number(item.price) : Number(item.product?.price || 0)
+          const itemVatRate = hasSaved ? Number(item.vatRate ?? DEFAULT_VAT_RATE) : Number((item.product as any)?.vatRate || DEFAULT_VAT_RATE)
           const isItemNonVat = isNonVatPayer(itemVatRate)
-          const vatPerUnit = hasSavedPrice ? Number(item.vatAmount ?? 0) : (isItemNonVat ? 0 : unitPrice * itemVatRate / 100)
-          const priceWithVatPerUnit = hasSavedPrice ? Number(item.priceWithVat) : (unitPrice + vatPerUnit)
+          const vatPerUnit = hasSaved ? Number(item.vatAmount ?? 0) : (isItemNonVat ? 0 : unitPrice * itemVatRate / 100)
+          const priceWithVatPerUnit = hasSaved ? Number(item.priceWithVat) : (unitPrice + vatPerUnit)
           const packs = getDNItemPackCount(Number(item.quantity), item.productName, item.unit)
-          return sum + (packs * (isVatPayer ? priceWithVatPerUnit : unitPrice))
+          return sum + packs * (isVatPayer ? priceWithVatPerUnit : unitPrice)
         }, 0),
         note: note.note,
-        status: note.status
+        status: note.status,
       }
-
       const settingsRes = await fetch('/api/settings')
       const settings = await settingsRes.json()
       const pdfBlob = await generateDeliveryNotePDF(pdfData, settings)
@@ -592,1248 +421,535 @@ export default function DeliveryNotesPage() {
   }
 
   async function handleStorno(noteId: string) {
-    const note = deliveryNotes.find(n => n.id === noteId)
+    const note = ep.rows.find(n => n.id === noteId)
     if (!note) return
-
-    if (note.status === 'storno') {
-      alert('Tato výdejka je již stornována')
-      return
-    }
-
+    if (note.status === 'storno') { alert('Tato výdejka je již stornována'); return }
     const reason = prompt(`Opravdu chceš stornovat výdejku ${note.deliveryNumber}?\n\nZadej důvod storna (povinné):`)
-
-    if (!reason || reason.trim().length === 0) {
-      // Uživatel zrušil nebo nezadal důvod
-      return
-    }
-
+    if (!reason || reason.trim().length === 0) return
     try {
       const res = await fetch(`/api/delivery-notes/${noteId}/storno`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason, userId: 'user' })
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason, userId: 'user' }),
       })
-
       const data = await res.json()
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Nepodařilo se stornovat výdejku')
-      }
-
-      await loadData()
+      if (!res.ok) throw new Error(data.error || 'Nepodařilo se stornovat výdejku')
+      await ep.refresh()
       setToast({ type: 'success', message: 'Výdejka byla stornována a zboží vráceno do skladu.' })
       setTimeout(() => setToast(null), 4000)
     } catch (error: any) {
-      console.error('Chyba při stornování:', error)
       setToast({ type: 'error', message: `Chyba: ${error.message}` })
       setTimeout(() => setToast(null), 6000)
     }
   }
 
-  /**
-   * Variant delivery note items are stored in base units (g/ml), not packs.
-   * e.g. "CBD Oil — 3ml" shipped as 4 packs is stored as quantity=12, unit='ml'.
-   * This helper converts base-units → pack count so that prices and totals are correct.
-   * Returns the raw quantity unchanged for non-variant items (unit === 'ks').
-   */
-  function getDNItemPackCount(quantity: number, productName: string | null | undefined, unit: string): number {
-    if (productName?.includes(' — ') && unit !== 'ks') {
-      const variantLabel = productName.split(' — ').slice(-1)[0]
-      const match = variantLabel.match(/^([\d.]+)/)
-      if (match) {
-        const packSize = parseFloat(match[1])
-        if (packSize > 0) return Math.round((quantity / packSize) * 1000) / 1000
-      }
-    }
-    return quantity
-  }
+  const columns: ColumnDef<DeliveryNote>[] = [
+    {
+      key: 'number', header: 'Číslo',
+      render: r => (
+        <p className={`text-sm font-semibold text-gray-900 truncate ${r.status === 'storno' ? 'line-through' : ''}`}>
+          {r.deliveryNumber}
+        </p>
+      ),
+    },
+    {
+      key: 'date', header: 'Datum',
+      render: r => <p className="text-sm text-gray-700">{formatDate(r.deliveryDate)}</p>,
+    },
+    {
+      key: 'customer', header: 'Odběratel',
+      render: r => r.customer?.id
+        ? <a href={`/customers?highlight=${r.customer.id}`} className="text-sm text-blue-600 hover:underline truncate block" onClick={e => e.stopPropagation()}>{r.customer.name}</a>
+        : <p className="text-sm text-gray-700 truncate">{r.customerName || 'Anonymní zákazník'}</p>,
+    },
+    { key: 'items',  header: 'Položek', render: r => <p className="text-sm text-gray-600">{r.items.length}</p> },
+    {
+      key: 'value', header: 'Hodnota',
+      render: r => (
+        <p className="text-sm font-bold text-gray-900">
+          {r.items.length > 0 ? formatPrice(r.items.reduce((sum, item) => {
+            const hasSaved = item.price != null && item.priceWithVat != null
+            const unitPrice = hasSaved ? Number(item.price) : Number(item.product?.price || 0)
+            const itemVatRate = hasSaved ? Number(item.vatRate ?? DEFAULT_VAT_RATE) : Number((item.product as any)?.vatRate || DEFAULT_VAT_RATE)
+            const isItemNonVat = isNonVatPayer(itemVatRate)
+            const vatPer = hasSaved ? Number(item.vatAmount ?? 0) : (isItemNonVat ? 0 : unitPrice * itemVatRate / 100)
+            const withVat = hasSaved ? Number(item.priceWithVat) : (unitPrice + vatPer)
+            const packs = getDNItemPackCount(Number(item.quantity), item.productName, item.unit)
+            return sum + packs * (isVatPayer ? withVat : unitPrice)
+          }, 0)) : '-'}
+        </p>
+      ),
+    },
+    { key: 'status', header: 'Status', render: r => getStatusBadge(r.status) },
+  ]
 
-  function formatDNItemQty(quantity: number, productName: string | null | undefined, unit: string): string {
-    if (productName?.includes(' — ') && unit !== 'ks') {
-      const variantLabel = productName.split(' — ').slice(-1)[0]
-      const match = variantLabel.match(/^([\d.]+)/)
-      if (match) {
-        const packSize = parseFloat(match[1])
-        if (packSize > 0) {
-          const packs = Math.round((quantity / packSize) * 1000) / 1000
-          return `${packs}x ${variantLabel}`
-        }
-      }
-    }
-    return formatVariantQty(quantity, productName, unit)
-  }
-
-  function getStatusBadge(status: string) {
-    // Zjednodušené statusy: jen "Vydáno" (zelený) nebo "STORNO" (červený)
-    if (status === 'storno') {
-      return (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-          STORNO
-        </span>
-      )
-    }
-
-    // Všechny ostatní statusy (active, delivered, apod.) zobraz jako "Vydáno"
-    return (
-      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-        Vydáno
-      </span>
-    )
-  }
-
-  if (loading) {
-    return <div className="p-6">Načítání...</div>
-  }
+  if (ep.loading) return <LoadingState />
+  if (ep.error)   return <ErrorState message={ep.error} onRetry={ep.refresh} />
 
   return (
-    <div className="space-y-6">
-      {/* Hlavička */}
-      <div className="bg-gradient-to-r from-slate-50 to-orange-50 border-l-4 border-orange-500 rounded-lg shadow-sm py-4 px-6 mb-6">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-orange-600">
-            Výdejky
-            <span className="text-sm font-normal text-gray-600 ml-3">
-              (Zobrazeno <span className="font-semibold text-orange-600">{filteredDeliveryNotes.length}</span> z <span className="font-semibold text-gray-700">{deliveryNotes.length}</span>)
-            </span>
-          </h1>
-        </div>
-      </div>
+    <>
+      <EntityPage highlightId={ep.highlightId}>
+        <EntityPage.Header
+          title="Výdejky"
+          icon={Package}
+          color="orange"
+          total={ep.rows.length}
+          filtered={ep.filtered.length}
+          onRefresh={ep.refresh}
+        />
 
-      {/* Očekávané výdejky (TAHOVÁ LOGIKA) */}
-      {pendingOrders.length > 0 && (
-      <div ref={pendingSectionRef}>
-        <Card className="mb-6 border-2 border-orange-300 bg-orange-50">
-          <CardHeader
-            className="cursor-pointer hover:bg-orange-100 transition-colors"
-            onClick={() => setIsPendingSectionExpanded(!isPendingSectionExpanded)}
-          >
-            <div className="flex items-center gap-2">
-              {isPendingSectionExpanded ? (
-                <ChevronDown className="h-6 w-6 text-orange-600" />
-              ) : (
-                <ChevronRight className="h-6 w-6 text-orange-600" />
-              )}
-              <CardTitle className="text-orange-900">
-                📦 Očekávané výdejky (čeká na expedici) - {filteredPendingOrders.length} objednávek
-              </CardTitle>
-            </div>
-          </CardHeader>
-          {isPendingSectionExpanded && (
-          <CardContent>
-            {/* Filtry pro očekávané výdejky */}
-            <div className="mb-4">
-              <div className="grid grid-cols-[auto_auto_1fr_1.5fr_1fr_auto] items-center gap-4 px-4 py-3 bg-white border border-orange-300 rounded-lg">
-                {/* Vymazat filtry */}
-                <button
-                  onClick={() => {
-                    setPendingFilterOrderNumber('')
-                    setPendingFilterCustomer('')
-                    setPendingFilterDate('')
-                  }}
-                  className="w-8 h-8 bg-gray-200 hover:bg-gray-300 text-gray-600 text-xs rounded transition-colors flex items-center justify-center"
-                  title="Vymazat filtry"
-                >
-                  ✕
-                </button>
-
-                {/* Šipka - prázdný prostor */}
-                <div className="w-8"></div>
-
-                {/* Číslo zak. */}
-                <input
-                  type="text"
-                  value={pendingFilterOrderNumber}
-                  onChange={(e) => setPendingFilterOrderNumber(e.target.value)}
-                  placeholder="Číslo zak..."
-                  className="px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-orange-500 focus:border-orange-500"
-                />
-
-                {/* Odběratel */}
-                <div ref={pendingFilterCustomerRef} className="relative">
-                  <input
-                    type="text"
-                    value={pendingFilterCustomer}
-                    onChange={(e) => setPendingFilterCustomer(e.target.value)}
-                    onFocus={() => setPendingFilterCustomerDropdownOpen(true)}
-                    placeholder="Odběratel..."
-                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-orange-500 focus:border-orange-500"
-                  />
-
-                  {pendingFilterCustomerDropdownOpen && (
-                    <div className="absolute z-50 mt-1 w-full bg-white border border-gray-300 rounded shadow-lg max-h-60 overflow-y-auto">
-                      {customers
-                        .filter(c => c.name.toLowerCase().includes(pendingFilterCustomer.toLowerCase()))
-                        .map(customer => (
-                          <div
-                            key={customer.id}
-                            onClick={() => {
-                              setPendingFilterCustomer(customer.name)
-                              setPendingFilterCustomerDropdownOpen(false)
-                            }}
-                            className="px-3 py-2 hover:bg-orange-50 cursor-pointer text-xs truncate"
-                          >
-                            {customer.name}
-                          </div>
-                        ))}
-                    </div>
-                  )}
+        {/* Pending orders card */}
+        {pendingOrders.length > 0 && (
+          <div ref={pendingSectionRef}>
+            <Card className="border-2 border-orange-300 bg-orange-50">
+              <CardHeader
+                className="cursor-pointer hover:bg-orange-100 transition-colors"
+                onClick={() => setIsPendingSectionExpanded(!isPendingSectionExpanded)}
+              >
+                <div className="flex items-center gap-2">
+                  {isPendingSectionExpanded
+                    ? <ChevronDown className="h-6 w-6 text-orange-600" />
+                    : <ChevronRight className="h-6 w-6 text-orange-600" />}
+                  <CardTitle className="text-orange-900">
+                    Očekávané výdejky (čeká na expedici) — {filteredPendingOrders.length} objednávek
+                  </CardTitle>
                 </div>
+              </CardHeader>
 
-                {/* Datum objednávky */}
-                <input
-                  type="date"
-                  value={pendingFilterDate}
-                  onChange={(e) => setPendingFilterDate(e.target.value)}
-                  className="px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-orange-500 focus:border-orange-500"
-                />
+              {isPendingSectionExpanded && (
+                <CardContent>
+                  {/* Pending filters */}
+                  <div className="mb-4 grid grid-cols-[auto_auto_1fr_1.5fr_1fr_auto] items-center gap-4 px-4 py-3 bg-white border border-orange-300 rounded-lg">
+                    <button
+                      onClick={() => { setPendingFilterOrderNumber(''); setPendingFilterCustomer(''); setPendingFilterDate('') }}
+                      className="w-8 h-8 bg-gray-200 hover:bg-gray-300 text-gray-600 text-xs rounded transition-colors flex items-center justify-center"
+                      title="Vymazat filtry"
+                    >✕</button>
+                    <div className="w-8" />
+                    <input
+                      type="text" value={pendingFilterOrderNumber}
+                      onChange={e => setPendingFilterOrderNumber(e.target.value)}
+                      placeholder="Číslo zak..."
+                      className="px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-orange-500 focus:border-orange-500"
+                    />
+                    <input
+                      type="text" value={pendingFilterCustomer}
+                      onChange={e => setPendingFilterCustomer(e.target.value)}
+                      placeholder="Odběratel..."
+                      className="px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-orange-500 focus:border-orange-500"
+                    />
+                    <input
+                      type="date" value={pendingFilterDate}
+                      onChange={e => setPendingFilterDate(e.target.value)}
+                      className="px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-orange-500 focus:border-orange-500"
+                    />
+                    <div className="w-32" />
+                  </div>
 
-                {/* Tlačítko - prázdný prostor */}
-                <div className="w-32"></div>
-              </div>
-            </div>
+                  {/* Pending header */}
+                  <div className="grid grid-cols-[auto_auto_1fr_1.5fr_1fr_auto] items-center gap-4 px-4 py-3 bg-orange-100 border border-orange-300 rounded-lg text-xs font-semibold text-orange-900 mb-2">
+                    <div className="w-8" />
+                    <div className="w-8" />
+                    <div>Číslo zak.</div>
+                    <div>Odběratel</div>
+                    <div>Datum objednávky</div>
+                    <div className="w-32" />
+                  </div>
 
-            {/* Hlavička seznamu */}
-            <div className="grid grid-cols-[auto_auto_1fr_1.5fr_1fr_auto] items-center gap-4 px-4 py-3 bg-orange-100 border border-orange-300 rounded-lg text-xs font-semibold text-orange-900 mb-2">
-              <div className="w-8"></div>
-              <div className="w-8"></div>
-              <div>Číslo zak.</div>
-              <div>Odběratel</div>
-              <div>Datum objednávky</div>
-              <div className="w-32"></div>
-            </div>
-
-            {/* Seznam objednávek */}
-            <div className="space-y-2">
-              {filteredPendingOrders
-                .slice((pendingCurrentPage - 1) * pendingItemsPerPage, pendingCurrentPage * pendingItemsPerPage)
-                .map((order) => {
-                const isExpanded = expandedPendingOrders.has(order.id)
-                return (
-                  <div key={order.id} className="border-2 border-orange-300 rounded-lg bg-white">
-                    <div className="p-4 grid grid-cols-[auto_auto_1fr_1.5fr_1fr_auto] items-center gap-4 hover:bg-orange-50 transition-colors">
-                      {/* Prázdný prostor pro zarovnání */}
-                      <div className="w-8"></div>
-
-                      {/* Rozbalit/sbalit */}
-                      <button
-                        onClick={() => togglePendingExpanded(order.id)}
-                        className="w-8"
-                      >
-                        {isExpanded ? (
-                          <ChevronDown className="h-5 w-5 text-orange-600" />
-                        ) : (
-                          <ChevronRight className="h-5 w-5 text-orange-600" />
-                        )}
-                      </button>
-
-                      {/* Číslo zak. */}
-                      <div
-                        className="cursor-pointer"
-                        onClick={() => togglePendingExpanded(order.id)}
-                      >
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-semibold text-gray-900">{order.orderNumber}</p>
-                          <span className="px-2 py-0.5 bg-green-100 text-green-800 text-xs rounded font-medium">
-                            Zaplaceno
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Odběratel */}
-                      <div
-                        className="cursor-pointer"
-                        onClick={() => togglePendingExpanded(order.id)}
-                      >
-                        {order.customer?.id ? (
-                          <Link
-                            href={`/customers?highlight=${order.customer.id}`}
-                            className="text-sm text-blue-600 hover:text-blue-800 hover:underline font-medium"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            {order.customer.name}
-                          </Link>
-                        ) : (
-                          <p className="text-sm text-gray-700">
-                            {order.customerName || '-'}
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Datum objednávky */}
-                      <div
-                        className="cursor-pointer"
-                        onClick={() => togglePendingExpanded(order.id)}
-                      >
-                        <p className="text-sm text-gray-700">
-                          {formatDate(order.orderDate)}
-                        </p>
-                      </div>
-
-                      {/* Tlačítko Vyskladnit */}
-                      <Button
-                        size="sm"
-                        className="bg-orange-600 hover:bg-orange-700 w-32"
-                        onClick={() => handlePrepareShipment(order.id)}
-                        title="Vyskladnit objednávku (celou nebo částečně)"
-                      >
-                        <Package className="w-4 h-4 mr-2" />
-                        Vyskladnit
-                      </Button>
-                    </div>
-
-                    {/* Detail položek */}
-                    {isExpanded && (
-                      <div className="border-t-2 border-orange-300 p-4 bg-gray-50">
-                        {/* Doprava & výdejní místo */}
-                        {(order.shippingMethod || order.pickupPointId) && (
-                          <div className="mb-3 border border-gray-200 rounded-lg overflow-hidden">
-                            <h4 className="font-bold text-sm text-gray-900 px-4 py-2 bg-gray-100 border-b border-gray-200">Doprava</h4>
-                            <div className="px-4 py-3 space-y-2 bg-white text-sm">
-                              {order.shippingMethod && (
+                  <div className="space-y-2">
+                    {filteredPendingOrders
+                      .slice((pendingCurrentPage - 1) * pendingItemsPerPage, pendingCurrentPage * pendingItemsPerPage)
+                      .map(order => {
+                        const isExpanded = expandedPendingOrders.has(order.id)
+                        return (
+                          <div key={order.id} className="border-2 border-orange-300 rounded-lg bg-white">
+                            <div className="p-4 grid grid-cols-[auto_auto_1fr_1.5fr_1fr_auto] items-center gap-4 hover:bg-orange-50 transition-colors">
+                              <div className="w-8" />
+                              <button onClick={() => togglePendingExpanded(order.id)} className="w-8">
+                                {isExpanded ? <ChevronDown className="h-5 w-5 text-orange-600" /> : <ChevronRight className="h-5 w-5 text-orange-600" />}
+                              </button>
+                              <div className="cursor-pointer" onClick={() => togglePendingExpanded(order.id)}>
                                 <div className="flex items-center gap-2">
-                                  <span className="text-gray-600">Způsob dopravy:</span>
-                                  <span className="font-medium">{({
-                                    DPD_HOME: 'DPD — Doručení na adresu',
-                                    DPD_PICKUP: 'DPD — Výdejní místo',
-                                    ZASILKOVNA_HOME: 'Zásilkovna — Doručení na adresu',
-                                    ZASILKOVNA_PICKUP: 'Zásilkovna — Výdejní místo / Z-BOX',
-                                    COURIER: 'Kurýr',
-                                    PICKUP_IN_STORE: 'Osobní odběr',
-                                  } as Record<string, string>)[order.shippingMethod!] ?? order.shippingMethod}</span>
+                                  <p className="text-sm font-semibold text-gray-900">{order.orderNumber}</p>
+                                  <span className="px-2 py-0.5 bg-green-100 text-green-800 text-xs rounded font-medium">Zaplaceno</span>
                                 </div>
-                              )}
-                              {order.pickupPointId && (
-                                <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
-                                  <div className="space-y-0.5">
-                                    <p className="text-xs font-bold uppercase tracking-wide text-amber-700">
-                                      {order.pickupPointCarrier === 'zasilkovna' ? 'Zásilkovna' : order.pickupPointCarrier === 'dpd' ? 'DPD' : 'Výdejní místo'}
-                                    </p>
-                                    <p className="font-semibold text-amber-900">{order.pickupPointName || '-'}</p>
-                                    {order.pickupPointAddress && (
-                                      <p className="text-amber-700 text-xs">{order.pickupPointAddress}</p>
-                                    )}
-                                    <p className="text-amber-600 text-xs font-mono">ID: {order.pickupPointId}</p>
+                              </div>
+                              <div className="cursor-pointer" onClick={() => togglePendingExpanded(order.id)}>
+                                {order.customer?.id
+                                  ? <Link href={`/customers?highlight=${order.customer.id}`} className="text-sm text-blue-600 hover:underline font-medium" onClick={e => e.stopPropagation()}>{order.customer.name}</Link>
+                                  : <p className="text-sm text-gray-700">{order.customerName || '-'}</p>}
+                              </div>
+                              <div className="cursor-pointer" onClick={() => togglePendingExpanded(order.id)}>
+                                <p className="text-sm text-gray-700">{formatDate(order.orderDate)}</p>
+                              </div>
+                              <Button size="sm" className="bg-orange-600 hover:bg-orange-700 w-32" onClick={() => handlePrepareShipment(order.id)}>
+                                <Package className="w-4 h-4 mr-2" />Vyskladnit
+                              </Button>
+                            </div>
+
+                            {isExpanded && (
+                              <div className="border-t-2 border-orange-300 p-4 bg-gray-50">
+                                {(order.shippingMethod || order.pickupPointId) && (
+                                  <div className="mb-3 border border-gray-200 rounded-lg overflow-hidden">
+                                    <h4 className="font-bold text-sm text-gray-900 px-4 py-2 bg-gray-100 border-b border-gray-200">Doprava</h4>
+                                    <div className="px-4 py-3 space-y-2 bg-white text-sm">
+                                      {order.shippingMethod && (
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-gray-600">Způsob dopravy:</span>
+                                          <span className="font-medium">{SHIPPING_LABELS[order.shippingMethod!] ?? order.shippingMethod}</span>
+                                        </div>
+                                      )}
+                                      {order.pickupPointId && (
+                                        <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                                          <div className="space-y-0.5">
+                                            <p className="text-xs font-bold uppercase tracking-wide text-amber-700">
+                                              {order.pickupPointCarrier === 'zasilkovna' ? 'Zásilkovna' : order.pickupPointCarrier === 'dpd' ? 'DPD' : 'Výdejní místo'}
+                                            </p>
+                                            <p className="font-semibold text-amber-900">{order.pickupPointName || '-'}</p>
+                                            {order.pickupPointAddress && <p className="text-amber-700 text-xs">{order.pickupPointAddress}</p>}
+                                            <p className="text-amber-600 text-xs font-mono">ID: {order.pickupPointId}</p>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+
+                                <div className="border rounded-lg overflow-hidden">
+                                  {isVatPayer ? (
+                                    <div className="grid grid-cols-[2fr_0.8fr_0.8fr_0.8fr_0.5fr_0.8fr_0.5fr_0.8fr_1fr] gap-2 px-3 py-1.5 bg-gray-100 text-[11px] font-semibold text-gray-700 border-b">
+                                      <div>Položky k expedici</div>
+                                      <div className="text-center">Objednáno</div>
+                                      <div className="text-center">Vyskladněno</div>
+                                      <div className="text-center">Zbývá</div>
+                                      <div className="text-center">DPH</div>
+                                      <div className="text-center">Cena/ks</div>
+                                      <div className="text-center">DPH/ks</div>
+                                      <div className="text-center">S DPH/ks</div>
+                                      <div className="text-center">Celkem</div>
+                                    </div>
+                                  ) : (
+                                    <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr] gap-3 px-3 py-1.5 bg-gray-100 text-[11px] font-semibold text-gray-700 border-b">
+                                      <div>Položky k expedici</div>
+                                      <div className="text-right">Objednáno</div>
+                                      <div className="text-right">Vyskladněno</div>
+                                      <div className="text-right">Zbývá</div>
+                                      <div className="text-right">Cena/ks</div>
+                                      <div className="text-right">Celkem</div>
+                                    </div>
+                                  )}
+                                  {order.items.filter(item => item.productId !== null).map((item, i) => {
+                                    const shipped = Number(item.shippedQuantity || 0)
+                                    const ordered = Number(item.quantity)
+                                    const remaining = ordered - shipped
+                                    const unitPrice = Number(item.price || 0)
+                                    const itemVatRate = Number(item.vatRate ?? item.product?.vatRate ?? DEFAULT_VAT_RATE)
+                                    const isItemNonVat = isNonVatPayer(itemVatRate)
+                                    const vatPerUnit = isItemNonVat ? 0 : Number(item.vatAmount ?? (unitPrice * itemVatRate / 100))
+                                    const priceWithVat = isItemNonVat ? unitPrice : Number(item.priceWithVat ?? (unitPrice + vatPerUnit))
+                                    const total = ordered * (isVatPayer ? priceWithVat : unitPrice)
+                                    const bg = i % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                                    return isVatPayer ? (
+                                      <div key={item.id} className={`grid grid-cols-[2fr_0.8fr_0.8fr_0.8fr_0.5fr_0.8fr_0.5fr_0.8fr_1fr] gap-2 px-3 py-1.5 ${bg}`}>
+                                        <div className="text-[13px] text-gray-900">{(item.productName || item.product?.name || 'Neznámý produkt').split(' — ')[0]}</div>
+                                        <div className="text-[13px] text-gray-700 text-center">{formatVariantQty(ordered, item.productName, item.unit)}</div>
+                                        <div className="text-[13px] text-gray-700 text-center">{formatVariantQty(shipped, item.productName, item.unit)}</div>
+                                        <div className="text-[13px] font-semibold text-orange-700 text-center">{formatVariantQty(remaining, item.productName, item.unit)}</div>
+                                        <div className="text-[13px] text-gray-500 text-center">{isItemNonVat ? '-' : `${itemVatRate}%`}</div>
+                                        <div className="text-[13px] text-gray-700 text-center">{formatPrice(unitPrice)}</div>
+                                        <div className="text-[13px] text-gray-500 text-center">{isItemNonVat ? '-' : formatPrice(vatPerUnit)}</div>
+                                        <div className="text-[13px] text-gray-700 text-center">{formatPrice(priceWithVat)}</div>
+                                        <div className="text-[13px] font-semibold text-gray-900 text-center">{formatPrice(total)}</div>
+                                      </div>
+                                    ) : (
+                                      <div key={item.id} className={`grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr] gap-3 px-3 py-1.5 ${bg}`}>
+                                        <div className="text-[13px] text-gray-900">{(item.productName || item.product?.name || 'Neznámý produkt').split(' — ')[0]}</div>
+                                        <div className="text-[13px] text-gray-700 text-right">{formatVariantQty(ordered, item.productName, item.unit)}</div>
+                                        <div className="text-[13px] text-gray-700 text-right">{formatVariantQty(shipped, item.productName, item.unit)}</div>
+                                        <div className="text-[13px] font-semibold text-orange-700 text-right">{formatVariantQty(remaining, item.productName, item.unit)}</div>
+                                        <div className="text-[13px] text-gray-700 text-right">{formatPrice(unitPrice)}</div>
+                                        <div className="text-[13px] font-semibold text-gray-900 text-right">{formatPrice(total)}</div>
+                                      </div>
+                                    )
+                                  })}
+                                  <div className={`grid ${isVatPayer ? 'grid-cols-[2fr_0.8fr_0.8fr_0.8fr_0.5fr_0.8fr_0.5fr_0.8fr_1fr]' : 'grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr]'} gap-2 px-3 py-1.5 bg-gray-100 border-t-2 font-bold`}>
+                                    <div className={`${isVatPayer ? 'col-span-8' : 'col-span-5'} text-[13px]`}>{isVatPayer ? 'Celková částka s DPH' : 'Celková částka objednávky'}</div>
+                                    <div className={`text-[13px] ${isVatPayer ? 'text-center' : 'text-right'}`}>
+                                      {formatPrice(order.items.filter(i => i.productId !== null).reduce((sum, item) => {
+                                        const up = Number(item.price || 0)
+                                        const vr = Number(item.vatRate ?? item.product?.vatRate ?? DEFAULT_VAT_RATE)
+                                        const nonVat = isNonVatPayer(vr)
+                                        const vpu = nonVat ? 0 : Number(item.vatAmount ?? (up * vr / 100))
+                                        const pwv = nonVat ? up : Number(item.priceWithVat ?? (up + vpu))
+                                        return sum + (Number(item.quantity) * (isVatPayer ? pwv : up))
+                                      }, 0))}
+                                    </div>
                                   </div>
                                 </div>
-                              )}
-                            </div>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                  </div>
+
+                  {filteredPendingOrders.length > pendingItemsPerPage && (() => {
+                    const totalPages = Math.ceil(filteredPendingOrders.length / pendingItemsPerPage)
+                    return (
+                      <div className="mt-4 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-gray-700">Zobrazit:</span>
+                          {[10, 20, 50].map(count => (
+                            <button key={count} onClick={() => { setPendingItemsPerPage(count); setPendingCurrentPage(1) }}
+                              className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${pendingItemsPerPage === count ? 'bg-orange-600 text-white' : 'bg-orange-100 text-orange-900 hover:bg-orange-200'}`}>
+                              {count}
+                            </button>
+                          ))}
+                          <span className="text-sm text-gray-500 ml-2">({filteredPendingOrders.length} celkem)</span>
+                        </div>
+                        {totalPages > 1 && (
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => setPendingCurrentPage(p => Math.max(1, p - 1))} disabled={pendingCurrentPage === 1}
+                              className="px-3 py-1.5 bg-orange-100 text-orange-900 rounded hover:bg-orange-200 disabled:opacity-50 text-sm">Předchozí</button>
+                            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                              <button key={page} onClick={() => setPendingCurrentPage(page)}
+                                className={`px-3 py-1.5 rounded text-sm font-medium ${pendingCurrentPage === page ? 'bg-orange-600 text-white' : 'bg-orange-100 text-orange-900 hover:bg-orange-200'}`}>
+                                {page}
+                              </button>
+                            ))}
+                            <button onClick={() => setPendingCurrentPage(p => Math.min(totalPages, p + 1))} disabled={pendingCurrentPage >= totalPages}
+                              className="px-3 py-1.5 bg-orange-100 text-orange-900 rounded hover:bg-orange-200 disabled:opacity-50 text-sm">Další</button>
                           </div>
                         )}
-                        <div className="border rounded-lg overflow-hidden">
-                          {/* Hlavička - různá pro plátce a neplátce DPH */}
-                          {isVatPayer ? (
-                            <div className="grid grid-cols-[2fr_0.8fr_0.8fr_0.8fr_0.5fr_0.8fr_0.5fr_0.8fr_1fr] gap-2 px-3 py-1.5 bg-gray-100 text-[11px] font-semibold text-gray-700 border-b">
-                              <div>Položky k expedici</div>
-                              <div className="text-center">Objednáno</div>
-                              <div className="text-center">Vyskladněno</div>
-                              <div className="text-center">Zbývá</div>
-                              <div className="text-center">DPH</div>
-                              <div className="text-center">Cena/ks</div>
-                              <div className="text-center">DPH/ks</div>
-                              <div className="text-center">S DPH/ks</div>
-                              <div className="text-center">Celkem</div>
-                            </div>
-                          ) : (
-                            <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr] gap-3 px-3 py-1.5 bg-gray-100 text-[11px] font-semibold text-gray-700 border-b">
-                              <div>Položky k expedici</div>
-                              <div className="text-right">Objednáno</div>
-                              <div className="text-right">Vyskladněno</div>
-                              <div className="text-right">Zbývá</div>
-                              <div className="text-right">Cena/ks</div>
-                              <div className="text-right">Celkem</div>
-                            </div>
-                          )}
-
-                          {/* Řádky položek - střídání bílá/šedá */}
-                          {order.items.filter(item => item.productId !== null).map((item, i) => {
-                            const shipped = Number(item.shippedQuantity || 0)
-                            const ordered = Number(item.quantity)
-                            const remaining = ordered - shipped
-                            const unitPrice = Number(item.price || 0)
-                            const itemVatRate = Number(item.vatRate ?? item.product?.vatRate ?? DEFAULT_VAT_RATE)
-                            const isItemNonVat = isNonVatPayer(itemVatRate)
-                            // Use stored priceWithVat/vatAmount — avoids double-rounding that makes
-                            // e.g. 82.64 Kč/g render as 99.99 instead of 100.00
-                            const vatPerUnit = isItemNonVat ? 0 : Number(item.vatAmount ?? (unitPrice * itemVatRate / 100))
-                            const priceWithVat = isItemNonVat ? unitPrice : Number(item.priceWithVat ?? (unitPrice + vatPerUnit))
-                            const total = ordered * (isVatPayer ? priceWithVat : unitPrice)
-
-                            return isVatPayer ? (
-                              <div
-                                key={item.id}
-                                className={`grid grid-cols-[2fr_0.8fr_0.8fr_0.8fr_0.5fr_0.8fr_0.5fr_0.8fr_1fr] gap-2 px-3 py-1.5 ${
-                                  i % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                                }`}
-                              >
-                                <div className="text-[13px] text-gray-900">
-                                  {(item.productName || item.product?.name || 'Neznámý produkt').split(' — ')[0]}
-                                </div>
-                                <div className="text-[13px] text-gray-700 text-center">
-                                  {formatVariantQty(ordered, item.productName, item.unit)}
-                                </div>
-                                <div className="text-[13px] text-gray-700 text-center">
-                                  {formatVariantQty(shipped, item.productName, item.unit)}
-                                </div>
-                                <div className="text-[13px] font-semibold text-orange-700 text-center">
-                                  {formatVariantQty(remaining, item.productName, item.unit)}
-                                </div>
-                                <div className="text-[13px] text-gray-500 text-center">
-                                  {isItemNonVat ? '-' : `${itemVatRate}%`}
-                                </div>
-                                <div className="text-[13px] text-gray-700 text-center">
-                                  {formatPrice(unitPrice)}
-                                </div>
-                                <div className="text-[13px] text-gray-500 text-center">
-                                  {isItemNonVat ? '-' : formatPrice(vatPerUnit)}
-                                </div>
-                                <div className="text-[13px] text-gray-700 text-center">
-                                  {formatPrice(priceWithVat)}
-                                </div>
-                                <div className="text-[13px] font-semibold text-gray-900 text-center">
-                                  {formatPrice(total)}
-                                </div>
-                              </div>
-                            ) : (
-                              <div
-                                key={item.id}
-                                className={`grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr] gap-3 px-3 py-1.5 ${
-                                  i % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                                }`}
-                              >
-                                <div className="text-[13px] text-gray-900">
-                                  {(item.productName || item.product?.name || 'Neznámý produkt').split(' — ')[0]}
-                                </div>
-                                <div className="text-[13px] text-gray-700 text-right">
-                                  {formatVariantQty(ordered, item.productName, item.unit)}
-                                </div>
-                                <div className="text-[13px] text-gray-700 text-right">
-                                  {formatVariantQty(shipped, item.productName, item.unit)}
-                                </div>
-                                <div className="text-[13px] font-semibold text-orange-700 text-right">
-                                  {formatVariantQty(remaining, item.productName, item.unit)}
-                                </div>
-                                <div className="text-[13px] text-gray-700 text-right">
-                                  {formatPrice(unitPrice)}
-                                </div>
-                                <div className="text-[13px] font-semibold text-gray-900 text-right">
-                                  {formatPrice(total)}
-                                </div>
-                              </div>
-                            )
-                          })}
-
-                          {/* Celková částka - tučný řádek */}
-                          <div className={`grid ${isVatPayer ? 'grid-cols-[2fr_0.8fr_0.8fr_0.8fr_0.5fr_0.8fr_0.5fr_0.8fr_1fr]' : 'grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr]'} gap-2 px-3 py-1.5 bg-gray-100 border-t-2 font-bold`}>
-                            <div className={`${isVatPayer ? 'col-span-8' : 'col-span-5'} text-[13px]`}>{isVatPayer ? 'Celková částka s DPH' : 'Celková částka objednávky'}</div>
-                            <div className={`text-[13px] ${isVatPayer ? 'text-center' : 'text-right'}`}>
-                              {formatPrice(order.items.filter(item => item.productId !== null).reduce((sum, item) => {
-                                const unitPrice = Number(item.price || 0)
-                                const itemVatRate = Number(item.vatRate ?? item.product?.vatRate ?? DEFAULT_VAT_RATE)
-                                const isItemNonVat = isNonVatPayer(itemVatRate)
-                                const vatPerUnit = isItemNonVat ? 0 : Number(item.vatAmount ?? (unitPrice * itemVatRate / 100))
-                                const priceWithVat = isItemNonVat ? unitPrice : Number(item.priceWithVat ?? (unitPrice + vatPerUnit))
-                                return sum + (Number(item.quantity) * (isVatPayer ? priceWithVat : unitPrice))
-                              }, 0))}
-                            </div>
-                          </div>
-                        </div>
                       </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-
-            {/* Stránkování a výběr počtu záznamů */}
-            {filteredPendingOrders.length > 0 && (() => {
-              const totalPages = Math.ceil(filteredPendingOrders.length / pendingItemsPerPage)
-              const pages = []
-
-              // Logika pro zobrazení stránek (max 7 tlačítek)
-              if (totalPages <= 7) {
-                for (let i = 1; i <= totalPages; i++) {
-                  pages.push(i)
-                }
-              } else {
-                pages.push(1)
-                if (pendingCurrentPage <= 3) {
-                  pages.push(2, 3, 4)
-                  pages.push('...')
-                  pages.push(totalPages)
-                } else if (pendingCurrentPage >= totalPages - 2) {
-                  pages.push('...')
-                  pages.push(totalPages - 3, totalPages - 2, totalPages - 1, totalPages)
-                } else {
-                  pages.push('...')
-                  pages.push(pendingCurrentPage - 1, pendingCurrentPage, pendingCurrentPage + 1)
-                  pages.push('...')
-                  pages.push(totalPages)
-                }
-              }
-
-              const handlePageChange = (newPage: number) => {
-                setPendingCurrentPage(newPage)
-                setTimeout(() => {
-                  if (pendingSectionRef.current) {
-                    pendingSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                  }
-                }, 50)
-              }
-
-              return (
-                <div className="mt-4 flex items-center justify-between">
-                  {/* Výběr počtu záznamů na stránku */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-700">Zobrazit:</span>
-                    {[10, 20, 50, 100].map(count => (
-                      <button
-                        key={count}
-                        onClick={() => {
-                          setPendingItemsPerPage(count)
-                          setPendingCurrentPage(1)
-                        }}
-                        className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-                          pendingItemsPerPage === count
-                            ? 'bg-orange-600 text-white'
-                            : 'bg-orange-100 text-orange-900 hover:bg-orange-200'
-                        }`}
-                      >
-                        {count}
-                      </button>
-                    ))}
-                    <span className="text-sm text-gray-500 ml-2">
-                      ({filteredPendingOrders.length} celkem)
-                    </span>
-                  </div>
-
-                  {/* Navigace mezi stránkami */}
-                  {totalPages > 1 && (
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handlePageChange(Math.max(1, pendingCurrentPage - 1))}
-                        disabled={pendingCurrentPage === 1}
-                        className="px-3 py-1.5 bg-orange-100 text-orange-900 rounded hover:bg-orange-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
-                      >
-                        Předchozí
-                      </button>
-
-                      {pages.map((page, index) => {
-                        if (page === '...') {
-                          return (
-                            <span key={`ellipsis-${index}`} className="px-2 text-gray-500">
-                              ...
-                            </span>
-                          )
-                        }
-
-                        return (
-                          <button
-                            key={page}
-                            onClick={() => handlePageChange(page as number)}
-                            className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-                              pendingCurrentPage === page
-                                ? 'bg-orange-600 text-white'
-                                : 'bg-orange-100 text-orange-900 hover:bg-orange-200'
-                            }`}
-                          >
-                            {page}
-                          </button>
-                        )
-                      })}
-
-                      <button
-                        onClick={() => handlePageChange(Math.min(totalPages, pendingCurrentPage + 1))}
-                        disabled={pendingCurrentPage >= totalPages}
-                        className="px-3 py-1.5 bg-orange-100 text-orange-900 rounded hover:bg-orange-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
-                      >
-                        Další
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )
-            })()}
-          </CardContent>
-          )}
-        </Card>
-      </div>
-      )}
-
-      {/* Filtry - přesně odpovídající sloupcům tabulky */}
-      <div ref={deliveryNotesSectionRef} className="mb-4">
-        <div className="grid grid-cols-[auto_1fr_1fr_1fr_1fr_1fr_1fr] items-center gap-4 px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg">
-
-          {/* Vymazat filtry - úplně vlevo nad šipkou */}
-          <button
-            onClick={() => {
-              setFilterNumber('')
-              setFilterDate('')
-              setFilterStatus('all')
-              setFilterCustomer('')
-              setFilterMinItems('')
-              setFilterMinValue('')
-            }}
-            className="w-8 h-8 bg-gray-200 hover:bg-gray-300 text-gray-600 text-xs rounded transition-colors flex items-center justify-center"
-            title="Vymazat filtry"
-          >
-            ✕
-          </button>
-
-          {/* Textový input - Číslo */}
-          <input
-            type="text"
-            value={filterNumber}
-            onChange={(e) => setFilterNumber(e.target.value)}
-            placeholder="Číslo..."
-            className="px-2 py-1.5 border border-gray-300 rounded text-xs text-center focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-          />
-
-          {/* Datový input - Datum */}
-          <input
-            type="date"
-            value={filterDate}
-            onChange={(e) => setFilterDate(e.target.value)}
-            className="px-2 py-1.5 border border-gray-300 rounded text-xs text-center focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-          />
-
-          {/* Textový input s autocomplete - Odběratel */}
-          <div ref={filterCustomerRef} className="relative">
-            <input
-              type="text"
-              value={filterCustomer}
-              onChange={(e) => setFilterCustomer(e.target.value)}
-              onFocus={() => setFilterCustomerDropdownOpen(true)}
-              placeholder="Odběratel..."
-              className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs text-center focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-            />
-
-            {filterCustomerDropdownOpen && (
-              <div className="absolute z-50 mt-1 w-full bg-white border border-gray-300 rounded shadow-lg max-h-60 overflow-y-auto">
-                {customers
-                  .filter(c => c.name.toLowerCase().includes(filterCustomer.toLowerCase()))
-                  .map(customer => (
-                    <div
-                      key={customer.id}
-                      onClick={() => {
-                        setFilterCustomer(customer.name)
-                        setFilterCustomerDropdownOpen(false)
-                      }}
-                      className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-xs text-center truncate"
-                    >
-                      {customer.name}
-                    </div>
-                  ))}
-              </div>
-            )}
+                    )
+                  })()}
+                </CardContent>
+              )}
+            </Card>
           </div>
-
-          {/* Číselný input - Položek (≥ N) */}
-          <input
-            type="number"
-            value={filterMinItems}
-            onChange={(e) => setFilterMinItems(e.target.value)}
-            placeholder="≥"
-            className="px-2 py-1.5 border border-gray-300 rounded text-xs text-center focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-          />
-
-          {/* Číselný input - Hodnota (≥ částka) */}
-          <input
-            type="number"
-            value={filterMinValue}
-            onChange={(e) => setFilterMinValue(e.target.value)}
-            placeholder="≥"
-            className="px-2 py-1.5 border border-gray-300 rounded text-xs text-center focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-          />
-
-          {/* Dropdown - Status (BAREVNÝ) */}
-          <div ref={filterStatusRef} className="relative">
-            <div
-              onClick={() => setFilterStatusDropdownOpen(!filterStatusDropdownOpen)}
-              className="px-2 py-1.5 border border-gray-300 rounded text-xs text-center cursor-pointer bg-white hover:border-blue-500 flex items-center justify-center"
-            >
-              {filterStatus === 'all' && <span>Vše</span>}
-              {filterStatus === 'delivered' && <span className="text-green-600">Vydáno</span>}
-              {filterStatus === 'storno' && <span className="text-red-600">STORNO</span>}
-            </div>
-
-            {filterStatusDropdownOpen && (
-              <div className="absolute z-50 mt-1 w-full bg-white border border-gray-300 rounded shadow-lg">
-                <div onClick={() => { setFilterStatus('all'); setFilterStatusDropdownOpen(false) }} className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-xs text-center">Vše</div>
-                <div onClick={() => { setFilterStatus('delivered'); setFilterStatusDropdownOpen(false) }} className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-xs text-center text-green-600">Vydáno</div>
-                <div onClick={() => { setFilterStatus('storno'); setFilterStatusDropdownOpen(false) }} className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-xs text-center text-red-600">STORNO</div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        {deliveryNotes.length === 0 ? (
-          <Card>
-            <CardContent className="p-12 text-center text-gray-500">
-              Zatím nemáte žádné výdejky
-            </CardContent>
-          </Card>
-        ) : (
-          <>
-            {/* Hlavička tabulky */}
-            <div className="grid grid-cols-[auto_1fr_1fr_1fr_1fr_1fr_1fr] items-center gap-4 px-4 py-3 bg-gray-100 border rounded-lg text-xs font-semibold text-gray-700">
-              <div className="w-8"></div>
-              <div className="text-center">Číslo</div>
-              <div className="text-center">Datum</div>
-              <div className="text-center">Odběratel</div>
-              <div className="text-center">Položek</div>
-              <div className="text-center">Hodnota</div>
-              <div className="text-center">Status</div>
-            </div>
-
-            {/* Výdejky */}
-            {filteredDeliveryNotes
-              .slice((deliveryNotesCurrentPage - 1) * deliveryNotesItemsPerPage, deliveryNotesCurrentPage * deliveryNotesItemsPerPage)
-              .map((note) => (
-              <div
-                key={note.id}
-                ref={note.id === highlightId ? highlightRef : null}
-                className={`border rounded-lg ${
-                  note.id === highlightId ? 'ring-2 ring-blue-500 bg-blue-50' :
-                  expandedNotes.has(note.id) ? 'ring-2 ring-blue-400' : ''
-                }`}
-              >
-                <div className={`p-4 grid grid-cols-[auto_1fr_1fr_1fr_1fr_1fr_1fr] items-center gap-4 transition-colors ${note.status === 'storno' ? 'bg-red-50 opacity-70' : 'hover:bg-gray-50'}`}>
-                  {/* Rozbalit/sbalit */}
-                  <button
-                    onClick={() => toggleExpanded(note.id)}
-                    className="w-8"
-                  >
-                    {expandedNotes.has(note.id) ? (
-                      <ChevronDown className="h-5 w-5 text-gray-400" />
-                    ) : (
-                      <ChevronRight className="h-5 w-5 text-gray-400" />
-                    )}
-                  </button>
-
-                  {/* Číslo */}
-                  <div
-                    className="cursor-pointer text-center"
-                    onClick={() => toggleExpanded(note.id)}
-                  >
-                    <p className={`text-sm font-semibold text-gray-900 truncate ${note.status === 'storno' ? 'line-through' : ''}`}>
-                      {note.deliveryNumber}
-                    </p>
-                  </div>
-
-                  {/* Datum */}
-                  <div
-                    className="cursor-pointer text-center"
-                    onClick={() => toggleExpanded(note.id)}
-                  >
-                    <p className="text-sm text-gray-700">
-                      {formatDate(note.deliveryDate)}
-                    </p>
-                  </div>
-
-                  {/* Odběratel */}
-                  <div
-                    className="cursor-pointer text-center"
-                    onClick={() => toggleExpanded(note.id)}
-                  >
-                    {note.customer?.id ? (
-                      <Link
-                        href={`/customers?highlight=${note.customer.id}`}
-                        className="text-sm text-blue-600 hover:text-blue-800 hover:underline font-medium truncate inline-block"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {note.customer.name}
-                      </Link>
-                    ) : (
-                      <p className="text-sm text-gray-700 truncate">
-                        {note.customerName || 'Anonymní zákazník'}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Položek */}
-                  <div
-                    className="cursor-pointer text-center"
-                    onClick={() => toggleExpanded(note.id)}
-                  >
-                    <p className="text-sm text-gray-600">
-                      {note.items.length}
-                    </p>
-                  </div>
-
-                  {/* Hodnota */}
-                  <div
-                    className="cursor-pointer text-center"
-                    onClick={() => toggleExpanded(note.id)}
-                  >
-                    <p className="text-sm font-bold text-gray-900">
-                      {note.items.length > 0 ? (
-                        formatPrice(note.items.reduce((sum, item) => {
-                          const hasSavedPrice = item.price != null && item.priceWithVat != null
-                          const unitPrice = hasSavedPrice ? Number(item.price) : Number(item.product?.price || 0)
-                          const itemVatRate = hasSavedPrice ? Number(item.vatRate ?? DEFAULT_VAT_RATE) : Number((item.product as any)?.vatRate || DEFAULT_VAT_RATE)
-                          const isItemNonVat = isNonVatPayer(itemVatRate)
-                          const vatPerUnit = hasSavedPrice ? Number(item.vatAmount ?? 0) : (isItemNonVat ? 0 : unitPrice * itemVatRate / 100)
-                          const priceWithVatPerUnit = hasSavedPrice ? Number(item.priceWithVat) : (unitPrice + vatPerUnit)
-                          const packs = getDNItemPackCount(Number(item.quantity), item.productName, item.unit)
-                          return sum + (packs * (isVatPayer ? priceWithVatPerUnit : unitPrice))
-                        }, 0))
-                      ) : '-'}
-                    </p>
-                  </div>
-
-                  {/* Status */}
-                  <div
-                    className="cursor-pointer text-center flex justify-center"
-                    onClick={() => toggleExpanded(note.id)}
-                  >
-                    {getStatusBadge(note.status)}
-                  </div>
-                </div>
-
-                {/* Detail položek */}
-                {expandedNotes.has(note.id) && (
-                  <div className="border-t p-4 bg-gray-50">
-                    {/* Odkazy na související dokumenty - modrý řádek */}
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 flex items-center justify-center gap-6">
-                      {/* Transakce nebo Objednávka */}
-                      {note.transaction ? (
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-blue-900">Transakce:</span>
-                          <Link
-                            href={`/transactions?highlight=${note.transaction.id}`}
-                            className="text-blue-600 hover:text-blue-800 hover:underline text-sm font-medium"
-                          >
-                            {note.transaction.transactionCode}
-                          </Link>
-                        </div>
-                      ) : note.customerOrder ? (
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-blue-900">Objednávka:</span>
-                          <Link
-                            href={`/${note.customerOrder.orderNumber?.startsWith('ESH') ? 'eshop-orders' : 'customer-orders'}?highlight=${note.customerOrder.id}`}
-                            className="text-blue-600 hover:text-blue-800 hover:underline text-sm font-medium"
-                          >
-                            {note.customerOrder.orderNumber}
-                          </Link>
-                        </div>
-                      ) : null}
-
-                      {/* Faktura */}
-                      {(() => {
-                        const invoice = (note.customerOrder as any)?.issuedInvoice || note.issuedInvoice
-                        return invoice ? (
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-blue-900">Faktura:</span>
-                            <Link
-                              href={`/invoices/issued?highlight=${invoice.id}`}
-                              className="text-blue-600 hover:text-blue-800 hover:underline text-sm font-medium"
-                            >
-                              {invoice.invoiceNumber}
-                            </Link>
-                          </div>
-                        ) : null
-                      })()}
-
-                      {/* SumUp účtenka */}
-                      {note.transaction?.receiptId && (() => {
-                        const match = note.transaction.receiptId.match(/urn:sumup:pos:sale:([^:]+):([a-f0-9-]{36})[:;]/)
-                        if (!match) return null
-
-                        const merchantCode = match[1]
-                        const saleId = match[2]
-                        const receiptUrl = `https://sales-receipt.sumup.com/pos/public/v1/${merchantCode}/receipt/${saleId}?format=html`
-
-                        return (
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-blue-900">Účtenka:</span>
-                            <a
-                              href={receiptUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-blue-600 hover:text-blue-800 hover:underline text-sm font-medium"
-                            >
-                              Zobrazit
-                            </a>
-                          </div>
-                        )
-                      })()}
-                    </div>
-
-                    {/* Doprava & výdejní místo — jen pro eshop objednávky */}
-                    {((note.customerOrder as any)?.shippingMethod || (note.customerOrder as any)?.pickupPointId) && (
-                      <div className="mb-4 border border-gray-200 rounded-lg overflow-hidden">
-                        <h4 className="font-bold text-sm text-gray-900 px-4 py-2 bg-gray-100 border-b border-gray-200">Doprava</h4>
-                        <div className="px-4 py-3 space-y-2 bg-white text-sm">
-                          {(note.customerOrder as any).shippingMethod && (
-                            <div className="flex items-center gap-2">
-                              <span className="text-gray-600">Způsob dopravy:</span>
-                              <span className="font-medium">{({
-                                DPD_HOME: 'DPD — Doručení na adresu',
-                                DPD_PICKUP: 'DPD — Výdejní místo',
-                                ZASILKOVNA_HOME: 'Zásilkovna — Doručení na adresu',
-                                ZASILKOVNA_PICKUP: 'Zásilkovna — Výdejní místo / Z-BOX',
-                                COURIER: 'Kurýr',
-                                PICKUP_IN_STORE: 'Osobní odběr',
-                              } as Record<string, string>)[(note.customerOrder as any).shippingMethod] ?? (note.customerOrder as any).shippingMethod}</span>
-                            </div>
-                          )}
-                          {(note.customerOrder as any).pickupPointId && (
-                            <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
-                              <div className="space-y-0.5">
-                                <p className="text-xs font-bold uppercase tracking-wide text-amber-700">
-                                  {(note.customerOrder as any).pickupPointCarrier === 'zasilkovna' ? 'Zásilkovna' : (note.customerOrder as any).pickupPointCarrier === 'dpd' ? 'DPD' : 'Výdejní místo'}
-                                </p>
-                                <p className="font-semibold text-amber-900">{(note.customerOrder as any).pickupPointName || '-'}</p>
-                                {(note.customerOrder as any).pickupPointAddress && (
-                                  <p className="text-amber-700 text-xs">{(note.customerOrder as any).pickupPointAddress}</p>
-                                )}
-                                <p className="text-amber-600 text-xs font-mono">ID: {(note.customerOrder as any).pickupPointId}</p>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Hlavní Sekce: Položky výdejky */}
-                    {note.items.length === 0 ? (
-                      <div className="mt-6 mb-6 border border-gray-200 rounded-lg overflow-hidden">
-                        <h4 className="font-bold text-base text-gray-900 px-4 py-3 bg-gray-100 border-b border-gray-200">
-                          Položky výdejky (0)
-                        </h4>
-                        <div className="px-4 py-4 text-sm text-gray-500 italic">Žádné položky</div>
-                      </div>
-                    ) : (
-                      <div className="mt-6 mb-6 border border-gray-200 rounded-lg overflow-hidden">
-                        <h4 className="font-bold text-base text-gray-900 px-4 py-3 bg-gray-100 border-b border-gray-200">
-                          Položky výdejky ({note.items.length})
-                        </h4>
-
-                        <div className="text-sm">
-                          {/* Hlavička tabulky - různá pro plátce a neplátce DPH */}
-                          {isVatPayer ? (
-                            <div className="grid grid-cols-[3fr_1fr_1fr_0.5fr_1fr_0.5fr_1fr_1fr] gap-2 px-4 py-2 bg-gray-50 font-semibold text-gray-700 border-b text-xs">
-                              <div>Produkt</div>
-                              <div className="text-center">Pohyb</div>
-                              <div className="text-center">Množství</div>
-                              <div className="text-center">DPH</div>
-                              <div className="text-center">Cena/ks</div>
-                              <div className="text-center">DPH/ks</div>
-                              <div className="text-center">S DPH/ks</div>
-                              <div className="text-center">Celkem</div>
-                            </div>
-                          ) : (
-                            <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-4 px-4 py-3 bg-gray-50 font-semibold text-gray-700 border-b">
-                              <div>Produkt</div>
-                              <div className="text-center">Skladový pohyb</div>
-                              <div className="text-right">Množství</div>
-                              <div className="text-right">Cena za kus</div>
-                              <div className="text-right">Celkem</div>
-                            </div>
-                          )}
-
-                          {/* Řádky položek */}
-                          {note.items.filter(item => item.productId !== null).map((item, i: number) => {
-                            // Priorita: uložená cena z výdejky (= z faktury) → aktuální cena produktu
-                            const hasSavedPrice = item.price != null && item.priceWithVat != null
-                            const unitPrice       = hasSavedPrice ? Number(item.price) : Number(item.product?.price || 0)
-                            const itemVatRate     = hasSavedPrice ? Number(item.vatRate ?? DEFAULT_VAT_RATE) : Number(item.product?.vatRate || DEFAULT_VAT_RATE)
-                            const isItemNonVat    = isNonVatPayer(itemVatRate)
-                            const vatPerUnit      = hasSavedPrice ? Number(item.vatAmount ?? 0) : (isItemNonVat ? 0 : unitPrice * itemVatRate / 100)
-                            const priceWithVatPerUnit = hasSavedPrice ? Number(item.priceWithVat) : (unitPrice + vatPerUnit)
-                            // price is per pack; for variant items quantity is in base units → convert first
-                            const packCount       = getDNItemPackCount(Number(item.quantity), item.productName, item.unit)
-                            const totalWithoutVat = packCount * unitPrice
-                            const totalWithVat    = packCount * priceWithVatPerUnit
-
-                            const sourceLabel = !hasSavedPrice
-                              ? <span title="Cena z aktuálního katalogu — může se lišit od faktury" className="ml-1 text-amber-500 text-xs">⚠</span>
-                              : item.priceSource === 'invoice'
-                                ? <span title="Cena ze zaúčtované faktury" className="ml-1 text-green-600 text-xs">✓</span>
-                                : null
-
-                            return isVatPayer ? (
-                              <div key={i} className={`grid grid-cols-[3fr_1fr_1fr_0.5fr_1fr_0.5fr_1fr_1fr] gap-2 px-4 py-2 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'} text-xs`}>
-                                <div className="font-medium text-gray-900 flex items-center">
-                                  {(item.productName || item.product?.name || '(Neznámé)').split(' — ')[0]}
-                                  {sourceLabel}
-                                </div>
-                                <div className="text-center">
-                                  {item.productId && item.inventoryItemId ? (
-                                    <Link
-                                      href={`/inventory?selectedProduct=${item.productId}&highlightMovement=${item.inventoryItemId}`}
-                                      className="inline-flex items-center px-2 py-0.5 bg-green-600 hover:bg-green-700 text-white text-xs rounded font-medium"
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      Zobrazit
-                                    </Link>
-                                  ) : (
-                                    <span className="text-gray-400 text-xs">-</span>
-                                  )}
-                                </div>
-                                <div className="text-center text-gray-600">
-                                  {formatDNItemQty(Number(item.quantity), item.productName, item.unit)}
-                                </div>
-                                <div className="text-center text-gray-500">
-                                  {isItemNonVat ? '-' : `${itemVatRate}%`}
-                                </div>
-                                <div className="text-center text-gray-600">
-                                  {formatPrice(unitPrice)}
-                                </div>
-                                <div className="text-center text-gray-500">
-                                  {isItemNonVat ? '-' : formatPrice(vatPerUnit)}
-                                </div>
-                                <div className="text-center text-gray-700">
-                                  {formatPrice(priceWithVatPerUnit)}
-                                </div>
-                                <div className="text-center font-semibold text-gray-900">
-                                  {formatPrice(totalWithVat)}
-                                </div>
-                              </div>
-                            ) : (
-                              <div key={i} className={`grid grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-4 px-4 py-3 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                                <div className="font-medium text-gray-900 flex items-center">
-                                  {(item.productName || item.product?.name || '(Neznámé)').split(' — ')[0]}
-                                  {sourceLabel}
-                                </div>
-                                <div className="text-center">
-                                  {item.productId && item.inventoryItemId ? (
-                                    <Link
-                                      href={`/inventory?selectedProduct=${item.productId}&highlightMovement=${item.inventoryItemId}`}
-                                      className="inline-flex items-center px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-xs rounded font-medium"
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      Zobrazit
-                                    </Link>
-                                  ) : (
-                                    <span className="text-gray-400 text-xs">-</span>
-                                  )}
-                                </div>
-                                <div className="text-right text-gray-600">
-                                  {formatDNItemQty(Number(item.quantity), item.productName, item.unit)}
-                                </div>
-                                <div className="text-right text-gray-600">
-                                  {formatPrice(unitPrice)}
-                                </div>
-                                <div className="text-right font-semibold text-gray-900">
-                                  {formatPrice(totalWithoutVat)}
-                                </div>
-                              </div>
-                            )
-                          })}
-
-                          {/* Celková částka */}
-                          <div className={`grid ${isVatPayer ? 'grid-cols-[3fr_1fr_1fr_0.5fr_1fr_0.5fr_1fr_1fr]' : 'grid-cols-[2fr_1fr_1fr_1fr_1fr]'} gap-2 px-4 py-2 bg-gray-100 font-bold border-t text-sm`}>
-                            <div className={isVatPayer ? 'col-span-7' : 'col-span-4'}>{isVatPayer ? 'Celková částka s DPH' : 'Celková částka'}</div>
-                            <div className={isVatPayer ? 'text-center' : 'text-right'}>
-                              {formatPrice(note.items.reduce((sum, item) => {
-                                const hasSaved = item.price != null && item.priceWithVat != null
-                                const unitPrice   = hasSaved ? Number(item.price) : Number(item.product?.price || 0)
-                                const itemVatRate = hasSaved ? Number(item.vatRate ?? DEFAULT_VAT_RATE) : Number(item.product?.vatRate || DEFAULT_VAT_RATE)
-                                const isNonVat    = isNonVatPayer(itemVatRate)
-                                const vatPer      = hasSaved ? Number(item.vatAmount ?? 0) : (isNonVat ? 0 : unitPrice * itemVatRate / 100)
-                                const withVat     = hasSaved ? Number(item.priceWithVat) : (unitPrice + vatPer)
-                                const packs       = getDNItemPackCount(Number(item.quantity), item.productName, item.unit)
-                                return sum + packs * (isVatPayer ? withVat : unitPrice)
-                              }, 0))}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Poznámka (pokud existuje) */}
-                    {note.note && (
-                      <div className="mt-6 mb-6 border border-gray-200 rounded-lg overflow-hidden">
-                        <h4 className="font-bold text-base text-gray-900 px-4 py-3 bg-gray-100 border-b border-gray-200">
-                          Poznámka
-                        </h4>
-                        <div className="px-4 py-3 text-sm text-gray-700 bg-white">
-                          {note.note}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Tlačítka akcí */}
-                    <div className="mt-6 flex justify-between items-center">
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => handleDownloadPDF(note.id)}
-                      >
-                        <FileDown className="w-4 h-4 mr-2" />
-                        Zobrazit PDF
-                      </Button>
-
-                      {/* Tlačítko STORNO - jen pokud není stornováno */}
-                      {note.status !== 'storno' && (
-                        <button
-                          onClick={() => handleStorno(note.id)}
-                          className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm rounded flex items-center gap-2 font-medium"
-                        >
-                          <XCircle className="w-4 h-4" />
-                          Stornovat
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-
-            {/* Stránkování a výběr počtu záznamů */}
-            {filteredDeliveryNotes.length > 0 && (() => {
-              const totalPages = Math.ceil(filteredDeliveryNotes.length / deliveryNotesItemsPerPage)
-              const pages = []
-
-              // Logika pro zobrazení stránek (max 7 tlačítek)
-              if (totalPages <= 7) {
-                for (let i = 1; i <= totalPages; i++) {
-                  pages.push(i)
-                }
-              } else {
-                pages.push(1)
-                if (deliveryNotesCurrentPage <= 3) {
-                  pages.push(2, 3, 4)
-                  pages.push('...')
-                  pages.push(totalPages)
-                } else if (deliveryNotesCurrentPage >= totalPages - 2) {
-                  pages.push('...')
-                  pages.push(totalPages - 3, totalPages - 2, totalPages - 1, totalPages)
-                } else {
-                  pages.push('...')
-                  pages.push(deliveryNotesCurrentPage - 1, deliveryNotesCurrentPage, deliveryNotesCurrentPage + 1)
-                  pages.push('...')
-                  pages.push(totalPages)
-                }
-              }
-
-              const handlePageChange = (newPage: number) => {
-                setDeliveryNotesCurrentPage(newPage)
-                setTimeout(() => {
-                  if (deliveryNotesSectionRef.current) {
-                    deliveryNotesSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                  }
-                }, 50)
-              }
-
-              return (
-                <div className="mt-4 flex items-center justify-between">
-                  {/* Výběr počtu záznamů na stránku */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-700">Zobrazit:</span>
-                    {[10, 20, 50, 100].map(count => (
-                      <button
-                        key={count}
-                        onClick={() => {
-                          setDeliveryNotesItemsPerPage(count)
-                          setDeliveryNotesCurrentPage(1)
-                        }}
-                        className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-                          deliveryNotesItemsPerPage === count
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
-                      >
-                        {count}
-                      </button>
-                    ))}
-                    <span className="text-sm text-gray-500 ml-2">
-                      ({filteredDeliveryNotes.length} celkem)
-                    </span>
-                  </div>
-
-                  {/* Navigace mezi stránkami */}
-                  {totalPages > 1 && (
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handlePageChange(Math.max(1, deliveryNotesCurrentPage - 1))}
-                        disabled={deliveryNotesCurrentPage === 1}
-                        className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
-                      >
-                        Předchozí
-                      </button>
-
-                      {pages.map((page, index) => {
-                        if (page === '...') {
-                          return (
-                            <span key={`ellipsis-${index}`} className="px-2 text-gray-500">
-                              ...
-                            </span>
-                          )
-                        }
-
-                        return (
-                          <button
-                            key={page}
-                            onClick={() => handlePageChange(page as number)}
-                            className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-                              deliveryNotesCurrentPage === page
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                            }`}
-                          >
-                            {page}
-                          </button>
-                        )
-                      })}
-
-                      <button
-                        onClick={() => handlePageChange(Math.min(totalPages, deliveryNotesCurrentPage + 1))}
-                        disabled={deliveryNotesCurrentPage >= totalPages}
-                        className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
-                      >
-                        Další
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )
-            })()}
-          </>
         )}
-      </div>
 
-      {/* Toast notification — non-blocking, auto-dismisses */}
+        <EntityPage.Filters onClear={ep.clearFilters} columns="auto 1fr 1fr 1fr 1fr 1fr 1fr">
+          <FilterInput value={ep.filters.number   ?? ''} onChange={v => ep.setFilter('number',   v)} placeholder="Číslo..." />
+          <FilterInput value={ep.filters.date     ?? ''} onChange={v => ep.setFilter('date',     v)} type="date" />
+          <FilterInput value={ep.filters.customer ?? ''} onChange={v => ep.setFilter('customer', v)} placeholder="Odběratel..." />
+          <FilterInput value={ep.filters.minItems ?? ''} onChange={v => ep.setFilter('minItems', v)} type="number" placeholder="≥" />
+          <FilterInput value={ep.filters.minValue ?? ''} onChange={v => ep.setFilter('minValue', v)} type="number" placeholder="≥" />
+          <FilterSelect value={ep.filters.status  ?? 'all'} onChange={v => ep.setFilter('status', v)} options={statusOptions} />
+        </EntityPage.Filters>
+
+        <EntityPage.Table
+          columns={columns}
+          rows={ep.paginated}
+          getRowId={r => r.id}
+          expanded={ep.expanded}
+          onToggle={ep.toggleExpand}
+          rowClassName={r => r.status === 'storno' ? 'bg-red-50 opacity-70' : ''}
+          renderDetail={note => (
+            <>
+              {/* Linked documents banner */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 flex items-center justify-center flex-wrap gap-6">
+                {note.transaction ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-blue-900">Transakce:</span>
+                    <Link href={`/transactions?highlight=${note.transaction.id}`} className="text-blue-600 hover:underline text-sm font-medium">
+                      {note.transaction.transactionCode}
+                    </Link>
+                  </div>
+                ) : note.customerOrder ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-blue-900">Objednávka:</span>
+                    <Link href={`/${note.customerOrder.orderNumber?.startsWith('ESH') ? 'eshop-orders' : 'customer-orders'}?highlight=${note.customerOrder.id}`} className="text-blue-600 hover:underline text-sm font-medium">
+                      {note.customerOrder.orderNumber}
+                    </Link>
+                  </div>
+                ) : null}
+
+                {(() => {
+                  const invoice = note.customerOrder?.issuedInvoice || note.issuedInvoice
+                  return invoice ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-blue-900">Faktura:</span>
+                      <Link href={`/invoices/issued?highlight=${invoice.id}`} className="text-blue-600 hover:underline text-sm font-medium">
+                        {invoice.invoiceNumber}
+                      </Link>
+                    </div>
+                  ) : null
+                })()}
+
+                {note.transaction?.receiptId && (() => {
+                  const match = note.transaction!.receiptId!.match(/urn:sumup:pos:sale:([^:]+):([a-f0-9-]{36})[:;]/)
+                  if (!match) return null
+                  const receiptUrl = `https://sales-receipt.sumup.com/pos/public/v1/${match[1]}/receipt/${match[2]}?format=html`
+                  return (
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-blue-900">Účtenka:</span>
+                      <a href={receiptUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-sm font-medium">Zobrazit</a>
+                    </div>
+                  )
+                })()}
+              </div>
+
+              {/* Shipping info */}
+              {(note.customerOrder?.shippingMethod || note.customerOrder?.pickupPointId) && (
+                <div className="mb-4 border border-gray-200 rounded-lg overflow-hidden">
+                  <h4 className="font-bold text-sm text-gray-900 px-4 py-2 bg-gray-100 border-b border-gray-200">Doprava</h4>
+                  <div className="px-4 py-3 space-y-2 bg-white text-sm">
+                    {note.customerOrder.shippingMethod && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-600">Způsob dopravy:</span>
+                        <span className="font-medium">{SHIPPING_LABELS[note.customerOrder.shippingMethod] ?? note.customerOrder.shippingMethod}</span>
+                      </div>
+                    )}
+                    {note.customerOrder.pickupPointId && (
+                      <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                        <div className="space-y-0.5">
+                          <p className="text-xs font-bold uppercase tracking-wide text-amber-700">
+                            {note.customerOrder.pickupPointCarrier === 'zasilkovna' ? 'Zásilkovna' : note.customerOrder.pickupPointCarrier === 'dpd' ? 'DPD' : 'Výdejní místo'}
+                          </p>
+                          <p className="font-semibold text-amber-900">{note.customerOrder.pickupPointName || '-'}</p>
+                          {note.customerOrder.pickupPointAddress && <p className="text-amber-700 text-xs">{note.customerOrder.pickupPointAddress}</p>}
+                          <p className="text-amber-600 text-xs font-mono">ID: {note.customerOrder.pickupPointId}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Items */}
+              {note.items.length === 0 ? (
+                <div className="mt-6 mb-6 border border-gray-200 rounded-lg overflow-hidden">
+                  <h4 className="font-bold text-base text-gray-900 px-4 py-3 bg-gray-100 border-b border-gray-200">Položky výdejky (0)</h4>
+                  <div className="px-4 py-4 text-sm text-gray-500 italic">Žádné položky</div>
+                </div>
+              ) : (
+                <div className="mt-6 mb-6 border border-gray-200 rounded-lg overflow-hidden">
+                  <h4 className="font-bold text-base text-gray-900 px-4 py-3 bg-gray-100 border-b border-gray-200">Položky výdejky ({note.items.length})</h4>
+                  <div className="text-sm">
+                    {isVatPayer ? (
+                      <div className="grid grid-cols-[3fr_1fr_1fr_0.5fr_1fr_0.5fr_1fr_1fr] gap-2 px-4 py-2 bg-gray-50 font-semibold text-gray-700 border-b text-xs">
+                        <div>Produkt</div><div className="text-center">Pohyb</div><div className="text-center">Množství</div>
+                        <div className="text-center">DPH</div><div className="text-center">Cena/ks</div>
+                        <div className="text-center">DPH/ks</div><div className="text-center">S DPH/ks</div><div className="text-center">Celkem</div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-4 px-4 py-3 bg-gray-50 font-semibold text-gray-700 border-b">
+                        <div>Produkt</div><div className="text-center">Skladový pohyb</div>
+                        <div className="text-right">Množství</div><div className="text-right">Cena za kus</div><div className="text-right">Celkem</div>
+                      </div>
+                    )}
+                    {note.items.filter(item => item.productId !== null).map((item, i) => {
+                      const hasSaved = item.price != null && item.priceWithVat != null
+                      const unitPrice = hasSaved ? Number(item.price) : Number(item.product?.price || 0)
+                      const itemVatRate = hasSaved ? Number(item.vatRate ?? DEFAULT_VAT_RATE) : Number(item.product?.vatRate || DEFAULT_VAT_RATE)
+                      const isItemNonVat = isNonVatPayer(itemVatRate)
+                      const vatPerUnit = hasSaved ? Number(item.vatAmount ?? 0) : (isItemNonVat ? 0 : unitPrice * itemVatRate / 100)
+                      const priceWithVatPerUnit = hasSaved ? Number(item.priceWithVat) : (unitPrice + vatPerUnit)
+                      const packCount = getDNItemPackCount(Number(item.quantity), item.productName, item.unit)
+                      const totalWithoutVat = packCount * unitPrice
+                      const totalWithVat    = packCount * priceWithVatPerUnit
+                      const sourceLabel = !hasSaved
+                        ? <span title="Cena z aktuálního katalogu" className="ml-1 text-amber-500 text-xs">⚠</span>
+                        : item.priceSource === 'invoice'
+                          ? <span title="Cena ze zaúčtované faktury" className="ml-1 text-green-600 text-xs">✓</span>
+                          : null
+                      const bg = i % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                      const inventoryLink = item.productId && item.inventoryItemId
+                        ? <Link href={`/inventory?selectedProduct=${item.productId}&highlightMovement=${item.inventoryItemId}`} className="inline-flex items-center px-2 py-0.5 bg-green-600 hover:bg-green-700 text-white text-xs rounded font-medium" onClick={e => e.stopPropagation()}>Zobrazit</Link>
+                        : <span className="text-gray-400 text-xs">-</span>
+                      return isVatPayer ? (
+                        <div key={i} className={`grid grid-cols-[3fr_1fr_1fr_0.5fr_1fr_0.5fr_1fr_1fr] gap-2 px-4 py-2 ${bg} text-xs`}>
+                          <div className="font-medium text-gray-900 flex items-center">{(item.productName || item.product?.name || '(Neznámé)').split(' — ')[0]}{sourceLabel}</div>
+                          <div className="text-center">{inventoryLink}</div>
+                          <div className="text-center text-gray-600">{formatDNItemQty(Number(item.quantity), item.productName, item.unit)}</div>
+                          <div className="text-center text-gray-500">{isItemNonVat ? '-' : `${itemVatRate}%`}</div>
+                          <div className="text-center text-gray-600">{formatPrice(unitPrice)}</div>
+                          <div className="text-center text-gray-500">{isItemNonVat ? '-' : formatPrice(vatPerUnit)}</div>
+                          <div className="text-center text-gray-700">{formatPrice(priceWithVatPerUnit)}</div>
+                          <div className="text-center font-semibold text-gray-900">{formatPrice(totalWithVat)}</div>
+                        </div>
+                      ) : (
+                        <div key={i} className={`grid grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-4 px-4 py-3 ${bg}`}>
+                          <div className="font-medium text-gray-900 flex items-center">{(item.productName || item.product?.name || '(Neznámé)').split(' — ')[0]}{sourceLabel}</div>
+                          <div className="text-center">{inventoryLink}</div>
+                          <div className="text-right text-gray-600">{formatDNItemQty(Number(item.quantity), item.productName, item.unit)}</div>
+                          <div className="text-right text-gray-600">{formatPrice(unitPrice)}</div>
+                          <div className="text-right font-semibold text-gray-900">{formatPrice(totalWithoutVat)}</div>
+                        </div>
+                      )
+                    })}
+                    <div className={`grid ${isVatPayer ? 'grid-cols-[3fr_1fr_1fr_0.5fr_1fr_0.5fr_1fr_1fr]' : 'grid-cols-[2fr_1fr_1fr_1fr_1fr]'} gap-2 px-4 py-2 bg-gray-100 font-bold border-t text-sm`}>
+                      <div className={isVatPayer ? 'col-span-7' : 'col-span-4'}>{isVatPayer ? 'Celková částka s DPH' : 'Celková částka'}</div>
+                      <div className={isVatPayer ? 'text-center' : 'text-right'}>
+                        {formatPrice(note.items.reduce((sum, item) => {
+                          const hasSaved = item.price != null && item.priceWithVat != null
+                          const up = hasSaved ? Number(item.price) : Number(item.product?.price || 0)
+                          const vr = hasSaved ? Number(item.vatRate ?? DEFAULT_VAT_RATE) : Number(item.product?.vatRate || DEFAULT_VAT_RATE)
+                          const nonVat = isNonVatPayer(vr)
+                          const vpu = hasSaved ? Number(item.vatAmount ?? 0) : (nonVat ? 0 : up * vr / 100)
+                          const pwv = hasSaved ? Number(item.priceWithVat) : (up + vpu)
+                          const packs = getDNItemPackCount(Number(item.quantity), item.productName, item.unit)
+                          return sum + packs * (isVatPayer ? pwv : up)
+                        }, 0))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {note.note && (
+                <div className="mt-6 mb-6 border border-gray-200 rounded-lg overflow-hidden">
+                  <h4 className="font-bold text-base text-gray-900 px-4 py-3 bg-gray-100 border-b border-gray-200">Poznámka</h4>
+                  <div className="px-4 py-3 text-sm text-gray-700 bg-white">{note.note}</div>
+                </div>
+              )}
+
+              <ActionToolbar
+                left={
+                  <button onClick={() => handleDownloadPDF(note.id)} className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-medium rounded-lg transition-colors">
+                    <FileDown className="w-3.5 h-3.5" />Zobrazit PDF
+                  </button>
+                }
+                right={
+                  note.status !== 'storno' ? (
+                    <button onClick={() => handleStorno(note.id)} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded-lg transition-colors">
+                      <XCircle className="w-3.5 h-3.5" />Stornovat
+                    </button>
+                  ) : undefined
+                }
+              />
+            </>
+          )}
+        />
+
+        <EntityPage.Pagination page={ep.page} total={ep.totalPages} onChange={ep.setPage} />
+      </EntityPage>
+
+      {/* Toast */}
       {toast && (
-        <div className={`fixed bottom-6 right-6 z-[100] px-5 py-3 rounded-xl shadow-2xl text-white text-sm font-medium max-w-sm transition-all ${
-          toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'
-        }`}>
+        <div className={`fixed bottom-6 right-6 z-[100] px-5 py-3 rounded-xl shadow-2xl text-white text-sm font-medium max-w-sm transition-all ${toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'}`}>
           {toast.message}
         </div>
       )}
 
-      {/* Modal pro zpracování (vyskladnění) */}
+      {/* Process modal */}
       {showProcessModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto p-4">
           <div className="bg-white rounded-xl shadow-2xl max-w-6xl w-full my-8 max-h-[90vh] overflow-y-auto">
-            {/* Header s gradientem */}
             <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 py-5 rounded-t-xl">
               <div className="flex items-center gap-3">
                 <Package className="w-7 h-7" />
                 <div>
-                  <h2 className="text-2xl font-bold">
-                    {pendingOrders.some(o => o.id === processingNoteId) ? 'Vyskladnit objednávku' : 'Vyskladnit výdejku'}
-                  </h2>
-                  <p className="text-orange-100 text-sm mt-1">
-                    Nastav množství k vyskladnění a odešli zboží odběrateli
-                  </p>
+                  <h2 className="text-2xl font-bold">{pendingOrders.some(o => o.id === processingNoteId) ? 'Vyskladnit objednávku' : 'Vyskladnit výdejku'}</h2>
+                  <p className="text-orange-100 text-sm mt-1">Nastav množství k vyskladnění a odešli zboží odběrateli</p>
                 </div>
               </div>
             </div>
 
             <div className="p-6 space-y-6">
-              {/* Karta: Položky k vyskladnění */}
               <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-5 border-l-4 border-purple-500 shadow-sm">
-                <h3 className="text-lg font-semibold mb-4 text-gray-800 flex items-center gap-2">
-                  <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-                  </svg>
-                  Položky k vyskladnění
-                </h3>
-
+                <h3 className="text-lg font-semibold mb-4 text-gray-800">Položky k vyskladnění</h3>
                 <div className="bg-white rounded-lg overflow-hidden shadow-sm border border-purple-200">
                   <table className="w-full text-sm table-fixed">
                     <thead className="bg-gradient-to-r from-purple-100 to-purple-50">
@@ -1860,23 +976,18 @@ export default function DeliveryNotesPage() {
                     </thead>
                     <tbody>
                       {processingNoteItems.map((item, idx) => {
-                        const shipped = shippedQuantities[item.id!] || 0
-                        const maxAllowed = item.quantity  // already remainingBaseQty for variant items
+                        const shipped    = shippedQuantities[item.id!] || 0
+                        const maxAllowed = item.quantity
                         const isVariant  = item.isVariant ?? false
-                        const inputStep  = isVariant ? '0.001' : '1'
-                        const inputWidth = isVariant ? 'w-20' : 'w-16'
                         const isOverLimit = shipped > maxAllowed + 0.001
-
-                        const hasSavedPrice = item.price != null && item.priceWithVat != null
-                        const unitPrice     = hasSavedPrice ? Number(item.price) : Number(item.product?.price || 0)
-                        const itemVatRate   = hasSavedPrice ? Number(item.vatRate ?? DEFAULT_VAT_RATE) : Number((item.product as any)?.vatRate || DEFAULT_VAT_RATE)
-                        const isItemNonVat  = isNonVatPayer(itemVatRate)
-                        const vatPerUnit    = hasSavedPrice ? Number(item.vatAmount ?? 0) : (isItemNonVat ? 0 : unitPrice * itemVatRate / 100)
-                        const priceWithVat  = hasSavedPrice ? Number(item.priceWithVat) : (unitPrice + vatPerUnit)
-                        const packEquiv     = isVariant && item.variantValue ? shipped / item.variantValue : shipped
-                        const total         = packEquiv * (isVatPayer ? priceWithVat : unitPrice)
-
-                        // "Objednáno" display: variant → "3 ks = 15 g", non-variant → "3 ks"
+                        const hasSaved   = item.price != null && item.priceWithVat != null
+                        const unitPrice  = hasSaved ? Number(item.price) : Number(item.product?.price || 0)
+                        const itemVatRate = hasSaved ? Number(item.vatRate ?? DEFAULT_VAT_RATE) : Number((item.product as any)?.vatRate || DEFAULT_VAT_RATE)
+                        const isItemNonVat = isNonVatPayer(itemVatRate)
+                        const vatPerUnit = hasSaved ? Number(item.vatAmount ?? 0) : (isItemNonVat ? 0 : unitPrice * itemVatRate / 100)
+                        const priceWithVat = hasSaved ? Number(item.priceWithVat) : (unitPrice + vatPerUnit)
+                        const packEquiv  = isVariant && item.variantValue ? shipped / item.variantValue : shipped
+                        const total      = packEquiv * (isVatPayer ? priceWithVat : unitPrice)
                         const orderedDisplay = isVariant && item.orderedBaseQty != null
                           ? `${item.orderedBaseQty} ${item.unit}${item.shippedBaseQty ? ` (zbývá ${item.quantity})` : ''}`
                           : `${item.quantity} ${item.unit}`
@@ -1889,109 +1000,69 @@ export default function DeliveryNotesPage() {
 
                         const inputEl = (align: 'center' | 'right') => (
                           <div className={`flex items-center justify-${align} gap-1.5`}>
-                            <input
-                              type="number"
-                              value={shipped || ''}
-                              onChange={e => handleQtyChange(e.target.value)}
-                              min="0"
-                              max={maxAllowed}
-                              step={inputStep}
-                              className={`${inputWidth} px-2 py-2 border-2 ${isOverLimit ? 'border-red-400 bg-red-50' : 'border-orange-300'} rounded-lg text-center font-medium focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all text-sm`}
+                            <input type="number" value={shipped || ''} onChange={e => handleQtyChange(e.target.value)}
+                              min="0" max={maxAllowed} step={isVariant ? '0.001' : '1'}
+                              className={`${isVariant ? 'w-20' : 'w-16'} px-2 py-2 border-2 ${isOverLimit ? 'border-red-400 bg-red-50' : 'border-orange-300'} rounded-lg text-center font-medium focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all text-sm`}
                             />
                             <span className="text-gray-600 font-medium text-xs">{item.unit}</span>
                             {isVariant && (
-                              <button
-                                type="button"
-                                title="Vyskladnit vše"
-                                onClick={() => setShippedQuantities({ ...shippedQuantities, [item.id!]: maxAllowed })}
-                                className="text-[10px] text-orange-500 hover:text-orange-700 underline leading-none"
-                              >
-                                vše
-                              </button>
+                              <button type="button" title="Vyskladnit vše" onClick={() => setShippedQuantities({ ...shippedQuantities, [item.id!]: maxAllowed })}
+                                className="text-[10px] text-orange-500 hover:text-orange-700 underline leading-none">vše</button>
                             )}
                           </div>
                         )
 
+                        const trBg = `${idx % 2 === 0 ? 'bg-white' : 'bg-purple-50/30'} hover:bg-purple-100/40 transition-colors`
                         return isVatPayer ? (
-                          <tr key={item.id} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-purple-50/30'} hover:bg-purple-100/40 transition-colors`}>
+                          <tr key={item.id} className={trBg}>
                             <td className="px-4 py-3 font-medium text-gray-800">
                               {item.productName || item.product?.name || 'Neznámý produkt'}
-                              {isVariant && (
-                                <div className="text-[11px] text-orange-600 font-normal mt-0.5">
-                                  objednáno {item.orderedBaseQty} {item.unit} · zbývá {item.remainingBaseQty} {item.unit}
-                                </div>
-                              )}
+                              {isVariant && <div className="text-[11px] text-orange-600 font-normal mt-0.5">objednáno {item.orderedBaseQty} {item.unit} · zbývá {item.remainingBaseQty} {item.unit}</div>}
                             </td>
-                            <td className="text-center px-4 py-3 text-gray-600 whitespace-nowrap text-sm">
-                              {orderedDisplay}
-                            </td>
+                            <td className="text-center px-4 py-3 text-gray-600 whitespace-nowrap text-sm">{orderedDisplay}</td>
                             <td className="text-center px-4 py-3 bg-orange-50">
                               {inputEl('center')}
                               {isOverLimit && <div className="text-[10px] text-red-600 mt-0.5 text-center">max {maxAllowed} {item.unit}</div>}
                             </td>
-                            <td className="text-center px-4 py-3 text-gray-500 whitespace-nowrap">
-                              {isItemNonVat ? '-' : `${itemVatRate}%`}
-                            </td>
-                            <td className="text-center px-4 py-3 text-gray-700 whitespace-nowrap">
-                              {formatPrice(unitPrice)}
-                            </td>
-                            <td className="text-center px-4 py-3 text-gray-500 whitespace-nowrap">
-                              {isItemNonVat ? '-' : formatPrice(vatPerUnit)}
-                            </td>
-                            <td className="text-center px-4 py-3 text-gray-700 whitespace-nowrap">
-                              {formatPrice(priceWithVat)}
-                            </td>
-                            <td className="text-center px-4 py-3 font-semibold text-gray-900 whitespace-nowrap">
-                              {formatPrice(total)}
-                            </td>
+                            <td className="text-center px-4 py-3 text-gray-500 whitespace-nowrap">{isItemNonVat ? '-' : `${itemVatRate}%`}</td>
+                            <td className="text-center px-4 py-3 text-gray-700 whitespace-nowrap">{formatPrice(unitPrice)}</td>
+                            <td className="text-center px-4 py-3 text-gray-500 whitespace-nowrap">{isItemNonVat ? '-' : formatPrice(vatPerUnit)}</td>
+                            <td className="text-center px-4 py-3 text-gray-700 whitespace-nowrap">{formatPrice(priceWithVat)}</td>
+                            <td className="text-center px-4 py-3 font-semibold text-gray-900 whitespace-nowrap">{formatPrice(total)}</td>
                           </tr>
                         ) : (
-                          <tr key={item.id} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-purple-50/30'} hover:bg-purple-100/40 transition-colors`}>
+                          <tr key={item.id} className={trBg}>
                             <td className="px-4 py-3 font-medium text-gray-800">
                               {item.productName || item.product?.name || 'Neznámý produkt'}
-                              {isVariant && (
-                                <div className="text-[11px] text-orange-600 font-normal mt-0.5">
-                                  objednáno {item.orderedBaseQty} {item.unit} · zbývá {item.remainingBaseQty} {item.unit}
-                                </div>
-                              )}
+                              {isVariant && <div className="text-[11px] text-orange-600 font-normal mt-0.5">objednáno {item.orderedBaseQty} {item.unit} · zbývá {item.remainingBaseQty} {item.unit}</div>}
                             </td>
-                            <td className="text-right px-4 py-3 text-gray-600 whitespace-nowrap text-sm">
-                              {orderedDisplay}
-                            </td>
+                            <td className="text-right px-4 py-3 text-gray-600 whitespace-nowrap text-sm">{orderedDisplay}</td>
                             <td className="text-right px-4 py-3 bg-orange-50">
                               {inputEl('right')}
                               {isOverLimit && <div className="text-[10px] text-red-600 mt-0.5 text-right">max {maxAllowed} {item.unit}</div>}
                             </td>
-                            <td className="text-right px-4 py-3 text-gray-700 whitespace-nowrap">
-                              {formatPrice(unitPrice)}
-                            </td>
-                            <td className="text-right px-4 py-3 font-semibold text-gray-900 whitespace-nowrap">
-                              {formatPrice(total)}
-                            </td>
+                            <td className="text-right px-4 py-3 text-gray-700 whitespace-nowrap">{formatPrice(unitPrice)}</td>
+                            <td className="text-right px-4 py-3 font-semibold text-gray-900 whitespace-nowrap">{formatPrice(total)}</td>
                           </tr>
                         )
                       })}
                     </tbody>
                     <tfoot className="bg-gradient-to-r from-gray-100 to-gray-50 font-bold border-t-2 border-purple-300">
                       <tr>
-                        <td colSpan={isVatPayer ? 7 : 4} className="px-4 py-3 text-left text-gray-800">
-                          {isVatPayer ? 'CELKEM S DPH:' : 'CELKEM:'}
-                        </td>
+                        <td colSpan={isVatPayer ? 7 : 4} className="px-4 py-3 text-left text-gray-800">{isVatPayer ? 'CELKEM S DPH:' : 'CELKEM:'}</td>
                         <td className="text-center px-4 py-3 text-lg text-purple-700 whitespace-nowrap">
-                          {formatPrice(
-                            processingNoteItems.reduce((sum, item) => {
-                              const shipped = shippedQuantities[item.id!] || 0
-                              const hasSavedPrice = item.price != null && item.priceWithVat != null
-                              const unitPrice = hasSavedPrice ? Number(item.price) : Number(item.product?.price || 0)
-                              const itemVatRate = hasSavedPrice ? Number(item.vatRate ?? DEFAULT_VAT_RATE) : Number((item.product as any)?.vatRate || DEFAULT_VAT_RATE)
-                              const isItemNonVat = isNonVatPayer(itemVatRate)
-                              const vatPerUnit = hasSavedPrice ? Number(item.vatAmount ?? 0) : (isItemNonVat ? 0 : unitPrice * itemVatRate / 100)
-                              const priceWithVat = hasSavedPrice ? Number(item.priceWithVat) : (unitPrice + vatPerUnit)
-                              const isV = item.isVariant ?? false
-                              const packEquiv = isV && item.variantValue ? shipped / item.variantValue : shipped
-                              return sum + (packEquiv * (isVatPayer ? priceWithVat : unitPrice))
-                            }, 0)
-                          )}
+                          {formatPrice(processingNoteItems.reduce((sum, item) => {
+                            const s = shippedQuantities[item.id!] || 0
+                            const hasSaved = item.price != null && item.priceWithVat != null
+                            const up = hasSaved ? Number(item.price) : Number(item.product?.price || 0)
+                            const vr = hasSaved ? Number(item.vatRate ?? DEFAULT_VAT_RATE) : Number((item.product as any)?.vatRate || DEFAULT_VAT_RATE)
+                            const nonVat = isNonVatPayer(vr)
+                            const vpu = hasSaved ? Number(item.vatAmount ?? 0) : (nonVat ? 0 : up * vr / 100)
+                            const pwv = hasSaved ? Number(item.priceWithVat) : (up + vpu)
+                            const isV = item.isVariant ?? false
+                            const packEquiv = isV && item.variantValue ? s / item.variantValue : s
+                            return sum + packEquiv * (isVatPayer ? pwv : up)
+                          }, 0))}
                         </td>
                       </tr>
                     </tfoot>
@@ -1999,63 +1070,26 @@ export default function DeliveryNotesPage() {
                 </div>
               </div>
 
-              {/* Karta: Poznámka */}
               <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-5 border-l-4 border-blue-500 shadow-sm">
-                <h3 className="text-lg font-semibold mb-4 text-gray-800 flex items-center gap-2">
-                  <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
-                  </svg>
-                  Poznámka
-                </h3>
-                <div>
-                  <label className="text-sm font-medium text-gray-700 mb-2 block">
-                    Poznámka k vyskladnění <span className="text-gray-500 text-xs">(volitelné)</span>
-                  </label>
-                  <textarea
-                    value={processNote}
-                    onChange={(e) => setProcessNote(e.target.value)}
-                    placeholder="Volitelná poznámka k vyskladnění..."
-                    rows={3}
-                    className="w-full border-2 border-blue-200 rounded-lg px-3 py-2 text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-200 transition-all bg-white"
-                  />
-                </div>
+                <h3 className="text-lg font-semibold mb-4 text-gray-800">Poznámka</h3>
+                <label className="text-sm font-medium text-gray-700 mb-2 block">Poznámka k vyskladnění <span className="text-gray-500 text-xs">(volitelné)</span></label>
+                <textarea value={processNote} onChange={e => setProcessNote(e.target.value)}
+                  placeholder="Volitelná poznámka k vyskladnění..." rows={3}
+                  className="w-full border-2 border-blue-200 rounded-lg px-3 py-2 text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-200 transition-all bg-white"
+                />
               </div>
 
-              {/* Upozornění */}
               <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border-l-4 border-yellow-500 p-4 rounded-lg shadow-sm">
-                <div className="flex gap-3">
-                  <svg className="w-6 h-6 text-yellow-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                  <div>
-                    <p className="font-semibold text-yellow-900 mb-1">Upozornění</p>
-                    <p className="text-sm text-yellow-800">
-                      Po vyskladnění se zboží odečte ze skladu a uvolní se rezervace. Tato akce je nevratná.
-                    </p>
-                  </div>
-                </div>
+                <p className="font-semibold text-yellow-900 mb-1">Upozornění</p>
+                <p className="text-sm text-yellow-800">Po vyskladnění se zboží odečte ze skladu a uvolní se rezervace. Tato akce je nevratná.</p>
               </div>
 
-              {/* Tlačítka */}
               <div className="flex gap-3 justify-end pt-4 border-t-2 border-gray-200">
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    setShowProcessModal(false)
-                    setProcessingNoteId(null)
-                    setProcessingNoteItems([])
-                    setShippedQuantities({})
-                    setProcessNote('')
-                  }}
-                  className="px-6 py-2.5"
-                >
+                <Button variant="ghost" onClick={() => { setShowProcessModal(false); setProcessingNoteId(null); setProcessingNoteItems([]); setShippedQuantities({}); setProcessNote('') }} className="px-6 py-2.5">
                   Zrušit
                 </Button>
-                <Button
-                  onClick={handleConfirmProcess}
-                  disabled={isProcessing}
-                  className="px-6 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-                >
+                <Button onClick={handleConfirmProcess} disabled={isProcessing}
+                  className="px-6 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all disabled:opacity-60 disabled:cursor-not-allowed">
                   {isProcessing ? '⏳ Zpracovávám...' : 'Vyskladnit'}
                 </Button>
               </div>
@@ -2063,6 +1097,6 @@ export default function DeliveryNotesPage() {
           </div>
         </div>
       )}
-    </div>
+    </>
   )
 }

@@ -1,45 +1,36 @@
-// Stránka pro správu kategorií (/categories)
-// Přidat, upravit, smazat kategorie
-
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { Tag, Plus, Edit2, Trash2, X } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
-import { Plus, Edit2, Trash2, X } from 'lucide-react'
+import {
+  useEntityPage, EntityPage, LoadingState, ErrorState,
+} from '@/components/erp'
+
+export const dynamic = 'force-dynamic'
 
 interface Category {
   id: string
   name: string
-  _count?: {
-    products: number
-  }
+  _count?: { products: number }
 }
 
 export default function CategoriesPage() {
-  const [categories, setCategories] = useState<Category[]>([])
-  const [loading, setLoading] = useState(true)
+  const ep = useEntityPage<Category>({
+    fetchData: async () => {
+      const res = await fetch('/api/categories')
+      return res.json()
+    },
+    getRowId: r => r.id,
+    filterFn: () => true,
+    highlightId: null,
+  })
+
   const [showForm, setShowForm] = useState(false)
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
   const [formData, setFormData] = useState({ name: '' })
-
-  useEffect(() => {
-    fetchCategories()
-  }, [])
-
-  async function fetchCategories() {
-    try {
-      const response = await fetch('/api/categories')
-      const data = await response.json()
-      setCategories(data)
-    } catch (error) {
-      console.error('Chyba při načítání kategorií:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
 
   function handleAdd() {
     setEditingCategory(null)
@@ -61,132 +52,84 @@ export default function CategoriesPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-
-    if (!formData.name.trim()) {
-      alert('Vyplň název kategorie')
-      return
-    }
-
+    if (!formData.name.trim()) { alert('Vyplň název kategorie'); return }
     try {
       if (editingCategory) {
-        // Upravit existující kategorii
-        const response = await fetch(`/api/categories/${editingCategory.id}`, {
+        const res = await fetch(`/api/categories/${editingCategory.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(formData),
         })
-
-        if (response.ok) {
-          alert('Kategorie upravena!')
-        } else {
-          const error = await response.json()
-          alert(error.error || 'Nepodařilo se upravit kategorii')
-          return
-        }
+        const body = await res.json()
+        if (!res.ok) { alert(body.error || 'Nepodařilo se upravit kategorii'); return }
+        alert('Kategorie upravena!')
       } else {
-        // Přidat novou kategorii
-        const response = await fetch('/api/categories', {
+        const res = await fetch('/api/categories', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(formData),
         })
-
-        if (response.ok) {
-          alert('Kategorie přidána!')
-        } else {
-          const error = await response.json()
-          alert(error.error || 'Nepodařilo se přidat kategorii')
-          return
-        }
+        const body = await res.json()
+        if (!res.ok) { alert(body.error || 'Nepodařilo se přidat kategorii'); return }
+        alert('Kategorie přidána!')
       }
-
-      await fetchCategories()
+      await ep.refresh()
       handleCancel()
-    } catch (error) {
-      console.error('Chyba při ukládání kategorie:', error)
+    } catch {
       alert('Nepodařilo se uložit kategorii')
     }
   }
 
   async function handleDelete(category: Category) {
     const productCount = category._count?.products || 0
-
-    if (productCount > 0) {
-      if (
-        !confirm(
-          `Kategorie "${category.name}" obsahuje ${productCount} produktů. Opravdu ji chceš smazat? Produkty zůstanou bez kategorie.`
-        )
-      ) {
-        return
-      }
-    } else {
-      if (!confirm(`Opravdu chceš smazat kategorii "${category.name}"?`)) {
-        return
-      }
-    }
-
+    const msg = productCount > 0
+      ? `Kategorie "${category.name}" obsahuje ${productCount} produktů. Opravdu ji chceš smazat? Produkty zůstanou bez kategorie.`
+      : `Opravdu chceš smazat kategorii "${category.name}"?`
+    if (!confirm(msg)) return
     try {
-      const response = await fetch(`/api/categories/${category.id}`, {
-        method: 'DELETE',
-      })
-
-      if (response.ok) {
-        alert('Kategorie smazána!')
-        await fetchCategories()
-      } else {
-        alert('Nepodařilo se smazat kategorii')
-      }
-    } catch (error) {
-      console.error('Chyba při mazání kategorie:', error)
+      const res = await fetch(`/api/categories/${category.id}`, { method: 'DELETE' })
+      if (res.ok) { alert('Kategorie smazána!'); await ep.refresh() }
+      else alert('Nepodařilo se smazat kategorii')
+    } catch {
       alert('Nepodařilo se smazat kategorii')
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <p className="text-gray-500">Načítání...</p>
-      </div>
-    )
-  }
+  if (ep.loading) return <LoadingState />
+  if (ep.error)   return <ErrorState message={ep.error} onRetry={ep.refresh} />
 
   return (
-    <div className="space-y-6">
-      {/* Hlavička */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Kategorie</h1>
-          <p className="text-gray-500 mt-1">
-            Zobrazeno {categories.length} kategorií
-          </p>
-        </div>
+    <EntityPage highlightId={null}>
+      <EntityPage.Header
+        title="Kategorie"
+        icon={Tag}
+        color="gray"
+        total={ep.rows.length}
+        filtered={ep.rows.length}
+        onRefresh={ep.refresh}
+        actions={
+          <button
+            onClick={handleAdd}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white text-xs font-medium rounded-lg transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Přidat kategorii
+          </button>
+        }
+      />
 
-        <Button onClick={handleAdd}>
-          <Plus className="h-4 w-4 mr-2" />
-          Přidat kategorii
-        </Button>
-      </div>
-
-      {/* Formulář */}
       {showForm && (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>
-              {editingCategory ? 'Upravit kategorii' : 'Nová kategorie'}
-            </CardTitle>
-            <button
-              onClick={handleCancel}
-              className="text-gray-400 hover:text-gray-600"
-            >
+            <CardTitle>{editingCategory ? 'Upravit kategorii' : 'Nová kategorie'}</CardTitle>
+            <button onClick={handleCancel} className="text-gray-400 hover:text-gray-600">
               <X className="h-5 w-5" />
             </button>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Název kategorie *
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Název kategorie *</label>
                 <Input
                   value={formData.name}
                   onChange={(e) => setFormData({ name: e.target.value })}
@@ -194,76 +137,56 @@ export default function CategoriesPage() {
                   required
                 />
               </div>
-
               <div className="flex gap-3">
-                <Button type="submit">
-                  {editingCategory ? 'Uložit změny' : 'Přidat kategorii'}
-                </Button>
-                <Button type="button" variant="secondary" onClick={handleCancel}>
-                  Zrušit
-                </Button>
+                <Button type="submit">{editingCategory ? 'Uložit změny' : 'Přidat kategorii'}</Button>
+                <Button type="button" variant="secondary" onClick={handleCancel}>Zrušit</Button>
               </div>
             </form>
           </CardContent>
         </Card>
       )}
 
-      {/* Tabulka kategorií */}
       <Card>
         <CardContent className="p-0">
-          {categories.length === 0 ? (
+          {ep.rows.length === 0 ? (
             <div className="text-center py-12">
-              <p className="text-gray-500 mb-4">
-                Zatím nemáš žádné kategorie
-              </p>
+              <p className="text-gray-500 mb-4">Zatím nemáš žádné kategorie</p>
               <Button onClick={handleAdd}>
                 <Plus className="h-4 w-4 mr-2" />
                 Přidat první kategorii
               </Button>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Název</TableHead>
-                  <TableHead>Počet produktů</TableHead>
-                  <TableHead>Akce</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {categories.map((category) => (
-                  <TableRow key={category.id}>
-                    <TableCell className="font-medium">
-                      {category.name}
-                    </TableCell>
-                    <TableCell>
-                      {category._count?.products || 0}
-                    </TableCell>
-                    <TableCell>
+            <table className="w-full">
+              <thead>
+                <tr className="border-b bg-gray-50">
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-700">Název</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-700">Počet produktů</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-700">Akce</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {ep.rows.map(category => (
+                  <tr key={category.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{category.name}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{category._count?.products || 0}</td>
+                    <td className="px-4 py-3">
                       <div className="flex gap-2">
-                        <button
-                          onClick={() => handleEdit(category)}
-                          className="text-blue-600 hover:text-blue-800"
-                          title="Upravit"
-                        >
+                        <button onClick={() => handleEdit(category)} className="text-blue-600 hover:text-blue-800" title="Upravit">
                           <Edit2 className="h-4 w-4" />
                         </button>
-                        <button
-                          onClick={() => handleDelete(category)}
-                          className="text-red-600 hover:text-red-800"
-                          title="Smazat"
-                        >
+                        <button onClick={() => handleDelete(category)} className="text-red-600 hover:text-red-800" title="Smazat">
                           <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
-                    </TableCell>
-                  </TableRow>
+                    </td>
+                  </tr>
                 ))}
-              </TableBody>
-            </Table>
+              </tbody>
+            </table>
           )}
         </CardContent>
       </Card>
-    </div>
+    </EntityPage>
   )
 }
