@@ -12,7 +12,7 @@ import CustomerSupplierSelector from '@/components/CustomerSupplierSelector'
 import { calculateLineVat, calculateVatSummary, isNonVatPayer, NON_VAT_PAYER_RATE, DEFAULT_VAT_RATE, VAT_RATE_LABELS, type VatLineItem } from '@/lib/vatCalculation'
 import {
   useEntityPage, EntityPage, FilterInput, FilterSelect, LoadingState, ErrorState,
-  ActionToolbar, DetailSection, DetailRow, PartySection, LinkedDocumentBanner,
+  ActionToolbar, LinkedDocumentBanner,
 } from '@/components/erp'
 import type { ColumnDef, SelectOption } from '@/components/erp'
 
@@ -623,171 +623,268 @@ export default function PurchaseOrdersPage() {
         expanded={ep.expanded}
         onToggle={ep.toggleExpand}
         rowClassName={r => r.status === 'storno' ? 'bg-red-50 opacity-70' : ''}
-        renderDetail={order => (
-          <>
-            {order.invoice && (
-              <LinkedDocumentBanner links={[{ label: 'Faktura', value: order.invoice.invoiceNumber, href: `/invoices/received?highlight=${order.invoice.id}` }]} />
-            )}
-
-            <div className="mt-3 grid grid-cols-2 gap-3">
-              <DetailSection title="Informace o objednávce">
-                <div className="space-y-1.5">
-                  <DetailRow label="Datum vytvoření" value={formatDate(order.orderDate)} muted />
-                  <DetailRow label="Datum dodání" value={order.receipts?.length ? order.receipts.map(r => formatDate(r.receiptDate)).join(', ') : undefined} muted />
-                  <DetailRow label="Očekávané dodání" value={order.expectedDate ? formatDate(order.expectedDate) : undefined} muted />
-                  <DetailRow label="Typ platby" value={({ cash: 'Hotovost', card: 'Karta', transfer: 'Bankovní převod' } as Record<string, string>)[order.invoice?.paymentType ?? ''] || undefined} muted />
-                  <DetailRow label="Datum splatnosti" value={(order.invoice as any)?.dueDate ? formatDate((order.invoice as any).dueDate) : undefined} muted />
-                  <DetailRow label="Poznámka" value={order.note ?? undefined} muted />
-                </div>
-              </DetailSection>
-
-              <PartySection
-                title="Dodavatel"
-                party={{
-                  name: order.supplierName || order.supplier?.name || 'Anonymní dodavatel',
-                  entityType: order.supplierEntityType || (order.supplier as any)?.entityType,
-                  contact: order.supplierContactPerson || (order.supplier as any)?.contact,
-                  address: order.supplierAddress || (order.supplier as any)?.address,
-                  phone: order.supplierPhone || (order.supplier as any)?.phone,
-                  ico: order.supplierICO || (order.supplier as any)?.ico,
-                  dic: order.supplierDIC || (order.supplier as any)?.dic,
-                  email: order.supplierEmail || (order.supplier as any)?.email,
-                  website: order.supplierWebsite || (order.supplier as any)?.website,
-                  bankAccount: order.supplierBankAccount || (order.supplier as any)?.bankAccount,
-                }}
-              />
-            </div>
-
-            <div className="mt-3 border border-gray-200 rounded-lg overflow-hidden">
-              <h4 className="font-bold text-sm text-gray-900 px-4 py-2 bg-gray-100 border-b">Položky objednávky ({order.items.length})</h4>
-              {order.items.length > 0 ? (
-                <div className="text-sm">
-                  {isVatPayer ? (
-                    <div className="grid grid-cols-[3fr_repeat(8,1fr)] gap-2 px-4 py-2 bg-gray-50 font-semibold text-gray-700 border-b text-xs">
-                      <div>Produkt</div><div className="text-center">Obj.</div><div className="text-center">Přijato</div><div className="text-center">Zbývá</div>
-                      <div className="text-center">DPH</div><div className="text-center">Cena/ks</div><div className="text-center">DPH/ks</div><div className="text-center">S DPH/ks</div><div className="text-center">Celkem</div>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr] gap-3 px-4 py-2 bg-gray-50 font-semibold text-gray-700 border-b">
-                      <div>Produkt</div><div className="text-right">Objednáno</div><div className="text-right">Přijato</div><div className="text-right">Zbývá</div><div className="text-right">Cena/ks</div><div className="text-right">Cena celkem</div>
-                    </div>
-                  )}
-                  {order.items.map((item, i) => {
-                    const received = Number(item.alreadyReceivedQuantity || 0)
-                    const ordered = Number(item.quantity)
-                    const remaining = ordered - received
-                    const unitPrice = Number(item.expectedPrice || 0)
-                    const vr = Number(item.vatRate || 21)
-                    const nonVat = isNonVatPayer(vr)
-                    const vatPu = nonVat ? 0 : unitPrice * vr / 100
-                    const pwv = unitPrice + vatPu
-                    let bg = i % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                    if (received >= ordered) bg = 'bg-green-50'
-                    else if (received > 0) bg = 'bg-orange-50'
-                    return isVatPayer ? (
-                      <div key={i} className={`grid grid-cols-[3fr_repeat(8,1fr)] gap-2 px-4 py-2 ${bg} text-xs`}>
-                        <div className="font-medium">{item.product?.name || item.productName}</div>
-                        <div className="text-center text-gray-600">{ordered} {item.unit}</div>
-                        <div className="text-center font-medium" style={{ color: received > 0 ? '#10b981' : '#6b7280' }}>{received} {item.unit}</div>
-                        <div className="text-center font-medium" style={{ color: remaining === 0 ? '#10b981' : remaining < ordered ? '#f59e0b' : '#374151' }}>{remaining.toFixed(3)} {item.unit}</div>
-                        <div className="text-center text-gray-500">{nonVat ? '-' : `${vr}%`}</div>
-                        <div className="text-center text-gray-600">{formatPrice(unitPrice)}</div>
-                        <div className="text-center text-gray-500">{nonVat ? '-' : formatPrice(vatPu)}</div>
-                        <div className="text-center text-gray-700">{formatPrice(pwv)}</div>
-                        <div className="text-center font-semibold text-gray-900">{formatPrice(ordered * pwv)}</div>
-                      </div>
-                    ) : (
-                      <div key={i} className={`grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr] gap-3 px-4 py-2 ${bg}`}>
-                        <div className="font-medium">{item.product?.name || item.productName}</div>
-                        <div className="text-right text-gray-600">{ordered} {item.unit}</div>
-                        <div className="text-right font-medium" style={{ color: received > 0 ? '#10b981' : '#6b7280' }}>{received} {item.unit}</div>
-                        <div className="text-right font-medium" style={{ color: remaining === 0 ? '#10b981' : remaining < ordered ? '#f59e0b' : '#374151' }}>{remaining.toFixed(3)} {item.unit}</div>
-                        <div className="text-right text-gray-600">{formatPrice(unitPrice)}</div>
-                        <div className="text-right font-semibold text-gray-900">{formatPrice(ordered * unitPrice)}</div>
-                      </div>
-                    )
-                  })}
-                  {/* Discount or total row */}
-                  {(order.discountAmount && order.discountAmount > 0) ? (
-                    <>
-                      <div className={`grid ${isVatPayer ? 'grid-cols-[3fr_repeat(8,1fr)]' : 'grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr]'} gap-2 px-4 py-2 bg-gray-50 border-t text-sm`}>
-                        <div className={isVatPayer ? 'col-span-8' : 'col-span-5'} style={{ fontWeight: 500, color: '#374151' }}>Mezisoučet</div>
-                        <div className={`${isVatPayer ? 'text-center' : 'text-right'} font-medium text-gray-700`}>{formatPrice(parseFloat(order.totalAmount?.toString() || '0') + parseFloat(order.discountAmount?.toString() || '0'))}</div>
-                      </div>
-                      <div className={`grid ${isVatPayer ? 'grid-cols-[3fr_repeat(8,1fr)]' : 'grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr]'} gap-2 px-4 py-2 bg-yellow-50 text-sm`}>
-                        <div className={isVatPayer ? 'col-span-8' : 'col-span-5'} style={{ fontWeight: 500, color: '#111827' }}>
-                          Sleva dodavatele{order.discountType === 'percentage' && order.discountValue && <span className="text-sm text-gray-600 ml-2">({order.discountValue}%)</span>}
-                          {order.discountType === 'fixed' && <span className="text-sm text-gray-600 ml-2">(pevná částka)</span>}
-                        </div>
-                        <div className={`${isVatPayer ? 'text-center' : 'text-right'} font-medium text-red-600`}>-{formatPrice(order.discountAmount)}</div>
-                      </div>
-                      <div className={`grid ${isVatPayer ? 'grid-cols-[3fr_repeat(8,1fr)]' : 'grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr]'} gap-2 px-4 py-2 bg-gray-100 font-bold border-t text-sm`}>
-                        <div className={isVatPayer ? 'col-span-8' : 'col-span-5'}>{isVatPayer ? 'Celková částka s DPH' : 'Celková částka'}</div>
-                        <div className={isVatPayer ? 'text-center' : 'text-right'}>{formatPrice(order.totalAmount || 0)}</div>
-                      </div>
-                    </>
-                  ) : (
-                    <div className={`grid ${isVatPayer ? 'grid-cols-[3fr_repeat(8,1fr)]' : 'grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr]'} gap-2 px-4 py-2 bg-gray-100 font-bold border-t text-sm`}>
-                      <div className={isVatPayer ? 'col-span-8' : 'col-span-5'}>{isVatPayer ? 'Celková částka s DPH' : 'Celková částka'}</div>
-                      <div className={isVatPayer ? 'text-center' : 'text-right'}>
-                        {formatPrice(order.items.reduce((sum, item) => {
-                          const up = Number(item.expectedPrice || 0); const vr = Number(item.vatRate || 21)
-                          const nv = isNonVatPayer(vr); const pwv = up + (nv ? 0 : up * vr / 100)
-                          return sum + Number(item.quantity) * (isVatPayer ? pwv : up)
-                        }, 0))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="px-4 py-3 text-sm text-gray-500 italic">Žádné položky</div>
+        renderDetail={order => {
+          const supplierName = order.supplierName || order.supplier?.name || 'Anonymní dodavatel'
+          const sup = order.supplier as any
+          const entityType = order.supplierEntityType || sup?.entityType || 'company'
+          const contact = order.supplierContactPerson || sup?.contact
+          const address = order.supplierAddress || sup?.address
+          const phone = order.supplierPhone || sup?.phone
+          const ico = order.supplierICO || sup?.ico
+          const dic = order.supplierDIC || sup?.dic
+          const email = order.supplierEmail || sup?.email
+          const website = order.supplierWebsite || sup?.website
+          const bankAccount = order.supplierBankAccount || sup?.bankAccount
+          const paymentLabel = ({ cash: 'Hotovost', card: 'Karta', transfer: 'Bankovní převod' } as Record<string, string>)[order.invoice?.paymentType ?? ''] || undefined
+          return (
+            <>
+              {order.invoice && (
+                <LinkedDocumentBanner links={[{ label: 'Faktura', value: order.invoice.invoiceNumber, href: `/invoices/received?highlight=${order.invoice.id}` }]} />
               )}
-            </div>
 
-            {/* Receipts */}
-            {order.receipts && order.receipts.length > 0 && (
-              <div className="mt-3 border border-gray-200 rounded-lg overflow-hidden">
-                <h4 className="font-bold text-sm text-gray-900 px-4 py-2 bg-gray-100 border-b">Příjemky ({order.receipts.length})</h4>
-                <div className="text-sm">
-                  <div className="grid grid-cols-[1.5fr_1fr_0.8fr_1fr_auto] gap-3 px-4 py-2 bg-gray-50 font-semibold text-gray-700 border-b">
-                    <div>Číslo příjemky</div><div>Datum</div><div className="text-center">Položek</div><div className="text-right">Částka</div><div className="w-4" />
-                  </div>
-                  {order.receipts.map((receipt, idx) => {
-                    const receiptTotal = receipt.items?.reduce((sum, item) => sum + Number(item.receivedQuantity || item.quantity) * Number(item.purchasePrice), 0) || 0
-                    return (
-                      <a key={receipt.id} href={`/receipts?highlight=${receipt.id}`} className={`grid grid-cols-[1.5fr_1fr_0.8fr_1fr_auto] gap-3 px-4 py-3 hover:bg-blue-50 items-center ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`} onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-blue-600 hover:underline">{receipt.receiptNumber}</span>
-                          {receipt.status === 'storno' && <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded font-medium">STORNO</span>}
+              <div className="space-y-4 mt-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Dodavatel card */}
+                  <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                    <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200">
+                      <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+                        {entityType === 'individual' ? 'Fyzická osoba' : 'Dodavatel'}
+                      </span>
+                    </div>
+                    <div className="divide-y divide-gray-100">
+                      <div className="px-4 py-2.5 flex justify-between items-center gap-2">
+                        <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Název</span>
+                        <span className="text-sm font-semibold text-gray-900 text-right">{supplierName}</span>
+                      </div>
+                      {contact && (
+                        <div className="px-4 py-2.5 flex justify-between items-center gap-2">
+                          <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Kontakt</span>
+                          <span className="text-sm text-gray-700 text-right">{contact}</span>
                         </div>
-                        <div className="text-gray-700">{new Date(receipt.receiptDate).toLocaleDateString('cs-CZ')}</div>
-                        <div className="text-gray-700 text-center">{receipt.items?.length || 0}</div>
-                        <div className="font-semibold text-gray-900 text-right">{receiptTotal.toLocaleString('cs-CZ')} Kč</div>
-                        <div className="flex justify-end"><ExternalLink className="w-4 h-4 text-blue-600" /></div>
-                      </a>
-                    )
-                  })}
+                      )}
+                      {email && (
+                        <div className="px-4 py-2.5 flex justify-between items-center gap-2">
+                          <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Email</span>
+                          <span className="text-sm text-gray-700 text-right">{email}</span>
+                        </div>
+                      )}
+                      {phone && (
+                        <div className="px-4 py-2.5 flex justify-between items-center gap-2">
+                          <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Telefon</span>
+                          <span className="text-sm text-gray-700 text-right">{phone}</span>
+                        </div>
+                      )}
+                      {address && (
+                        <div className="px-4 py-2.5 flex justify-between items-center gap-2">
+                          <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Adresa</span>
+                          <span className="text-sm text-gray-700 text-right">{address}</span>
+                        </div>
+                      )}
+                      {ico && (
+                        <div className="px-4 py-2.5 flex justify-between items-center gap-2">
+                          <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">IČO</span>
+                          <span className="text-sm text-gray-700 text-right">{ico}</span>
+                        </div>
+                      )}
+                      {dic && (
+                        <div className="px-4 py-2.5 flex justify-between items-center gap-2">
+                          <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">DIČ</span>
+                          <span className="text-sm text-gray-700 text-right">{dic}</span>
+                        </div>
+                      )}
+                      {website && (
+                        <div className="px-4 py-2.5 flex justify-between items-center gap-2">
+                          <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Web</span>
+                          <span className="text-sm text-gray-700 text-right">{website}</span>
+                        </div>
+                      )}
+                      {bankAccount && (
+                        <div className="px-4 py-2.5 flex justify-between items-center gap-2">
+                          <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Účet</span>
+                          <span className="text-sm text-gray-700 text-right">{bankAccount}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Shrnutí objednávky card */}
+                  <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                    <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200">
+                      <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">Shrnutí objednávky</span>
+                    </div>
+                    <div className="divide-y divide-gray-100">
+                      <div className="px-4 py-2.5 flex justify-between items-center gap-2">
+                        <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Datum objednávky</span>
+                        <span className="text-sm font-semibold text-gray-900 text-right">{formatDate(order.orderDate)}</span>
+                      </div>
+                      {order.expectedDate && (
+                        <div className="px-4 py-2.5 flex justify-between items-center gap-2">
+                          <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Očekávané dodání</span>
+                          <span className="text-sm text-gray-700 text-right">{formatDate(order.expectedDate)}</span>
+                        </div>
+                      )}
+                      {order.receipts?.length ? (
+                        <div className="px-4 py-2.5 flex justify-between items-center gap-2">
+                          <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Datum dodání</span>
+                          <span className="text-sm text-gray-700 text-right">{order.receipts.map(r => formatDate(r.receiptDate)).join(', ')}</span>
+                        </div>
+                      ) : null}
+                      {paymentLabel && (
+                        <div className="px-4 py-2.5 flex justify-between items-center gap-2">
+                          <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Typ platby</span>
+                          <span className="text-sm text-gray-700 text-right">{paymentLabel}</span>
+                        </div>
+                      )}
+                      {(order.invoice as any)?.dueDate && (
+                        <div className="px-4 py-2.5 flex justify-between items-center gap-2">
+                          <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Datum splatnosti</span>
+                          <span className="text-sm text-gray-700 text-right">{formatDate((order.invoice as any).dueDate)}</span>
+                        </div>
+                      )}
+                      <div className="px-4 py-2.5 flex justify-between items-center gap-2">
+                        <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Celková částka</span>
+                        <span className="text-sm font-bold text-gray-900 text-right">{formatPrice(order.totalAmount || 0)}</span>
+                      </div>
+                      {order.note && (
+                        <div className="px-4 py-2.5 flex justify-between items-center gap-2">
+                          <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Poznámka</span>
+                          <span className="text-sm text-gray-700 text-right">{order.note}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            )}
 
-            {order.status === 'storno' && order.stornoReason && (
-              <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded">
-                <p className="text-sm font-medium text-red-900">Stornováno</p>
-                <p className="text-sm text-red-700 mt-1">Důvod: {order.stornoReason}</p>
-                {order.stornoAt && <p className="text-xs text-red-600 mt-1">Datum storna: {formatDate(order.stornoAt)}</p>}
-              </div>
-            )}
+                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                  <h4 className="font-bold text-sm text-gray-900 px-4 py-2 bg-gray-100 border-b">Položky objednávky ({order.items.length})</h4>
+                  {order.items.length > 0 ? (
+                    <div className="text-sm">
+                      {isVatPayer ? (
+                        <div className="grid grid-cols-[3fr_repeat(8,1fr)] gap-2 px-4 py-2 bg-gray-50 font-semibold text-gray-700 border-b text-xs">
+                          <div>Produkt</div><div className="text-center">Obj.</div><div className="text-center">Přijato</div><div className="text-center">Zbývá</div>
+                          <div className="text-center">DPH</div><div className="text-center">Cena/ks</div><div className="text-center">DPH/ks</div><div className="text-center">S DPH/ks</div><div className="text-center">Celkem</div>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr] gap-3 px-4 py-2 bg-gray-50 font-semibold text-gray-700 border-b">
+                          <div>Produkt</div><div className="text-right">Objednáno</div><div className="text-right">Přijato</div><div className="text-right">Zbývá</div><div className="text-right">Cena/ks</div><div className="text-right">Cena celkem</div>
+                        </div>
+                      )}
+                      {order.items.map((item, i) => {
+                        const received = Number(item.alreadyReceivedQuantity || 0)
+                        const ordered = Number(item.quantity)
+                        const remaining = ordered - received
+                        const unitPrice = Number(item.expectedPrice || 0)
+                        const vr = Number(item.vatRate || 21)
+                        const nonVat = isNonVatPayer(vr)
+                        const vatPu = nonVat ? 0 : unitPrice * vr / 100
+                        const pwv = unitPrice + vatPu
+                        let bg = i % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                        if (received >= ordered) bg = 'bg-green-50'
+                        else if (received > 0) bg = 'bg-orange-50'
+                        return isVatPayer ? (
+                          <div key={i} className={`grid grid-cols-[3fr_repeat(8,1fr)] gap-2 px-4 py-2 ${bg} text-xs`}>
+                            <div className="font-medium">{item.product?.name || item.productName}</div>
+                            <div className="text-center text-gray-600">{ordered} {item.unit}</div>
+                            <div className="text-center font-medium" style={{ color: received > 0 ? '#10b981' : '#6b7280' }}>{received} {item.unit}</div>
+                            <div className="text-center font-medium" style={{ color: remaining === 0 ? '#10b981' : remaining < ordered ? '#f59e0b' : '#374151' }}>{remaining.toFixed(3)} {item.unit}</div>
+                            <div className="text-center text-gray-500">{nonVat ? '-' : `${vr}%`}</div>
+                            <div className="text-center text-gray-600">{formatPrice(unitPrice)}</div>
+                            <div className="text-center text-gray-500">{nonVat ? '-' : formatPrice(vatPu)}</div>
+                            <div className="text-center text-gray-700">{formatPrice(pwv)}</div>
+                            <div className="text-center font-semibold text-gray-900">{formatPrice(ordered * pwv)}</div>
+                          </div>
+                        ) : (
+                          <div key={i} className={`grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr] gap-3 px-4 py-2 ${bg}`}>
+                            <div className="font-medium">{item.product?.name || item.productName}</div>
+                            <div className="text-right text-gray-600">{ordered} {item.unit}</div>
+                            <div className="text-right font-medium" style={{ color: received > 0 ? '#10b981' : '#6b7280' }}>{received} {item.unit}</div>
+                            <div className="text-right font-medium" style={{ color: remaining === 0 ? '#10b981' : remaining < ordered ? '#f59e0b' : '#374151' }}>{remaining.toFixed(3)} {item.unit}</div>
+                            <div className="text-right text-gray-600">{formatPrice(unitPrice)}</div>
+                            <div className="text-right font-semibold text-gray-900">{formatPrice(ordered * unitPrice)}</div>
+                          </div>
+                        )
+                      })}
+                      {(order.discountAmount && order.discountAmount > 0) ? (
+                        <>
+                          <div className={`grid ${isVatPayer ? 'grid-cols-[3fr_repeat(8,1fr)]' : 'grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr]'} gap-2 px-4 py-2 bg-gray-50 border-t text-sm`}>
+                            <div className={isVatPayer ? 'col-span-8' : 'col-span-5'} style={{ fontWeight: 500, color: '#374151' }}>Mezisoučet</div>
+                            <div className={`${isVatPayer ? 'text-center' : 'text-right'} font-medium text-gray-700`}>{formatPrice(parseFloat(order.totalAmount?.toString() || '0') + parseFloat(order.discountAmount?.toString() || '0'))}</div>
+                          </div>
+                          <div className={`grid ${isVatPayer ? 'grid-cols-[3fr_repeat(8,1fr)]' : 'grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr]'} gap-2 px-4 py-2 bg-yellow-50 text-sm`}>
+                            <div className={isVatPayer ? 'col-span-8' : 'col-span-5'} style={{ fontWeight: 500, color: '#111827' }}>
+                              Sleva dodavatele{order.discountType === 'percentage' && order.discountValue && <span className="text-sm text-gray-600 ml-2">({order.discountValue}%)</span>}
+                              {order.discountType === 'fixed' && <span className="text-sm text-gray-600 ml-2">(pevna castka)</span>}
+                            </div>
+                            <div className={`${isVatPayer ? 'text-center' : 'text-right'} font-medium text-red-600`}>-{formatPrice(order.discountAmount)}</div>
+                          </div>
+                          <div className={`grid ${isVatPayer ? 'grid-cols-[3fr_repeat(8,1fr)]' : 'grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr]'} gap-2 px-4 py-2 bg-gray-100 font-bold border-t text-sm`}>
+                            <div className={isVatPayer ? 'col-span-8' : 'col-span-5'}>{isVatPayer ? 'Celková částka s DPH' : 'Celková částka'}</div>
+                            <div className={isVatPayer ? 'text-center' : 'text-right'}>{formatPrice(order.totalAmount || 0)}</div>
+                          </div>
+                        </>
+                      ) : (
+                        <div className={`grid ${isVatPayer ? 'grid-cols-[3fr_repeat(8,1fr)]' : 'grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr]'} gap-2 px-4 py-2 bg-gray-100 font-bold border-t text-sm`}>
+                          <div className={isVatPayer ? 'col-span-8' : 'col-span-5'}>{isVatPayer ? 'Celková částka s DPH' : 'Celková částka'}</div>
+                          <div className={isVatPayer ? 'text-center' : 'text-right'}>
+                            {formatPrice(order.items.reduce((sum, item) => {
+                              const up = Number(item.expectedPrice || 0); const vr = Number(item.vatRate || 21)
+                              const nv = isNonVatPayer(vr); const pwv = up + (nv ? 0 : up * vr / 100)
+                              return sum + Number(item.quantity) * (isVatPayer ? pwv : up)
+                            }, 0))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="px-4 py-3 text-sm text-gray-500 italic">Žádné položky</div>
+                  )}
+                </div>
 
-            <ActionToolbar
-              left={
-                <button onClick={() => handleDownloadPDF(order.id)} className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-medium rounded-lg transition-colors">
-                  <FileDown className="w-3.5 h-3.5" />Zobrazit PDF
-                </button>
-              }
-            />
-          </>
-        )}
+                {order.receipts && order.receipts.length > 0 && (
+                  <div className="border border-gray-200 rounded-lg overflow-hidden">
+                    <h4 className="font-bold text-sm text-gray-900 px-4 py-2 bg-gray-100 border-b">Příjemky ({order.receipts.length})</h4>
+                    <div className="text-sm">
+                      <div className="grid grid-cols-[1.5fr_1fr_0.8fr_1fr_auto] gap-3 px-4 py-2 bg-gray-50 font-semibold text-gray-700 border-b">
+                        <div>Číslo příjemky</div><div>Datum</div><div className="text-center">Položek</div><div className="text-right">Částka</div><div className="w-4" />
+                      </div>
+                      {order.receipts.map((receipt, idx) => {
+                        const receiptTotal = receipt.items?.reduce((sum, item) => sum + Number(item.receivedQuantity || item.quantity) * Number(item.purchasePrice), 0) || 0
+                        return (
+                          <a key={receipt.id} href={`/receipts?highlight=${receipt.id}`} className={`grid grid-cols-[1.5fr_1fr_0.8fr_1fr_auto] gap-3 px-4 py-3 hover:bg-blue-50 items-center ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`} onClick={e => e.stopPropagation()}>
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-blue-600 hover:underline">{receipt.receiptNumber}</span>
+                              {receipt.status === 'storno' && <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded font-medium">STORNO</span>}
+                            </div>
+                            <div className="text-gray-700">{new Date(receipt.receiptDate).toLocaleDateString('cs-CZ')}</div>
+                            <div className="text-gray-700 text-center">{receipt.items?.length || 0}</div>
+                            <div className="font-semibold text-gray-900 text-right">{receiptTotal.toLocaleString('cs-CZ')} Kč</div>
+                            <div className="flex justify-end"><ExternalLink className="w-4 h-4 text-blue-600" /></div>
+                          </a>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {order.status === 'storno' && order.stornoReason && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded">
+                    <p className="text-sm font-medium text-red-900">Stornováno</p>
+                    <p className="text-sm text-red-700 mt-1">Důvod: {order.stornoReason}</p>
+                    {order.stornoAt && <p className="text-xs text-red-600 mt-1">Datum storna: {formatDate(order.stornoAt)}</p>}
+                  </div>
+                )}
+
+                <ActionToolbar
+                  left={
+                    <button onClick={() => handleDownloadPDF(order.id)} className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-medium rounded-lg transition-colors">
+                      <FileDown className="w-3.5 h-3.5" />Zobrazit PDF
+                    </button>
+                  }
+                />
+              </div>
+            </>
+          )
+        }}
       />
 
       <EntityPage.Pagination page={ep.page} total={ep.totalPages} onChange={ep.setPage} />
