@@ -232,57 +232,57 @@ export function EshopOrderDetail({
             <ShoppingBag className="w-4 h-4 text-gray-500" />
             Zákazník / Odběratel
           </h4>
-          <div className="flex-1 px-4 py-2.5 text-sm bg-white divide-y divide-gray-100">
+          <div className="flex-1 px-4 text-sm bg-white divide-y divide-gray-100">
             {/* Kontakt */}
-            <div className="space-y-1.5 pb-2.5">
-              <div className="flex justify-between gap-2">
+            <div className="py-3 space-y-2.5">
+              <div className="flex justify-between items-center gap-2">
                 <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Jméno</span>
                 <span className="font-semibold text-gray-900 text-right">{customerName}</span>
               </div>
-              <div className="flex justify-between gap-2">
+              <div className="flex justify-between items-center gap-2">
                 <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">E-mail</span>
                 {order.customerEmail
                   ? <a href={`mailto:${order.customerEmail}`} className="font-medium text-blue-600 hover:underline text-right text-xs" onClick={e => e.stopPropagation()}>{order.customerEmail}</a>
                   : <span className="text-gray-400">—</span>}
               </div>
-              <div className="flex justify-between gap-2">
+              <div className="flex justify-between items-center gap-2">
                 <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Telefon</span>
                 <span className="font-medium text-gray-800 text-right">{order.customerPhone || <span className="text-gray-400">—</span>}</span>
               </div>
               {order.billingCompany && (
-                <div className="flex justify-between gap-2">
+                <div className="flex justify-between items-center gap-2">
                   <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Firma</span>
                   <span className="font-semibold text-gray-900 text-right">{order.billingCompany}</span>
                 </div>
               )}
               {order.billingIco && (
-                <div className="flex justify-between gap-2">
+                <div className="flex justify-between items-center gap-2">
                   <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">IČO</span>
                   <span className="font-mono font-medium text-gray-800 text-right">{order.billingIco}</span>
                 </div>
               )}
             </div>
             {/* Fakturační adresa */}
-            <div className="space-y-1.5 pt-2.5">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2.5 flex items-center gap-1.5">
+            <div className="py-3 space-y-2.5">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-3 flex items-center gap-1.5">
                 <FileText className="w-3 h-3" />
                 Fakturační adresa
               </p>
               {(order.billingStreet || order.billingCity) ? (
                 <>
-                  <div className="flex justify-between gap-2">
+                  <div className="flex justify-between items-center gap-2">
                     <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Příjemce</span>
                     <span className="font-semibold text-gray-900 text-right">{order.billingCompany || order.billingName || customerName}</span>
                   </div>
-                  <div className="flex justify-between gap-2">
+                  <div className="flex justify-between items-center gap-2">
                     <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Ulice</span>
                     <span className="font-medium text-gray-800 text-right">{order.billingStreet || <span className="text-gray-400">—</span>}</span>
                   </div>
-                  <div className="flex justify-between gap-2">
+                  <div className="flex justify-between items-center gap-2">
                     <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Město / PSČ</span>
                     <span className="font-medium text-gray-800 text-right">{[order.billingZip, order.billingCity].filter(Boolean).join(' ') || <span className="text-gray-400">—</span>}</span>
                   </div>
-                  <div className="flex justify-between gap-2">
+                  <div className="flex justify-between items-center gap-2">
                     <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Země</span>
                     <span className="font-medium text-gray-800 text-right">{order.billingCountry || 'CZ'}</span>
                   </div>
@@ -295,81 +295,90 @@ export function EshopOrderDetail({
         </div>
 
         {/* ── B) Shrnutí objednávky ────────────────────────────────────────── */}
-        <div className="border border-gray-200 rounded-lg overflow-hidden">
-          <h4 className="font-bold text-sm text-gray-900 px-4 py-2 bg-gray-100 border-b border-gray-200 flex items-center gap-2">
+        <div className="border border-gray-200 rounded-lg overflow-hidden flex flex-col">
+          <h4 className="font-bold text-sm text-gray-900 px-4 py-2 bg-gray-100 border-b border-gray-200 flex items-center gap-2 shrink-0">
             <CreditCard className="w-4 h-4 text-gray-500" />
             Shrnutí objednávky
           </h4>
-          <div className="px-4 py-2.5 text-sm bg-white space-y-1.5">
-            <div className="flex justify-between gap-2">
-              <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Objednávka</span>
-              <Link
-                href={`/eshop-orders?highlight=${order.id}`}
-                className="font-mono font-semibold text-blue-600 hover:underline flex items-center gap-0.5 text-right"
-                onClick={e => e.stopPropagation()}
-              >
-                {order.orderNumber}
-                <ExternalLink className="w-3 h-3" />
-              </Link>
-            </div>
-            <div className="flex justify-between gap-2">
-              <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Faktura</span>
-              {order.issuedInvoice ? (
-                <div className="flex items-center gap-1.5">
-                  <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${order.issuedInvoice.paymentStatus === 'paid' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                    {order.issuedInvoice.paymentStatus === 'paid' ? 'Zap.' : 'Nezap.'}
-                  </span>
-                  <Link
-                    href={`/invoices/issued?highlight=${order.issuedInvoice.id}`}
-                    className="font-mono font-semibold text-blue-600 hover:underline flex items-center gap-0.5 text-right"
-                    onClick={e => e.stopPropagation()}
-                  >
-                    {order.issuedInvoice.invoiceNumber}
-                    <ExternalLink className="w-3 h-3" />
-                  </Link>
-                </div>
-              ) : (
-                <span className="text-gray-400 text-xs italic">nevystavena</span>
-              )}
-            </div>
-            <div className="flex justify-between gap-2">
-              <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Status</span>
-              <span>{getStatusBadge(order.status)}</span>
-            </div>
-            <div className="flex justify-between gap-2">
-              <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Objednáno</span>
-              <span className="font-medium text-gray-800 text-right">{new Date(order.orderDate).toLocaleDateString('cs-CZ')}</span>
-            </div>
-            <div className="flex justify-between gap-2">
-              <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Zaplaceno</span>
-              <span className="font-medium text-gray-800 text-right">
-                {order.paidAt ? new Date(order.paidAt).toLocaleDateString('cs-CZ') : <span className="text-gray-400">—</span>}
-              </span>
-            </div>
-            <div className="flex justify-between gap-2">
-              <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Odesláno</span>
-              <span className="font-medium text-gray-800 text-right">
-                {order.shippedAt
-                  ? new Date(order.shippedAt).toLocaleDateString('cs-CZ')
-                  : (order.deliveryNotes?.find(dn => dn.status === 'active')
-                      ? new Date(order.deliveryNotes.find(dn => dn.status === 'active')!.deliveryDate).toLocaleDateString('cs-CZ')
-                      : <span className="text-gray-400">—</span>)}
-              </span>
-            </div>
-            <div className="flex justify-between gap-2">
-              <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Celkem</span>
-              <span className="font-bold text-gray-900 text-right">{formatPrice(Number(order.totalAmount))}</span>
-            </div>
-            <div className="flex justify-between gap-2">
-              <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Ref. platby</span>
-              <span className="font-mono text-xs text-gray-500 text-right break-all">{order.paymentReference || <span className="text-gray-400">—</span>}</span>
-            </div>
-            {order.note && !order.note.startsWith('Platba:') && (
-              <div className="flex justify-between gap-2">
-                <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Poznámka</span>
-                <span className="font-medium text-gray-800 text-right">{order.note}</span>
+          <div className="flex-1 px-4 text-sm bg-white divide-y divide-gray-100 flex flex-col">
+            {/* Dokumenty */}
+            <div className="py-3 space-y-2.5">
+              <div className="flex justify-between items-center gap-2">
+                <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Objednávka</span>
+                <Link
+                  href={`/eshop-orders?highlight=${order.id}`}
+                  className="font-mono font-semibold text-blue-600 hover:underline flex items-center gap-0.5 text-right"
+                  onClick={e => e.stopPropagation()}
+                >
+                  {order.orderNumber}
+                  <ExternalLink className="w-3 h-3" />
+                </Link>
               </div>
-            )}
+              <div className="flex justify-between items-center gap-2">
+                <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Faktura</span>
+                {order.issuedInvoice ? (
+                  <div className="flex items-center gap-1.5">
+                    <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${order.issuedInvoice.paymentStatus === 'paid' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                      {order.issuedInvoice.paymentStatus === 'paid' ? 'Zap.' : 'Nezap.'}
+                    </span>
+                    <Link
+                      href={`/invoices/issued?highlight=${order.issuedInvoice.id}`}
+                      className="font-mono font-semibold text-blue-600 hover:underline flex items-center gap-0.5 text-right"
+                      onClick={e => e.stopPropagation()}
+                    >
+                      {order.issuedInvoice.invoiceNumber}
+                      <ExternalLink className="w-3 h-3" />
+                    </Link>
+                  </div>
+                ) : (
+                  <span className="text-gray-400 text-xs italic">nevystavena</span>
+                )}
+              </div>
+              <div className="flex justify-between items-center gap-2">
+                <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Status</span>
+                <span>{getStatusBadge(order.status)}</span>
+              </div>
+            </div>
+            {/* Datumy */}
+            <div className="py-3 space-y-2.5">
+              <div className="flex justify-between items-center gap-2">
+                <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Objednáno</span>
+                <span className="font-medium text-gray-800 text-right">{new Date(order.orderDate).toLocaleDateString('cs-CZ')}</span>
+              </div>
+              <div className="flex justify-between items-center gap-2">
+                <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Zaplaceno</span>
+                <span className="font-medium text-gray-800 text-right">
+                  {order.paidAt ? new Date(order.paidAt).toLocaleDateString('cs-CZ') : <span className="text-gray-400">—</span>}
+                </span>
+              </div>
+              <div className="flex justify-between items-center gap-2">
+                <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Odesláno</span>
+                <span className="font-medium text-gray-800 text-right">
+                  {order.shippedAt
+                    ? new Date(order.shippedAt).toLocaleDateString('cs-CZ')
+                    : (order.deliveryNotes?.find(dn => dn.status === 'active')
+                        ? new Date(order.deliveryNotes.find(dn => dn.status === 'active')!.deliveryDate).toLocaleDateString('cs-CZ')
+                        : <span className="text-gray-400">—</span>)}
+                </span>
+              </div>
+            </div>
+            {/* Platba */}
+            <div className="py-3 space-y-2.5 mt-auto">
+              <div className="flex justify-between items-center gap-2">
+                <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Ref. platby</span>
+                <span className="font-mono text-xs text-gray-500 text-right break-all">{order.paymentReference || <span className="text-gray-400">—</span>}</span>
+              </div>
+              {order.note && !order.note.startsWith('Platba:') && (
+                <div className="flex justify-between items-center gap-2">
+                  <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Poznámka</span>
+                  <span className="font-medium text-gray-800 text-right">{order.note}</span>
+                </div>
+              )}
+              <div className="flex justify-between items-center gap-2 pt-1 border-t border-gray-200">
+                <span className="text-gray-500 shrink-0 text-xs uppercase tracking-wide font-bold">Celkem</span>
+                <span className="font-bold text-gray-900 text-right text-base">{formatPrice(Number(order.totalAmount))}</span>
+              </div>
+            </div>
           </div>
         </div>
 
