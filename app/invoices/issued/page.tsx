@@ -8,7 +8,7 @@ import { useSearchParams } from 'next/navigation'
 import { formatPrice } from '@/lib/utils'
 import { generateInvoicePDF } from '@/lib/generateInvoicePDF'
 import { ChevronDown, ChevronRight, Trash2, FileText, ExternalLink, XCircle, FileOutput, Plus, X } from 'lucide-react'
-import { LinkedDocumentBanner, ActionToolbar, EshopOrderDetail } from '@/components/erp'
+import { PageHeader, LinkedDocumentBanner, ActionToolbar, EshopOrderDetail } from '@/components/erp'
 import type { OrderDetailData } from '@/components/erp'
 import { DEFAULT_VAT_RATE } from '@/lib/vatCalculation'
 
@@ -689,6 +689,16 @@ export default function TransactionsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Hlavička */}
+      <PageHeader
+        title="Vystavené faktury"
+        icon={FileText}
+        color="blue"
+        total={transactions.length}
+        filtered={filteredInvoices.length}
+        onRefresh={fetchData}
+      />
+
       {/* Filtry - přesně odpovídající sloupcům tabulky */}
       <div className="mb-4">
         <div className="grid grid-cols-[auto_1fr_1fr_1fr_1fr_1fr_1fr_1fr] items-center gap-4 px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg">
