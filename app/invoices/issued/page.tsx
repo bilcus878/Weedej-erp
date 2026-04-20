@@ -966,114 +966,275 @@ export default function TransactionsPage() {
                             return links.length > 0 ? <LinkedDocumentBanner links={links} color="blue" /> : null
                           })()}
 
-                          {/* 2-sloupcová mřížka: Obecné info + Zákazník */}
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {/* Obecné informace o faktuře */}
-                            <DetailSection title="Informace o faktuře" icon={FileText}>
-                              <div className="space-y-1.5">
-                                <DetailRow label="Datum vytvoření" value={new Date(transaction.transactionDate).toLocaleDateString('cs-CZ')} />
-                                <DetailRow
-                                  label="Odesláno / Vydáno"
-                                  value={
-                                    transaction.customerOrderId && transaction.deliveryNotes && transaction.deliveryNotes.length > 0
-                                      ? transaction.deliveryNotes.map((dn: any) => new Date(dn.deliveryDate).toLocaleDateString('cs-CZ')).join(', ')
-                                      : transaction.transactionId && !transaction.customerOrderId
-                                        ? new Date(transaction.transactionDate).toLocaleDateString('cs-CZ')
-                                        : null
-                                  }
-                                />
-                                <DetailRow
-                                  label="Datum splatnosti"
-                                  value={(transaction as any).dueDate ? new Date((transaction as any).dueDate).toLocaleDateString('cs-CZ') : null}
-                                />
-                                <DetailRow
-                                  label="Typ platby"
-                                  value={
-                                    transaction.paymentType === 'cash' ? 'Hotovost' :
-                                    transaction.paymentType === 'card' ? 'Karta' :
-                                    transaction.paymentType === 'transfer' ? 'Bankovní převod' : null
-                                  }
-                                />
-                                <DetailRow
-                                  label="Zaplaceno"
-                                  value={
-                                    (transaction.status === 'paid' || transaction.status === 'delivered' || (transaction._original as any)?.customerOrder?.paidAt || (transaction._original as any)?.transaction)
-                                      ? ((transaction._original as any)?.customerOrder?.paidAt
-                                          ? new Date((transaction._original as any).customerOrder.paidAt).toLocaleDateString('cs-CZ')
-                                          : new Date(transaction.transactionDate).toLocaleDateString('cs-CZ'))
-                                      : null
-                                  }
-                                />
-                                {(transaction as any).note && (
-                                  <DetailRow label="Poznámka" value={(transaction as any).note} />
-                                )}
-                              </div>
-                            </DetailSection>
+                          {/* 2-sloupcová mřížka: Zákazník (vlevo) + Přehled objednávky (vpravo) */}
+                          {(() => {
+                            const t = transaction as any
+                            const isSumUp = transaction.transactionId && !transaction.customerOrderId && !transaction.customer && !t.customerName
+                            const custName = isSumUp ? 'Anonymní zákazník' : (t.customerName || transaction.customer?.name || 'Anonymní zákazník')
+                            const hasBilling = !!(t.billingStreet || t.billingCity)
+                            const paidAt = t._original?.customerOrder?.paidAt
+                              ? new Date(t._original.customerOrder.paidAt).toLocaleDateString('cs-CZ')
+                              : (transaction.status === 'paid' || transaction.status === 'delivered')
+                                ? new Date(transaction.transactionDate).toLocaleDateString('cs-CZ')
+                                : null
+                            const shippedAt = transaction.customerOrderId && transaction.deliveryNotes && transaction.deliveryNotes.length > 0
+                              ? transaction.deliveryNotes.map((dn: any) => new Date(dn.deliveryDate).toLocaleDateString('cs-CZ')).join(', ')
+                              : null
+                            const isPaid = ['paid', 'shipped', 'delivered'].includes(transaction.status)
+                            const email = t.customerEmail || (transaction.customer as any)?.email
+                            const phone = t.customerPhone || (transaction.customer as any)?.phone
+                            const ico = t.billingIco || t.customerIco || (transaction.customer as any)?.ico
+                            const payRef = t.variableSymbol
 
-                            {/* Zákazník / Odběratel */}
-                            {(() => {
-                              const isSumUp = transaction.transactionId && !transaction.customerOrderId && !transaction.customer && !(transaction as any).customerName
-                              const customerName = isSumUp
-                                ? 'Anonymní zákazník'
-                                : ((transaction as any).customerName || transaction.customer?.name || 'Anonymní zákazník')
-                              return (
-                                <PartySection
-                                  title="Odběratel / Zákazník"
-                                  icon={FileText}
-                                  party={{
-                                    name:        customerName,
-                                    entityType:  (transaction.customer as any)?.entityType || (transaction as any).customerEntityType,
-                                    contact:     (transaction as any).customerContactPerson || (transaction.customer as any)?.contact,
-                                    address:     (transaction as any).customerAddress || (transaction.customer as any)?.address,
-                                    phone:       (transaction as any).customerPhone || (transaction.customer as any)?.phone,
-                                    ico:         (transaction as any).customerIco || (transaction.customer as any)?.ico,
-                                    dic:         (transaction as any).customerDic || (transaction.customer as any)?.dic,
-                                    email:       (transaction as any).customerEmail || (transaction.customer as any)?.email,
-                                    website:     (transaction as any).customerWebsite || (transaction.customer as any)?.website,
-                                    bankAccount: (transaction as any).customerBankAccount || (transaction.customer as any)?.bankAccount,
-                                    note:        (transaction.customer as any)?.note,
-                                  }}
-                                />
-                              )
-                            })()}
-                          </div>
-                        </div>
+                            const card = "bg-white border border-[#e5e7eb] rounded-[10px] shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden flex flex-col"
+                            const cardHeader = "flex items-center gap-2 px-4 bg-[#f8fafc] border-b border-[#e5e7eb] min-h-[34px]"
+                            const cardTitle = "text-[15px] font-semibold text-[#111827]"
+                            const row = "py-2 flex justify-between items-center gap-4"
+                            const lbl = "text-[11px] uppercase tracking-wider font-semibold text-[#9ca3af] shrink-0"
+                            const val = "text-sm font-medium text-[#111827] text-right"
 
-                        {/* Doprava & výdejní místo — jen pro eshop objednávky */}
-                        {((transaction as any).shippingMethod || (transaction as any).pickupPointId) && (
-                          <div className="mt-4 mb-2 border border-gray-200 rounded-lg overflow-hidden">
-                            <h4 className="font-bold text-sm text-gray-900 px-4 py-2 bg-gray-100 border-b border-gray-200">Doprava</h4>
-                            <div className="px-4 py-3 space-y-2 bg-white text-sm">
-                              {(transaction as any).shippingMethod && (
-                                <div className="flex items-center gap-2">
-                                  <span className="text-gray-600">Způsob dopravy:</span>
-                                  <span className="font-medium">{({
-                                    DPD_HOME: 'DPD — Doručení na adresu',
-                                    DPD_PICKUP: 'DPD — Výdejní místo',
-                                    ZASILKOVNA_HOME: 'Zásilkovna — Doručení na adresu',
-                                    ZASILKOVNA_PICKUP: 'Zásilkovna — Výdejní místo / Z-BOX',
-                                    COURIER: 'Kurýr',
-                                    PICKUP_IN_STORE: 'Osobní odběr',
-                                  } as Record<string, string>)[(transaction as any).shippingMethod] ?? (transaction as any).shippingMethod}</span>
-                                </div>
-                              )}
-                              {(transaction as any).pickupPointId && (
-                                <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
-                                  <div className="space-y-0.5">
-                                    <p className="text-xs font-bold uppercase tracking-wide text-amber-700">
-                                      {(transaction as any).pickupPointCarrier === 'zasilkovna' ? 'Zásilkovna' : (transaction as any).pickupPointCarrier === 'dpd' ? 'DPD' : 'Výdejní místo'}
-                                    </p>
-                                    <p className="font-semibold text-amber-900">{(transaction as any).pickupPointName || '-'}</p>
-                                    {(transaction as any).pickupPointAddress && (
-                                      <p className="text-amber-700 text-xs">{(transaction as any).pickupPointAddress}</p>
+                            return (
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                                {/* ── A) Zákazník / Odběratel ── */}
+                                <div className={card}>
+                                  <div className={cardHeader}>
+                                    <FileText className="w-3.5 h-3.5 text-[#6b7280]" />
+                                    <span className={cardTitle}>Zákazník / Odběratel</span>
+                                  </div>
+                                  <div className="px-4 py-1 divide-y divide-[#f3f4f6]">
+                                    <div className={row}>
+                                      <span className={lbl}>Jméno</span>
+                                      <span className={val}>{custName}</span>
+                                    </div>
+                                    <div className={row}>
+                                      <span className={lbl}>E-mail</span>
+                                      {email
+                                        ? <a href={`mailto:${email}`} className="text-sm font-medium text-blue-600 hover:underline text-right" onClick={e => e.stopPropagation()}>{email}</a>
+                                        : <span className="text-sm text-[#9ca3af]">—</span>}
+                                    </div>
+                                    <div className={row}>
+                                      <span className={lbl}>Telefon</span>
+                                      <span className={phone ? val : 'text-sm text-[#9ca3af] text-right'}>{phone || '—'}</span>
+                                    </div>
+                                    {t.billingCompany && (
+                                      <div className={row}>
+                                        <span className={lbl}>Firma</span>
+                                        <span className={val}>{t.billingCompany}</span>
+                                      </div>
                                     )}
-                                    <p className="text-amber-600 text-xs font-mono">ID: {(transaction as any).pickupPointId}</p>
+                                    {ico && (
+                                      <div className={row}>
+                                        <span className={lbl}>IČO</span>
+                                        <span className="font-mono text-sm font-medium text-[#111827] text-right">{ico}</span>
+                                      </div>
+                                    )}
+                                    {/* Fakturační adresa subheading */}
+                                    <div className="pt-3 pb-1.5">
+                                      <p className="text-[10px] font-bold uppercase tracking-widest text-[#9ca3af] flex items-center gap-1.5">
+                                        <FileText className="w-3 h-3" />
+                                        Fakturační adresa
+                                      </p>
+                                    </div>
+                                    {hasBilling ? (
+                                      <>
+                                        <div className={row}>
+                                          <span className={lbl}>Příjemce</span>
+                                          <span className={val}>{t.billingCompany || t.billingName || custName}</span>
+                                        </div>
+                                        <div className={row}>
+                                          <span className={lbl}>Ulice</span>
+                                          <span className={t.billingStreet ? val : 'text-sm text-[#9ca3af] text-right'}>{t.billingStreet || '—'}</span>
+                                        </div>
+                                        <div className={row}>
+                                          <span className={lbl}>Město / PSČ</span>
+                                          <span className={val}>{[t.billingZip, t.billingCity].filter(Boolean).join(' ') || '—'}</span>
+                                        </div>
+                                        <div className={row}>
+                                          <span className={lbl}>Země</span>
+                                          <span className={val}>{t.billingCountry || 'CZ'}</span>
+                                        </div>
+                                      </>
+                                    ) : (
+                                      <div className="py-2">
+                                        <p className="text-xs text-[#9ca3af] italic">Shodná s doručovací adresou</p>
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
-                              )}
+
+                                {/* ── B) Přehled objednávky ── */}
+                                <div className={card}>
+                                  <div className={cardHeader}>
+                                    <FileText className="w-3.5 h-3.5 text-[#6b7280]" />
+                                    <span className={cardTitle}>Přehled objednávky</span>
+                                  </div>
+                                  <div className="px-4 py-1 divide-y divide-[#f3f4f6]">
+                                    {transaction.customerOrderId && (
+                                      <div className={row}>
+                                        <span className={lbl}>Objednávka</span>
+                                        <a
+                                          href={`/${transaction.customerOrderSource === 'eshop' ? 'eshop-orders' : 'customer-orders'}?highlight=${transaction.customerOrderId}`}
+                                          className="font-mono text-sm font-semibold text-blue-600 hover:underline flex items-center gap-0.5"
+                                          onClick={e => e.stopPropagation()}
+                                        >
+                                          {transaction.customerOrderNumber}
+                                          <ExternalLink className="w-3 h-3" />
+                                        </a>
+                                      </div>
+                                    )}
+                                    <div className={row}>
+                                      <span className={lbl}>Faktura</span>
+                                      <div className="flex items-center gap-1.5">
+                                        {isPaid && (
+                                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-green-100 text-green-700 leading-none">
+                                            Zap.
+                                          </span>
+                                        )}
+                                        <span className="font-mono text-sm font-semibold text-[#111827]">{transaction.transactionCode}</span>
+                                      </div>
+                                    </div>
+                                    <div className={row}>
+                                      <span className={lbl}>Status</span>
+                                      {getStatusBadge(transaction)}
+                                    </div>
+                                    {transaction.paymentType && (
+                                      <div className={row}>
+                                        <span className={lbl}>Typ platby</span>
+                                        <span className="text-sm font-medium text-[#6b7280]">
+                                          {transaction.paymentType === 'cash' ? 'Hotovost' :
+                                           transaction.paymentType === 'card' ? 'Karta' :
+                                           transaction.paymentType === 'transfer' ? 'Bankovní převod' : transaction.paymentType}
+                                        </span>
+                                      </div>
+                                    )}
+                                    <div className={row}>
+                                      <span className={lbl}>Objednáno</span>
+                                      <span className="text-sm font-medium text-[#6b7280]">{new Date(transaction.transactionDate).toLocaleDateString('cs-CZ')}</span>
+                                    </div>
+                                    {paidAt && (
+                                      <div className={row}>
+                                        <span className={lbl}>Zaplaceno</span>
+                                        <span className="text-sm font-medium text-[#6b7280]">{paidAt}</span>
+                                      </div>
+                                    )}
+                                    <div className={row}>
+                                      <span className={lbl}>Odesláno</span>
+                                      <span className={`text-sm font-medium ${shippedAt ? 'text-[#6b7280]' : 'text-[#9ca3af]'}`}>{shippedAt || '—'}</span>
+                                    </div>
+                                    {t.dueDate && (
+                                      <div className={row}>
+                                        <span className={lbl}>Datum splatnosti</span>
+                                        <span className="text-sm font-medium text-[#6b7280]">{new Date(t.dueDate).toLocaleDateString('cs-CZ')}</span>
+                                      </div>
+                                    )}
+                                    {/* Celkem — larger + bolder */}
+                                    <div className={row}>
+                                      <span className={lbl}>Celkem</span>
+                                      <span className="text-base font-bold text-[#111827]">{formatPrice(transaction.totalAmount)}</span>
+                                    </div>
+                                    {/* Ref. platby — monospace, compact */}
+                                    {payRef && (
+                                      <div className={row}>
+                                        <span className={lbl}>Ref. platby</span>
+                                        <span className="font-mono text-[11px] text-[#6b7280] text-right break-all">{payRef}</span>
+                                      </div>
+                                    )}
+                                    {t.note && (
+                                      <div className={row}>
+                                        <span className={lbl}>Poznámka</span>
+                                        <span className="text-sm font-medium text-[#6b7280] text-right">{t.note}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+
+                              </div>
+                            )
+                          })()}
+                        </div>
+
+                        {/* Doprava — 4-column enterprise layout */}
+                        {((transaction as any).shippingMethod || (transaction as any).pickupPointId) && (() => {
+                          const td = transaction as any
+                          const shippingMethodLabel = ({
+                            DPD_HOME: 'DPD — Doručení na adresu',
+                            DPD_PICKUP: 'DPD — Výdejní místo',
+                            ZASILKOVNA_HOME: 'Zásilkovna — Doručení na adresu',
+                            ZASILKOVNA_PICKUP: 'Zásilkovna — Výdejní místo / Z-BOX',
+                            COURIER: 'Kurýr',
+                            PICKUP_IN_STORE: 'Osobní odběr',
+                          } as Record<string, string>)[td.shippingMethod] ?? td.shippingMethod
+                          const carrierLabel = td.pickupPointCarrier === 'zasilkovna'
+                            ? 'ZÁSILKOVNA'
+                            : td.pickupPointCarrier === 'dpd'
+                              ? 'DPD'
+                              : td.carrier?.toUpperCase() || null
+                          const colLbl = "text-[11px] uppercase tracking-wider font-semibold text-[#9ca3af] mb-2"
+                          return (
+                            <div className="bg-white border border-[#e5e7eb] rounded-[10px] shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden">
+                              <div className="flex items-center gap-2 px-4 bg-[#f8fafc] border-b border-[#e5e7eb] min-h-[34px]">
+                                <FileOutput className="w-3.5 h-3.5 text-[#6b7280]" />
+                                <span className="text-[15px] font-semibold text-[#111827]">Doprava</span>
+                              </div>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-[#e5e7eb]">
+
+                                {/* Col 1: Způsob dopravy + carrier badge */}
+                                <div className="px-4 py-3 space-y-2">
+                                  <p className={colLbl}>Způsob dopravy</p>
+                                  <p className="text-sm font-medium text-[#111827] leading-snug">{shippingMethodLabel || '—'}</p>
+                                  {carrierLabel && (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 uppercase tracking-wider">
+                                      {carrierLabel}
+                                    </span>
+                                  )}
+                                </div>
+
+                                {/* Col 2: Výdejní místo */}
+                                <div className="px-4 py-3 space-y-1.5">
+                                  <p className={colLbl}>Výdejní místo</p>
+                                  {td.pickupPointId ? (
+                                    <>
+                                      <p className="text-sm font-semibold text-[#111827]">{td.pickupPointName || '—'}</p>
+                                      {td.pickupPointAddress && (
+                                        <p className="text-xs text-[#6b7280] leading-snug">{td.pickupPointAddress}</p>
+                                      )}
+                                      <p className="text-[11px] font-mono text-[#9ca3af]">ID {td.pickupPointId}</p>
+                                    </>
+                                  ) : (
+                                    <p className="text-xs text-[#9ca3af] italic">—</p>
+                                  )}
+                                </div>
+
+                                {/* Col 3: Mapa placeholder */}
+                                <div className="px-4 py-3 flex items-stretch">
+                                  <div className="w-full rounded-lg bg-[#f1f5f9] border border-[#e2e8f0] flex flex-col items-center justify-center min-h-[72px] gap-1">
+                                    <ExternalLink className="w-4 h-4 text-[#94a3b8]" />
+                                    <p className="text-[10px] text-[#94a3b8] font-medium">Mapa výdejního místa</p>
+                                  </div>
+                                </div>
+
+                                {/* Col 4: Zásilka + Přidat tracking */}
+                                <div className="px-4 py-3 space-y-2">
+                                  <p className={colLbl}>Zásilka</p>
+                                  {td.trackingNumber ? (
+                                    <div className="space-y-0.5">
+                                      <p className="font-mono text-sm font-medium text-[#111827]">{td.trackingNumber}</p>
+                                      {td.carrier && <p className="text-xs text-[#6b7280]">{td.carrier}</p>}
+                                    </div>
+                                  ) : (
+                                    <p className="text-xs text-[#6b7280]">Zásilka nebyla předána dopravci.</p>
+                                  )}
+                                  <button className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium text-[#374151] bg-[#f9fafb] border border-[#e5e7eb] rounded-lg hover:bg-[#f3f4f6] transition-colors cursor-pointer">
+                                    <Plus className="w-3 h-3" />
+                                    Přidat tracking
+                                  </button>
+                                </div>
+
+                              </div>
                             </div>
-                          </div>
-                        )}
+                          )
+                        })()}
 
                         {/* Položky */}
                         {transaction.items.length === 0 ? (
