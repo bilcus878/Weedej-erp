@@ -11,7 +11,7 @@ import { generatePurchaseOrderPDF, openPDFInNewTab } from '@/lib/pdfGenerator'
 import CustomerSupplierSelector from '@/components/CustomerSupplierSelector'
 import { calculateLineVat, calculateVatSummary, isNonVatPayer, NON_VAT_PAYER_RATE, DEFAULT_VAT_RATE, VAT_RATE_LABELS, type VatLineItem } from '@/lib/vatCalculation'
 import {
-  useEntityPage, EntityPage, FilterInput, FilterSelect, LoadingState, ErrorState,
+  useEntityPage, useFilters, EntityPage, LoadingState, ErrorState,
   ActionToolbar, LinkedDocumentBanner,
 } from '@/components/erp'
 import type { ColumnDef, SelectOption } from '@/components/erp'
@@ -122,6 +122,18 @@ export default function PurchaseOrdersPage() {
   const categoryMenuRef   = useRef<HTMLDivElement>(null)
   const hideSubmenuTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
+  const resetPage = useRef<() => void>(() => {})
+
+  const filters = useFilters<PurchaseOrder>([
+    { key: 'number',   type: 'text',   placeholder: 'Číslo...',    match: (r, v) => r.orderNumber.toLowerCase().includes(v.toLowerCase()) },
+    { key: 'date',     type: 'date',                                 match: (r, v) => new Date(r.orderDate).toISOString().split('T')[0] === v },
+    { key: 'supplier', type: 'text',   placeholder: 'Dodavatel...',  match: (r, v) => (r.supplier?.name || r.supplierName || '').toLowerCase().includes(v.toLowerCase()) },
+    { key: 'payment',  type: 'select', options: paymentTypeOptions,  match: (r, v) => { if (v === 'all') return true; const pt = r.invoice?.paymentType; return v === 'none' ? !pt : pt === v } },
+    { key: 'minItems', type: 'number', placeholder: '≥',            match: (r, v) => r.items.length >= v },
+    { key: 'minValue', type: 'number', placeholder: '≥ Kč',         match: (r, v) => r.items.reduce((s, i) => s + Number(i.quantity) * Number(i.expectedPrice || 0), 0) >= v },
+    { key: 'status',   type: 'select', options: statusOptions,       match: (r, v) => v === 'all' || r.status === v },
+  ], () => resetPage.current())
+
   const ep = useEntityPage<PurchaseOrder>({
     fetchData: async () => {
       const [oRes, sRes, pRes, stRes] = await Promise.all([
@@ -137,24 +149,10 @@ export default function PurchaseOrdersPage() {
       return o
     },
     getRowId: r => r.id,
-    filterFn: (r, f) => {
-      if (f.number   && !r.orderNumber.toLowerCase().includes(f.number.toLowerCase())) return false
-      if (f.date)    { if (new Date(r.orderDate).toISOString().split('T')[0] !== f.date) return false }
-      if (f.supplier){ const n = r.supplier?.name || r.supplierName || ''; if (!n.toLowerCase().includes(f.supplier.toLowerCase())) return false }
-      if (f.payment && f.payment !== 'all') {
-        const pt = r.invoice?.paymentType
-        if (f.payment === 'none' ? !!pt : pt !== f.payment) return false
-      }
-      if (f.status   && f.status !== 'all' && r.status !== f.status) return false
-      if (f.minItems && r.items.length < parseInt(f.minItems)) return false
-      if (f.minValue) {
-        const total = r.items.reduce((sum, item) => sum + Number(item.quantity) * Number(item.expectedPrice || 0), 0)
-        if (total < parseFloat(f.minValue)) return false
-      }
-      return true
-    },
+    filterFn: filters.fn,
     highlightId,
   })
+  resetPage.current = () => ep.setPage(1)
 
   async function handleOpenForm() {
     const res = await fetch(`/api/purchase-orders/next-number?date=${orderDate}`)
@@ -606,15 +604,7 @@ export default function PurchaseOrdersPage() {
         )}
       </Card>
 
-      <EntityPage.Filters onClear={ep.clearFilters} columns="auto 1fr 1fr 1fr 1fr 1fr 1fr 1fr">
-        <FilterInput value={ep.filters.number   ?? ''} onChange={v => ep.setFilter('number',   v)} placeholder="Číslo..." />
-        <FilterInput value={ep.filters.date     ?? ''} onChange={v => ep.setFilter('date',     v)} type="date" />
-        <FilterInput value={ep.filters.supplier ?? ''} onChange={v => ep.setFilter('supplier', v)} placeholder="Dodavatel..." />
-        <FilterSelect value={ep.filters.payment ?? 'all'} onChange={v => ep.setFilter('payment', v)} options={paymentTypeOptions} />
-        <FilterInput value={ep.filters.minItems ?? ''} onChange={v => ep.setFilter('minItems', v)} type="number" placeholder="≥" />
-        <FilterInput value={ep.filters.minValue ?? ''} onChange={v => ep.setFilter('minValue', v)} type="number" placeholder="≥ Kč" />
-        <FilterSelect value={ep.filters.status  ?? 'all'} onChange={v => ep.setFilter('status',  v)} options={statusOptions} />
-      </EntityPage.Filters>
+      {filters.bar('auto 1fr 1fr 1fr 1fr 1fr 1fr 1fr')}
 
       <EntityPage.Table
         columns={columns}

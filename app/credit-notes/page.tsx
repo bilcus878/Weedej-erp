@@ -1,11 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { FileText, XCircle } from 'lucide-react'
 import { formatPrice, formatQuantity } from '@/lib/utils'
 import {
-  useEntityPage, EntityPage, FilterInput, FilterSelect, LoadingState, ErrorState,
+  useEntityPage, useFilters, EntityPage, LoadingState, ErrorState,
   DetailSection, DetailRow, LinkedDocumentBanner, PartySection, ItemsTable, ActionToolbar,
 } from '@/components/erp'
 import type { ErpItem, ColumnDef, SelectOption } from '@/components/erp'
@@ -75,6 +75,18 @@ export default function CreditNotesPage() {
   const highlightId  = useSearchParams().get('highlight')
   const [isVatPayer, setIsVatPayer] = useState(true)
 
+  const resetPage = useRef<() => void>(() => {})
+
+  const filters = useFilters<CreditNote>([
+    { key: 'number',   type: 'text',   placeholder: 'Číslo...',      match: (r, v) => r.creditNoteNumber.toLowerCase().includes(v.toLowerCase()) },
+    { key: 'date',     type: 'date',                                   match: (r, v) => new Date(r.creditNoteDate).toISOString().split('T')[0] === v },
+    { key: 'customer', type: 'text',   placeholder: 'Odběratel...',   match: (r, v) => (r.customer?.name || r.customerName || '').toLowerCase().includes(v.toLowerCase()) },
+    { key: 'invoice',  type: 'text',   placeholder: 'Faktura...',     match: (r, v) => r.invoiceNumber.toLowerCase().includes(v.toLowerCase()) },
+    { key: 'minItems', type: 'number', placeholder: '≥',              match: (r, v) => (r.items?.length || 0) >= v },
+    { key: 'minValue', type: 'number', placeholder: '≥',              match: (r, v) => Math.abs(r.totalAmount) >= v },
+    { key: 'status',   type: 'select', options: statusOptions,         match: (r, v) => v === 'all' || r.status === v },
+  ], () => resetPage.current())
+
   const ep = useEntityPage<CreditNote>({
     fetchData: async () => {
       const [cnRes, sRes] = await Promise.all([fetch('/api/credit-notes'), fetch('/api/settings')])
@@ -83,18 +95,10 @@ export default function CreditNotesPage() {
       return cn
     },
     getRowId: r => r.id,
-    filterFn: (r, f) => {
-      if (f.number   && !r.creditNoteNumber.toLowerCase().includes(f.number.toLowerCase())) return false
-      if (f.date)    { const d = new Date(r.creditNoteDate).toISOString().split('T')[0]; if (d !== f.date) return false }
-      if (f.customer){ const n = r.customer?.name || r.customerName || ''; if (!n.toLowerCase().includes(f.customer.toLowerCase())) return false }
-      if (f.invoice  && !r.invoiceNumber.toLowerCase().includes(f.invoice.toLowerCase())) return false
-      if (f.minItems && (r.items?.length || 0) < parseInt(f.minItems)) return false
-      if (f.minValue && Math.abs(r.totalAmount) < parseFloat(f.minValue)) return false
-      if (f.status && f.status !== 'all' && r.status !== f.status) return false
-      return true
-    },
+    filterFn: filters.fn,
     highlightId,
   })
+  resetPage.current = () => ep.setPage(1)
 
   const columns: ColumnDef<CreditNote>[] = [
     {
@@ -164,15 +168,7 @@ export default function CreditNotesPage() {
         onRefresh={ep.refresh}
       />
 
-      <EntityPage.Filters onClear={ep.clearFilters} columns="auto 1fr 1fr 1fr 1fr 1fr 1fr 1fr">
-        <FilterInput value={ep.filters.number   ?? ''} onChange={v => ep.setFilter('number',   v)} placeholder="Číslo..." />
-        <FilterInput value={ep.filters.date     ?? ''} onChange={v => ep.setFilter('date',     v)} type="date" />
-        <FilterInput value={ep.filters.customer ?? ''} onChange={v => ep.setFilter('customer', v)} placeholder="Odběratel..." />
-        <FilterInput value={ep.filters.invoice  ?? ''} onChange={v => ep.setFilter('invoice',  v)} placeholder="Faktura..." />
-        <FilterInput value={ep.filters.minItems ?? ''} onChange={v => ep.setFilter('minItems', v)} type="number" placeholder="≥" />
-        <FilterInput value={ep.filters.minValue ?? ''} onChange={v => ep.setFilter('minValue', v)} type="number" placeholder="≥" />
-        <FilterSelect value={ep.filters.status  ?? 'all'} onChange={v => ep.setFilter('status', v)} options={statusOptions} />
-      </EntityPage.Filters>
+      {filters.bar('auto 1fr 1fr 1fr 1fr 1fr 1fr 1fr')}
 
       <EntityPage.Table
         columns={columns}

@@ -1,13 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Building2, ChevronDown, ChevronRight, Edit2, Trash2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import {
-  useEntityPage, EntityPage, FilterInput, LoadingState, ErrorState,
+  useEntityPage, useFilters, EntityPage, LoadingState, ErrorState,
   PartySection, ActionToolbar,
 } from '@/components/erp'
 import type { ColumnDef } from '@/components/erp'
@@ -41,22 +41,26 @@ export default function SuppliersPage() {
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null)
   const [formData, setFormData] = useState({ ...emptyForm })
 
+  const resetPage = useRef<() => void>(() => {})
+
+  const filters = useFilters<Supplier>([
+    { key: 'name',    type: 'text', placeholder: 'Název...',    match: (r, v) => r.name.toLowerCase().includes(v.toLowerCase()) },
+    { key: 'contact', type: 'text', placeholder: 'Kontakt...',  match: (r, v) => (r.contact || '').toLowerCase().includes(v.toLowerCase()) },
+    { key: 'email',   type: 'text', placeholder: 'Email...',    match: (r, v) => (r.email   || '').toLowerCase().includes(v.toLowerCase()) },
+    { key: 'phone',   type: 'text', placeholder: 'Telefon...',  match: (r, v) => (r.phone   || '').toLowerCase().includes(v.toLowerCase()) },
+    { key: 'website', type: 'text', placeholder: 'Web...',      match: (r, v) => (r.website || '').toLowerCase().includes(v.toLowerCase()) },
+  ], () => resetPage.current())
+
   const ep = useEntityPage<Supplier>({
     fetchData: async () => {
       const res = await fetch('/api/suppliers')
       return res.json()
     },
     getRowId: r => r.id,
-    filterFn: (r, f) => {
-      if (f.name    && !r.name.toLowerCase().includes(f.name.toLowerCase())) return false
-      if (f.contact && !(r.contact || '').toLowerCase().includes(f.contact.toLowerCase())) return false
-      if (f.email   && !(r.email   || '').toLowerCase().includes(f.email.toLowerCase())) return false
-      if (f.phone   && !(r.phone   || '').toLowerCase().includes(f.phone.toLowerCase())) return false
-      if (f.website && !(r.website || '').toLowerCase().includes(f.website.toLowerCase())) return false
-      return true
-    },
+    filterFn: filters.fn,
     highlightId,
   })
+  resetPage.current = () => ep.setPage(1)
 
   const columns: ColumnDef<Supplier>[] = [
     { key: 'name',    header: 'Název',           render: r => <p className="text-sm font-semibold text-gray-900 truncate">{r.name}</p> },
@@ -277,13 +281,7 @@ export default function SuppliersPage() {
         )}
       </Card>
 
-      <EntityPage.Filters onClear={ep.clearFilters} columns="auto 1fr 1fr 1fr 1fr 1fr">
-        <FilterInput value={ep.filters.name    ?? ''} onChange={v => ep.setFilter('name',    v)} placeholder="Název..." />
-        <FilterInput value={ep.filters.contact ?? ''} onChange={v => ep.setFilter('contact', v)} placeholder="Kontakt..." />
-        <FilterInput value={ep.filters.email   ?? ''} onChange={v => ep.setFilter('email',   v)} placeholder="Email..." />
-        <FilterInput value={ep.filters.phone   ?? ''} onChange={v => ep.setFilter('phone',   v)} placeholder="Telefon..." />
-        <FilterInput value={ep.filters.website ?? ''} onChange={v => ep.setFilter('website', v)} placeholder="Web..." />
-      </EntityPage.Filters>
+      {filters.bar('auto 1fr 1fr 1fr 1fr 1fr')}
 
       <EntityPage.Table
         columns={columns}

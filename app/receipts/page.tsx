@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Package, CheckCircle, FileDown, XCircle, ChevronDown, ChevronRight } from 'lucide-react'
@@ -12,7 +12,7 @@ import { formatVariantQty } from '@/lib/formatVariantQty'
 import { generateReceiptPDF, openPDFInNewTab } from '@/lib/pdfGenerator'
 import { isNonVatPayer, DEFAULT_VAT_RATE } from '@/lib/vatCalculation'
 import {
-  useEntityPage, EntityPage, FilterInput, FilterSelect, LoadingState, ErrorState,
+  useEntityPage, useFilters, EntityPage, LoadingState, ErrorState,
   DetailSection, DetailRow, ActionToolbar, LinkedDocumentBanner,
 } from '@/components/erp'
 import type { ColumnDef, SelectOption } from '@/components/erp'
@@ -113,6 +113,17 @@ export default function ReceiptsPage() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
+  const resetPage = useRef<() => void>(() => {})
+
+  const filters = useFilters<Receipt>([
+    { key: 'number',   type: 'text',   placeholder: 'Číslo...',    match: (r, v) => r.receiptNumber.toLowerCase().includes(v.toLowerCase()) },
+    { key: 'date',     type: 'date',                                 match: (r, v) => new Date(r.receiptDate).toISOString().split('T')[0] === v },
+    { key: 'supplier', type: 'text',   placeholder: 'Dodavatel...', match: (r, v) => (r.purchaseOrder?.supplier?.name || r.supplier?.name || r.supplierName || '').toLowerCase().includes(v.toLowerCase()) },
+    { key: 'minItems', type: 'number', placeholder: '≥',            match: (r, v) => (r.items?.length || 0) >= v },
+    { key: 'minValue', type: 'number', placeholder: '≥',            match: (r, v) => r.items.reduce((s, i) => s + Number(i.receivedQuantity || i.quantity) * Number(i.purchasePrice || 0), 0) >= v },
+    { key: 'status',   type: 'select', options: statusOptions,       match: (r, v) => { if (v === 'all') return true; if (v === 'received') return r.status !== 'storno' && r.status !== 'cancelled'; if (v === 'storno') return r.status === 'storno' || r.status === 'cancelled'; return r.status === v } },
+  ], () => resetPage.current())
+
   const ep = useEntityPage<Receipt>({
     fetchData: async () => {
       const [rRes, sRes] = await Promise.all([
@@ -124,26 +135,10 @@ export default function ReceiptsPage() {
       return Array.isArray(r) ? r : []
     },
     getRowId: r => r.id,
-    filterFn: (r, f) => {
-      if (f.number   && !r.receiptNumber.toLowerCase().includes(f.number.toLowerCase())) return false
-      if (f.date)    { const d = new Date(r.receiptDate).toISOString().split('T')[0]; if (d !== f.date) return false }
-      if (f.supplier){ const n = r.purchaseOrder?.supplier?.name || r.supplier?.name || r.supplierName || ''; if (!n.toLowerCase().includes(f.supplier.toLowerCase())) return false }
-      if (f.minItems && (r.items?.length || 0) < parseInt(f.minItems)) return false
-      if (f.minValue) {
-        const total = r.items.reduce((sum, item) => {
-          const qty = Number(item.receivedQuantity || item.quantity)
-          return sum + qty * Number(item.purchasePrice || 0)
-        }, 0)
-        if (total < parseFloat(f.minValue)) return false
-      }
-      if (f.status && f.status !== 'all') {
-        if (f.status === 'received' && (r.status === 'storno' || r.status === 'cancelled')) return false
-        if (f.status === 'storno'   && r.status !== 'storno' && r.status !== 'cancelled')   return false
-      }
-      return true
-    },
+    filterFn: filters.fn,
     highlightId,
   })
+  resetPage.current = () => ep.setPage(1)
 
   async function fetchPendingOrders() {
     try {
@@ -608,14 +603,7 @@ export default function ReceiptsPage() {
         </Card>
       )}
 
-      <EntityPage.Filters onClear={ep.clearFilters} columns="auto 1fr 1fr 1fr 1fr 1fr 1fr">
-        <FilterInput  value={ep.filters.number   ?? ''} onChange={v => ep.setFilter('number',   v)} placeholder="Číslo..." />
-        <FilterInput  value={ep.filters.date     ?? ''} onChange={v => ep.setFilter('date',     v)} type="date" />
-        <FilterInput  value={ep.filters.supplier ?? ''} onChange={v => ep.setFilter('supplier', v)} placeholder="Dodavatel..." />
-        <FilterInput  value={ep.filters.minItems ?? ''} onChange={v => ep.setFilter('minItems', v)} type="number" placeholder="≥" />
-        <FilterInput  value={ep.filters.minValue ?? ''} onChange={v => ep.setFilter('minValue', v)} type="number" placeholder="≥" />
-        <FilterSelect value={ep.filters.status   ?? 'all'} onChange={v => ep.setFilter('status', v)} options={statusOptions} />
-      </EntityPage.Filters>
+      {filters.bar('auto 1fr 1fr 1fr 1fr 1fr 1fr')}
 
       <EntityPage.Table
         columns={columns}

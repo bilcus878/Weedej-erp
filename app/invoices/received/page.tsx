@@ -1,13 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { FileText, FileEdit, XCircle, ExternalLink } from 'lucide-react'
 import InvoiceDetailsModal from '@/components/InvoiceDetailsModal'
 import { isNonVatPayer, DEFAULT_VAT_RATE } from '@/lib/vatCalculation'
 import { formatPrice } from '@/lib/utils'
 import {
-  useEntityPage, EntityPage, FilterInput, FilterSelect, LoadingState, ErrorState,
+  useEntityPage, useFilters, EntityPage, LoadingState, ErrorState,
   DetailSection, DetailRow, LinkedDocumentBanner, PartySection, ActionToolbar,
 } from '@/components/erp'
 import type { ColumnDef, SelectOption } from '@/components/erp'
@@ -142,6 +142,18 @@ export default function ReceivedInvoicesPage() {
   const [selectedInvoiceForDetails,setSelectedInvoiceForDetails]= useState<ReceivedInvoice | null>(null)
   const [discountTemp, setDiscountTemp] = useState<Record<string, { type: string; value: string }>>({})
 
+  const resetPage = useRef<() => void>(() => {})
+
+  const filters = useFilters<ReceivedInvoice>([
+    { key: 'number',   type: 'text',   placeholder: 'Číslo...',    match: (r, v) => r.invoiceNumber.toLowerCase().includes(v.toLowerCase()) },
+    { key: 'date',     type: 'date',                                 match: (r, v) => new Date(r.invoiceDate).toISOString().split('T')[0] === v },
+    { key: 'supplier', type: 'text',   placeholder: 'Dodavatel...', match: (r, v) => { const sup = r.receipts?.[0]?.supplier || r.purchaseOrder?.supplier; return (sup?.name || r.supplierName || r.purchaseOrder?.supplierName || '').toLowerCase().includes(v.toLowerCase()) } },
+    { key: 'payment',  type: 'select', options: paymentOptions,      match: (r, v) => v === 'all' ? true : v === 'none' ? !r.paymentType : r.paymentType === v },
+    { key: 'minItems', type: 'number', placeholder: '≥',            match: (r, v) => (r.purchaseOrder?.items?.length || r.receipts?.reduce((s, rc) => s + (rc.items?.length || 0), 0) || 0) >= v },
+    { key: 'minValue', type: 'number', placeholder: '≥',            match: (r, v) => r.totalAmount >= v },
+    { key: 'status',   type: 'select', options: statusOptions,       match: (r, v) => v === 'all' || r.status === v },
+  ], () => resetPage.current())
+
   const ep = useEntityPage<ReceivedInvoice>({
     fetchData: async () => {
       const [invRes, supRes, setRes] = await Promise.all([
@@ -155,28 +167,10 @@ export default function ReceivedInvoicesPage() {
       return inv
     },
     getRowId: r => r.id,
-    filterFn: (r, f) => {
-      if (f.number && !r.invoiceNumber.toLowerCase().includes(f.number.toLowerCase())) return false
-      if (f.date) { const d = new Date(r.invoiceDate).toISOString().split('T')[0]; if (d !== f.date) return false }
-      if (f.supplier) {
-        const sup = r.receipts?.[0]?.supplier || r.purchaseOrder?.supplier
-        const name = sup?.name || r.supplierName || r.purchaseOrder?.supplierName || ''
-        if (!name.toLowerCase().includes(f.supplier.toLowerCase())) return false
-      }
-      if (f.payment && f.payment !== 'all') {
-        if (f.payment === 'none') { if (r.paymentType) return false }
-        else if (r.paymentType !== f.payment) return false
-      }
-      if (f.minItems) {
-        const count = r.purchaseOrder?.items?.length || r.receipts?.reduce((s, rc) => s + (rc.items?.length || 0), 0) || 0
-        if (count < parseInt(f.minItems)) return false
-      }
-      if (f.minValue && r.totalAmount < parseFloat(f.minValue)) return false
-      if (f.status && f.status !== 'all' && r.status !== f.status) return false
-      return true
-    },
+    filterFn: filters.fn,
     highlightId,
   })
+  resetPage.current = () => ep.setPage(1)
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>, invoiceId: string) {
     const file = e.target.files?.[0]
@@ -365,15 +359,7 @@ export default function ReceivedInvoicesPage() {
           onRefresh={ep.refresh}
         />
 
-        <EntityPage.Filters onClear={ep.clearFilters} columns="auto 1fr 1fr 1fr 1fr 1fr 1fr 1fr">
-          <FilterInput value={ep.filters.number   ?? ''} onChange={v => ep.setFilter('number',   v)} placeholder="Číslo..." />
-          <FilterInput value={ep.filters.date      ?? ''} onChange={v => ep.setFilter('date',     v)} type="date" />
-          <FilterInput value={ep.filters.supplier  ?? ''} onChange={v => ep.setFilter('supplier', v)} placeholder="Dodavatel..." />
-          <FilterSelect value={ep.filters.payment  ?? 'all'} onChange={v => ep.setFilter('payment', v)} options={paymentOptions} />
-          <FilterInput value={ep.filters.minItems  ?? ''} onChange={v => ep.setFilter('minItems', v)} type="number" placeholder="≥" />
-          <FilterInput value={ep.filters.minValue  ?? ''} onChange={v => ep.setFilter('minValue', v)} type="number" placeholder="≥" />
-          <FilterSelect value={ep.filters.status   ?? 'all'} onChange={v => ep.setFilter('status',  v)} options={statusOptions} />
-        </EntityPage.Filters>
+        {filters.bar('auto 1fr 1fr 1fr 1fr 1fr 1fr 1fr')}
 
         <EntityPage.Table
           columns={columns}

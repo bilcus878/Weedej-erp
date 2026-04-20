@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
@@ -8,7 +8,7 @@ import Input from '@/components/ui/Input'
 import { Users, Edit2, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
 import { PartySection, ActionToolbar } from '@/components/erp'
 import {
-  useEntityPage, EntityPage, FilterInput, LoadingState, ErrorState,
+  useEntityPage, useFilters, EntityPage, LoadingState, ErrorState,
 } from '@/components/erp'
 import type { ColumnDef } from '@/components/erp'
 
@@ -41,19 +41,23 @@ export default function CustomersPage() {
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null)
   const [formData,        setFormData]        = useState({ ...emptyForm })
 
+  const resetPage = useRef<() => void>(() => {})
+
+  const filters = useFilters<Customer>([
+    { key: 'name',    type: 'text', placeholder: 'Název...',    match: (r, v) => r.name.toLowerCase().includes(v.toLowerCase()) },
+    { key: 'contact', type: 'text', placeholder: 'Kontakt...',  match: (r, v) => (r.contact || '').toLowerCase().includes(v.toLowerCase()) },
+    { key: 'email',   type: 'text', placeholder: 'Email...',    match: (r, v) => (r.email   || '').toLowerCase().includes(v.toLowerCase()) },
+    { key: 'phone',   type: 'text', placeholder: 'Telefon...',  match: (r, v) => (r.phone   || '').toLowerCase().includes(v.toLowerCase()) },
+    { key: 'web',     type: 'text', placeholder: 'Web...',      match: (r, v) => (r.website || '').toLowerCase().includes(v.toLowerCase()) },
+  ], () => resetPage.current())
+
   const ep = useEntityPage<Customer>({
     fetchData: () => fetch('/api/customers').then(r => r.json()),
     getRowId: r => r.id,
-    filterFn: (r, f) => {
-      if (f.name    && !r.name.toLowerCase().includes(f.name.toLowerCase()))              return false
-      if (f.contact && !(r.contact || '').toLowerCase().includes(f.contact.toLowerCase())) return false
-      if (f.email   && !(r.email   || '').toLowerCase().includes(f.email.toLowerCase()))   return false
-      if (f.phone   && !(r.phone   || '').toLowerCase().includes(f.phone.toLowerCase()))   return false
-      if (f.web     && !(r.website || '').toLowerCase().includes(f.web.toLowerCase()))     return false
-      return true
-    },
+    filterFn: filters.fn,
     highlightId,
   })
+  resetPage.current = () => ep.setPage(1)
 
   function handleAdd() {
     setEditingCustomer(null)
@@ -271,13 +275,7 @@ export default function CustomersPage() {
         )}
       </Card>
 
-      <EntityPage.Filters onClear={ep.clearFilters} columns="auto 1fr 1fr 1fr 1fr 1fr">
-        <FilterInput value={ep.filters.name    ?? ''} onChange={v => ep.setFilter('name',    v)} placeholder="Název..." />
-        <FilterInput value={ep.filters.contact ?? ''} onChange={v => ep.setFilter('contact', v)} placeholder="Kontakt..." />
-        <FilterInput value={ep.filters.email   ?? ''} onChange={v => ep.setFilter('email',   v)} placeholder="Email..." />
-        <FilterInput value={ep.filters.phone   ?? ''} onChange={v => ep.setFilter('phone',   v)} placeholder="Telefon..." />
-        <FilterInput value={ep.filters.web     ?? ''} onChange={v => ep.setFilter('web',     v)} placeholder="Web..." />
-      </EntityPage.Filters>
+      {filters.bar('auto 1fr 1fr 1fr 1fr 1fr')}
 
       <EntityPage.Table
         columns={columns}

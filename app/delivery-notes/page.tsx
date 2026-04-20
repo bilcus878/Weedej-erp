@@ -12,7 +12,7 @@ import { resolveItemQuantities } from '@/lib/variantConversion'
 import { generateDeliveryNotePDF, openPDFInNewTab } from '@/lib/pdfGenerator'
 import { isNonVatPayer, DEFAULT_VAT_RATE } from '@/lib/vatCalculation'
 import {
-  useEntityPage, EntityPage, FilterInput, FilterSelect, LoadingState, ErrorState,
+  useEntityPage, useFilters, EntityPage, LoadingState, ErrorState,
   ActionToolbar,
 } from '@/components/erp'
 import type { ColumnDef, SelectOption } from '@/components/erp'
@@ -178,6 +178,29 @@ export default function DeliveryNotesPage() {
   const [isProcessing, setIsProcessing]                 = useState(false)
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
+  const resetPage = useRef<() => void>(() => {})
+
+  const filters = useFilters<DeliveryNote>([
+    { key: 'number',   type: 'text',   placeholder: 'Číslo...',    match: (r, v) => r.deliveryNumber.toLowerCase().includes(v.toLowerCase()) },
+    { key: 'date',     type: 'date',                                 match: (r, v) => new Date(r.deliveryDate).toISOString().split('T')[0] === v },
+    { key: 'customer', type: 'text',   placeholder: 'Odběratel...', match: (r, v) => (r.customer?.name || r.customerName || '').toLowerCase().includes(v.toLowerCase()) },
+    { key: 'minItems', type: 'number', placeholder: '≥',            match: (r, v) => (r.items?.length || 0) >= v },
+    { key: 'minValue', type: 'number', placeholder: '≥',            match: (r, v) => {
+      const total = r.items.reduce((sum, item) => {
+        const hasSaved = item.price != null && item.priceWithVat != null
+        const unitPrice = hasSaved ? Number(item.price) : Number(item.product?.price || 0)
+        const itemVatRate = hasSaved ? Number(item.vatRate ?? DEFAULT_VAT_RATE) : Number((item.product as any)?.vatRate || DEFAULT_VAT_RATE)
+        const isNonVat = isNonVatPayer(itemVatRate)
+        const vatPer = hasSaved ? Number(item.vatAmount ?? 0) : (isNonVat ? 0 : unitPrice * itemVatRate / 100)
+        const withVat = hasSaved ? Number(item.priceWithVat) : (unitPrice + vatPer)
+        const packs = getDNItemPackCount(Number(item.quantity), item.productName, item.unit)
+        return sum + packs * withVat
+      }, 0)
+      return total >= v
+    }},
+    { key: 'status',   type: 'select', options: statusOptions,       match: (r, v) => { if (v === 'all') return true; if (v === 'delivered') return r.status !== 'storno'; if (v === 'storno') return r.status === 'storno'; return r.status === v } },
+  ], () => resetPage.current())
+
   const ep = useEntityPage<DeliveryNote>({
     fetchData: async () => {
       const [dnRes, sRes] = await Promise.all([
@@ -189,32 +212,10 @@ export default function DeliveryNotesPage() {
       return dn
     },
     getRowId: r => r.id,
-    filterFn: (r, f) => {
-      if (f.number   && !r.deliveryNumber.toLowerCase().includes(f.number.toLowerCase())) return false
-      if (f.date)    { const d = new Date(r.deliveryDate).toISOString().split('T')[0]; if (d !== f.date) return false }
-      if (f.customer){ const n = r.customer?.name || r.customerName || ''; if (!n.toLowerCase().includes(f.customer.toLowerCase())) return false }
-      if (f.minItems && (r.items?.length || 0) < parseInt(f.minItems)) return false
-      if (f.minValue) {
-        const total = r.items.reduce((sum, item) => {
-          const hasSaved = item.price != null && item.priceWithVat != null
-          const unitPrice = hasSaved ? Number(item.price) : Number(item.product?.price || 0)
-          const itemVatRate = hasSaved ? Number(item.vatRate ?? DEFAULT_VAT_RATE) : Number((item.product as any)?.vatRate || DEFAULT_VAT_RATE)
-          const isNonVat = isNonVatPayer(itemVatRate)
-          const vatPer = hasSaved ? Number(item.vatAmount ?? 0) : (isNonVat ? 0 : unitPrice * itemVatRate / 100)
-          const withVat = hasSaved ? Number(item.priceWithVat) : (unitPrice + vatPer)
-          const packs = getDNItemPackCount(Number(item.quantity), item.productName, item.unit)
-          return sum + packs * withVat
-        }, 0)
-        if (total < parseFloat(f.minValue)) return false
-      }
-      if (f.status && f.status !== 'all') {
-        if (f.status === 'delivered' && r.status === 'storno') return false
-        if (f.status === 'storno'    && r.status !== 'storno') return false
-      }
-      return true
-    },
+    filterFn: filters.fn,
     highlightId,
   })
+  resetPage.current = () => ep.setPage(1)
 
   async function fetchPendingOrders() {
     try {
@@ -729,14 +730,7 @@ export default function DeliveryNotesPage() {
           </div>
         )}
 
-        <EntityPage.Filters onClear={ep.clearFilters} columns="auto 1fr 1fr 1fr 1fr 1fr 1fr">
-          <FilterInput value={ep.filters.number   ?? ''} onChange={v => ep.setFilter('number',   v)} placeholder="Číslo..." />
-          <FilterInput value={ep.filters.date     ?? ''} onChange={v => ep.setFilter('date',     v)} type="date" />
-          <FilterInput value={ep.filters.customer ?? ''} onChange={v => ep.setFilter('customer', v)} placeholder="Odběratel..." />
-          <FilterInput value={ep.filters.minItems ?? ''} onChange={v => ep.setFilter('minItems', v)} type="number" placeholder="≥" />
-          <FilterInput value={ep.filters.minValue ?? ''} onChange={v => ep.setFilter('minValue', v)} type="number" placeholder="≥" />
-          <FilterSelect value={ep.filters.status  ?? 'all'} onChange={v => ep.setFilter('status', v)} options={statusOptions} />
-        </EntityPage.Filters>
+        {filters.bar('auto 1fr 1fr 1fr 1fr 1fr 1fr')}
 
         <EntityPage.Table
           columns={columns}

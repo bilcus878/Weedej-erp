@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { FileText, ExternalLink, FileOutput, XCircle, Plus, X } from 'lucide-react'
 import { formatPrice } from '@/lib/utils'
 import { generateInvoicePDF } from '@/lib/generateInvoicePDF'
 import { DEFAULT_VAT_RATE } from '@/lib/vatCalculation'
 import {
-  useEntityPage, EntityPage, FilterInput, FilterSelect, LoadingState, ErrorState,
+  useEntityPage, useFilters, EntityPage, LoadingState, ErrorState,
   ActionToolbar, CustomerOrderDetail,
 } from '@/components/erp'
 import type { OrderDetailData, ColumnDef, SelectOption } from '@/components/erp'
@@ -120,6 +120,18 @@ export default function IssuedInvoicesPage() {
   const [creditNoteReason,  setCreditNoteReason]  = useState('')
   const [creditNoteNote,    setCreditNoteNote]    = useState('')
 
+  const resetPage = useRef<() => void>(() => {})
+
+  const filters = useFilters<Transaction>([
+    { key: 'number',   type: 'text',   placeholder: 'Číslo...',     match: (r, v) => r.transactionCode.toLowerCase().includes(v.toLowerCase()) },
+    { key: 'date',     type: 'date',                                  match: (r, v) => new Date(r.transactionDate).toISOString().split('T')[0] === v },
+    { key: 'customer', type: 'text',   placeholder: 'Odběratel...',  match: (r, v) => ((r.customer?.name || (r as any).customerName || '')).toLowerCase().includes(v.toLowerCase()) },
+    { key: 'payment',  type: 'select', options: paymentOptions,       match: (r, v) => v === 'all' ? true : v === 'none' ? !r.paymentType : r.paymentType === v },
+    { key: 'minItems', type: 'number', placeholder: '≥',             match: (r, v) => (r.items?.length || 0) >= v },
+    { key: 'minValue', type: 'number', placeholder: '≥',             match: (r, v) => r.totalAmount >= v },
+    { key: 'status',   type: 'select', options: statusOptions,        match: (r, v) => v === 'all' || r.status === v },
+  ], () => resetPage.current())
+
   const ep = useEntityPage<Transaction>({
     fetchData: async () => {
       const [txRes, sRes] = await Promise.all([fetch('/api/issued-invoices'), fetch('/api/settings')])
@@ -128,20 +140,10 @@ export default function IssuedInvoicesPage() {
       return txData
     },
     getRowId: r => r.id,
-    filterFn: (r, f) => {
-      if (f.number   && !r.transactionCode.toLowerCase().includes(f.number.toLowerCase())) return false
-      if (f.date)    { const d = new Date(r.transactionDate).toISOString().split('T')[0]; if (d !== f.date) return false }
-      if (f.customer){ const name = r.customer?.name || (r as any).customerName || ''; if (!name.toLowerCase().includes(f.customer.toLowerCase())) return false }
-      if (f.payment && f.payment !== 'all') {
-        if (f.payment === 'none' ? r.paymentType : r.paymentType !== f.payment) return false
-      }
-      if (f.minItems && (r.items?.length || 0) < parseInt(f.minItems)) return false
-      if (f.minValue && r.totalAmount < parseFloat(f.minValue)) return false
-      if (f.status && f.status !== 'all' && r.status !== f.status) return false
-      return true
-    },
+    filterFn: filters.fn,
     highlightId,
   })
+  resetPage.current = () => ep.setPage(1)
 
   // Load credit notes when a row is auto-highlighted (expanded by hook)
   useEffect(() => {
@@ -347,15 +349,7 @@ export default function IssuedInvoicesPage() {
           onRefresh={ep.refresh}
         />
 
-        <EntityPage.Filters onClear={ep.clearFilters} columns="auto 1fr 1fr 1fr 1fr 1fr 1fr 1fr">
-          <FilterInput value={ep.filters.number   ?? ''} onChange={v => ep.setFilter('number',   v)} placeholder="Číslo..." />
-          <FilterInput value={ep.filters.date     ?? ''} onChange={v => ep.setFilter('date',     v)} type="date" />
-          <FilterInput value={ep.filters.customer ?? ''} onChange={v => ep.setFilter('customer', v)} placeholder="Odběratel..." />
-          <FilterSelect value={ep.filters.payment ?? 'all'} onChange={v => ep.setFilter('payment', v)} options={paymentOptions} />
-          <FilterInput value={ep.filters.minItems ?? ''} onChange={v => ep.setFilter('minItems', v)} type="number" placeholder="≥" />
-          <FilterInput value={ep.filters.minValue ?? ''} onChange={v => ep.setFilter('minValue', v)} type="number" placeholder="≥" />
-          <FilterSelect value={ep.filters.status  ?? 'all'} onChange={v => ep.setFilter('status',  v)} options={statusOptions} />
-        </EntityPage.Filters>
+        {filters.bar('auto 1fr 1fr 1fr 1fr 1fr 1fr 1fr')}
 
         <EntityPage.Table
           columns={columns}

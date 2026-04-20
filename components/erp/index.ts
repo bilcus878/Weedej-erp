@@ -24,6 +24,8 @@ export { EntityPage }           from './layout/EntityPage'
 // ── Hooks ────────────────────────────────────────────────────────────────────
 export { useEntityPage }        from './hooks/useEntityPage'
 export type { EntityPageConfig, EntityPageState } from './hooks/useEntityPage'
+export { useFilters }           from './hooks/useFilters'
+export type { FilterConfig, FiltersResult } from './hooks/useFilters'
 
 // ── Filters ──────────────────────────────────────────────────────────────────
 export { FilterInput }          from './filters/FilterInput'

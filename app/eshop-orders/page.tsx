@@ -1,13 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Button from '@/components/ui/Button'
 import { formatPrice, formatDate } from '@/lib/utils'
 import { generateEshopOrderPDF } from '@/lib/generateEshopOrderPDF'
 import { Globe } from 'lucide-react'
 import {
-  useEntityPage, EntityPage, FilterInput, FilterSelect, LoadingState, ErrorState,
+  useEntityPage, useFilters, EntityPage, LoadingState, ErrorState,
   CustomerOrderDetail, EmptyState,
 } from '@/components/erp'
 import type { ColumnDef, SelectOption, OrderDetailData } from '@/components/erp'
@@ -201,6 +201,17 @@ export default function EshopOrdersPage() {
   const [isVatPayer,       setIsVatPayer]       = useState(true)
   const [processingStatus, setProcessingStatus] = useState<string | null>(null)
 
+  const resetPage = useRef<() => void>(() => {})
+
+  const filters = useFilters<EshopOrder>([
+    { key: 'number',   type: 'text',   placeholder: 'ESH...',               match: (r, v) => r.orderNumber.toLowerCase().includes(v.toLowerCase()) },
+    { key: 'date',     type: 'date',                                         match: (r, v) => new Date(r.orderDate).toISOString().split('T')[0] === v },
+    { key: 'customer', type: 'text',   placeholder: 'Zákazník / email...',   match: (r, v) => { const q = v.toLowerCase(); return getCustomerName(r).toLowerCase().includes(q) || getCustomerEmail(r).toLowerCase().includes(q) } },
+    { key: 'minItems', type: 'number', placeholder: '≥ položek',             match: (r, v) => r.items.length >= v },
+    { key: 'minValue', type: 'number', placeholder: '≥ Kč',                  match: (r, v) => Number(r.totalAmount) >= v },
+    { key: 'status',   type: 'select', options: statusOptions,               match: (r, v) => v === 'all' || r.status === v },
+  ], () => resetPage.current())
+
   const ep = useEntityPage<EshopOrder>({
     fetchData: async () => {
       const [oRes, sRes] = await Promise.all([fetch('/api/eshop-orders'), fetch('/api/settings')])
@@ -209,16 +220,10 @@ export default function EshopOrdersPage() {
       return Array.isArray(oData) ? oData : []
     },
     getRowId: r => r.id,
-    filterFn: (r, f) => {
-      if (f.number   && !r.orderNumber.toLowerCase().includes(f.number.toLowerCase())) return false
-      if (f.date)    { const d = new Date(r.orderDate).toISOString().split('T')[0]; if (d !== f.date) return false }
-      if (f.customer){ const q = f.customer.toLowerCase(); if (!getCustomerName(r).toLowerCase().includes(q) && !getCustomerEmail(r).toLowerCase().includes(q)) return false }
-      if (f.minValue && Number(r.totalAmount) < parseFloat(f.minValue)) return false
-      if (f.status && f.status !== 'all' && r.status !== f.status) return false
-      return true
-    },
+    filterFn: filters.fn,
     highlightId,
   })
+  resetPage.current = () => ep.setPage(1)
 
   const columns: ColumnDef<EshopOrder>[] = [
     {
@@ -306,14 +311,7 @@ export default function EshopOrdersPage() {
         onRefresh={ep.refresh}
       />
 
-      <EntityPage.Filters onClear={ep.clearFilters} columns="auto 1fr 1fr 2fr 1fr 1fr 1fr">
-        <FilterInput value={ep.filters.number   ?? ''} onChange={v => ep.setFilter('number',   v)} placeholder="ESH..." />
-        <FilterInput value={ep.filters.date     ?? ''} onChange={v => ep.setFilter('date',     v)} type="date" />
-        <FilterInput value={ep.filters.customer ?? ''} onChange={v => ep.setFilter('customer', v)} placeholder="Zákazník / email..." className="text-left" />
-        <div />
-        <FilterInput value={ep.filters.minValue ?? ''} onChange={v => ep.setFilter('minValue', v)} type="number" placeholder="≥ Kč" />
-        <FilterSelect value={ep.filters.status  ?? 'all'} onChange={v => ep.setFilter('status', v)} options={statusOptions} />
-      </EntityPage.Filters>
+      {filters.bar('auto 1fr 1fr 1fr 1fr 1fr 1fr')}
 
       <EntityPage.Table
         columns={columns}
@@ -329,7 +327,7 @@ export default function EshopOrdersPage() {
               ? 'Žádné eshop objednávky. Objednávky se zobrazí automaticky po platbě přes e-shop.'
               : 'Žádné objednávky neodpovídají zvoleným filtrům.'}
             action={ep.rows.length > 0
-              ? <Button onClick={ep.clearFilters} variant="secondary" size="sm">Vymazat filtry</Button>
+              ? <Button onClick={filters.clear} variant="secondary" size="sm">Vymazat filtry</Button>
               : undefined}
           />
         }

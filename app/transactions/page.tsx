@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { RefreshCw, ExternalLink } from 'lucide-react'
@@ -8,7 +8,7 @@ import { formatPrice, formatQuantity, formatDateTime } from '@/lib/utils'
 import { generateInvoicePDF } from '@/lib/generateInvoicePDF'
 import { isNonVatPayer, DEFAULT_VAT_RATE } from '@/lib/vatCalculation'
 import {
-  useEntityPage, EntityPage, FilterInput, FilterSelect, LoadingState, ErrorState,
+  useEntityPage, useFilters, EntityPage, LoadingState, ErrorState,
 } from '@/components/erp'
 import type { ColumnDef, SelectOption } from '@/components/erp'
 import Button from '@/components/ui/Button'
@@ -94,6 +94,18 @@ export default function TransactionsPage() {
   const [showSyncDropdown, setShowSyncDropdown] = useState(false)
   const [syncFromDate,     setSyncFromDate]     = useState(() => new Date().toISOString().split('T')[0])
 
+  const resetPage = useRef<() => void>(() => {})
+
+  const filters = useFilters<Transaction>([
+    { key: 'code',       type: 'text',   placeholder: 'SUP...',   match: (r, v) => r.transactionCode.toLowerCase().includes(v.toLowerCase()) },
+    { key: 'date',       type: 'date',                             match: (r, v) => new Date(r.transactionDate).toISOString().split('T')[0] === v },
+    { key: 'sumupCode',  type: 'text',   placeholder: 'MS9W...',  match: (r, v) => (r.sumupTransactionCode || '').toLowerCase().includes(v.toLowerCase()) },
+    { key: 'payment',    type: 'select', options: paymentOptions,  match: (r, v) => v === 'all' ? true : v === 'none' ? !r.paymentType : r.paymentType === v },
+    { key: 'itemsCount', type: 'number', placeholder: '=',        match: (r, v) => r.items.length === v },
+    { key: 'minValue',   type: 'number', placeholder: '≥',        match: (r, v) => r.totalAmount >= v },
+    { key: 'status',     type: 'select', options: statusOptions,   match: (r, v) => v === 'all' || r.status === v },
+  ], () => resetPage.current())
+
   const ep = useEntityPage<Transaction>({
     fetchData: async () => {
       const [txRes, pRes, sRes] = await Promise.all([
@@ -107,20 +119,10 @@ export default function TransactionsPage() {
       return txData.transactions || txData
     },
     getRowId: r => r.id,
-    filterFn: (r, f) => {
-      if (f.code      && !r.transactionCode.toLowerCase().includes(f.code.toLowerCase())) return false
-      if (f.sumupCode && !r.sumupTransactionCode?.toLowerCase().includes(f.sumupCode.toLowerCase())) return false
-      if (f.date) { const d = new Date(r.transactionDate).toISOString().split('T')[0]; if (d !== f.date) return false }
-      if (f.minValue  && r.totalAmount < parseFloat(f.minValue)) return false
-      if (f.payment && f.payment !== 'all') {
-        if (f.payment === 'none' ? r.paymentType : r.paymentType !== f.payment) return false
-      }
-      if (f.itemsCount) { const c = parseInt(f.itemsCount); if (!isNaN(c) && r.items.length !== c) return false }
-      if (f.status && f.status !== 'all' && r.status !== f.status) return false
-      return true
-    },
+    filterFn: filters.fn,
     highlightId,
   })
+  resetPage.current = () => ep.setPage(1)
 
   const columns: ColumnDef<Transaction>[] = [
     { key: 'code',    header: 'Číslo',      render: r => <p className="text-sm font-bold text-gray-700">{r.transactionCode}</p> },
@@ -221,15 +223,7 @@ export default function TransactionsPage() {
         actions={syncActions}
       />
 
-      <EntityPage.Filters onClear={ep.clearFilters} columns="auto 1fr 1fr 1fr 1fr 1fr 1fr 1fr">
-        <FilterInput value={ep.filters.code      ?? ''} onChange={v => ep.setFilter('code',      v)} placeholder="SUP..." />
-        <FilterInput value={ep.filters.date      ?? ''} onChange={v => ep.setFilter('date',      v)} type="date" />
-        <FilterInput value={ep.filters.sumupCode ?? ''} onChange={v => ep.setFilter('sumupCode', v)} placeholder="MS9W..." />
-        <FilterSelect value={ep.filters.payment  ?? 'all'} onChange={v => ep.setFilter('payment', v)} options={paymentOptions} />
-        <FilterInput value={ep.filters.itemsCount ?? ''} onChange={v => ep.setFilter('itemsCount', v)} type="number" placeholder="=" />
-        <FilterInput value={ep.filters.minValue  ?? ''} onChange={v => ep.setFilter('minValue',  v)} type="number" placeholder="≥" />
-        <FilterSelect value={ep.filters.status   ?? 'all'} onChange={v => ep.setFilter('status',  v)} options={statusOptions} />
-      </EntityPage.Filters>
+      {filters.bar('auto 1fr 1fr 1fr 1fr 1fr 1fr 1fr')}
 
       <EntityPage.Table
         columns={columns}
