@@ -9,15 +9,15 @@ export { PartySection }         from './PartySection'
 export { ItemsTable }           from './ItemsTable'
 export type { ErpItem }         from './ItemsTable'
 
-// ── EshopOrderDetail ─────────────────────────────────────────────────────────
-export { EshopOrderDetail }     from './EshopOrderDetail'
+// ── CustomerOrderDetail ──────────────────────────────────────────────────────
+export { CustomerOrderDetail }  from './CustomerOrderDetail'
 export type {
   OrderDetailData,
   OrderDetailItem,
   OrderDetailInvoice,
   OrderDetailDeliveryNote,
   OrderDetailDeliveryNoteItem,
-} from './EshopOrderDetail'
+} from './CustomerOrderDetail'
 
 // ── Page architecture ────────────────────────────────────────────────────────
 export { EntityPage }           from './layout/EntityPage'

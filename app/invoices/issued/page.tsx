@@ -8,7 +8,7 @@ import { generateInvoicePDF } from '@/lib/generateInvoicePDF'
 import { DEFAULT_VAT_RATE } from '@/lib/vatCalculation'
 import {
   useEntityPage, EntityPage, FilterInput, FilterSelect, LoadingState, ErrorState,
-  ActionToolbar, EshopOrderDetail,
+  ActionToolbar, CustomerOrderDetail,
 } from '@/components/erp'
 import type { OrderDetailData, ColumnDef, SelectOption } from '@/components/erp'
 
@@ -373,7 +373,7 @@ export default function IssuedInvoicesPage() {
             const creditNotes = creditNotesMap[tx.id] || []
             return (
               <>
-                <EshopOrderDetail
+                <CustomerOrderDetail
                   order={transactionToOrderDetail(tx)}
                   isVatPayer={isVatPayer}
                   onRefresh={ep.refresh}

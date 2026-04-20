@@ -13,7 +13,7 @@ import CustomerSupplierSelector from '@/components/CustomerSupplierSelector'
 import PaymentDetailsSelector from '@/components/PaymentDetailsSelector'
 import {
   useEntityPage, EntityPage, FilterInput, FilterSelect, LoadingState, ErrorState,
-  EshopOrderDetail,
+  CustomerOrderDetail,
 } from '@/components/erp'
 import type { ColumnDef, SelectOption, OrderDetailData } from '@/components/erp'
 
@@ -666,7 +666,7 @@ export default function CustomerOrdersPage() {
         onToggle={ep.toggleExpand}
         rowClassName={r => r.status === 'storno' ? 'bg-red-50 opacity-70' : ''}
         renderDetail={order => (
-          <EshopOrderDetail
+          <CustomerOrderDetail
             order={orderToDetailData(order)}
             isVatPayer={isVatPayer}
             orderHref={`/customer-orders?highlight=${order.id}`}

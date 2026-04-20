@@ -170,7 +170,7 @@ function shippingMethodLabel(method: string): string {
 
 // ─── Komponenta ───────────────────────────────────────────────────────────────
 
-export function EshopOrderDetail({
+export function CustomerOrderDetail({
   order,
   isVatPayer,
   orderHref,
