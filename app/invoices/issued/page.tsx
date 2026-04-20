@@ -10,7 +10,7 @@ import Input from '@/components/ui/Input'
 import { formatPrice, formatQuantity, formatDateTime } from '@/lib/utils'
 import { formatVariantQty } from '@/lib/formatVariantQty'
 import { generateInvoicePDF } from '@/lib/generateInvoicePDF'
-import { ChevronDown, ChevronRight, Trash2, FileText, ExternalLink, XCircle, FileOutput, Plus, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, Trash2, FileText, ExternalLink, XCircle, FileOutput, Plus, X, Package, RefreshCw } from 'lucide-react'
 import { PageHeader, DetailSection, DetailRow, LinkedDocumentBanner, PartySection, ItemsTable, ActionToolbar } from '@/components/erp'
 import { isNonVatPayer, NON_VAT_PAYER_RATE, DEFAULT_VAT_RATE } from '@/lib/vatCalculation'
 
@@ -127,6 +127,11 @@ export default function TransactionsPage() {
   const [expandedTransactions, setExpandedTransactions] = useState<Set<string>>(new Set())
   const [showSyncForm, setShowSyncForm] = useState(false)
   const [isVatPayer, setIsVatPayer] = useState<boolean>(true) // Nastavení z settings
+
+  // Tracking editor (same pattern as eshop-orders)
+  const [trackingEditId, setTrackingEditId] = useState<string | null>(null)
+  const [trackingForm, setTrackingForm] = useState({ trackingNumber: '', carrier: '' })
+  const [savingTracking, setSavingTracking] = useState(false)
 
   // Dobropisy
   const [creditNotesMap, setCreditNotesMap] = useState<Record<string, CreditNoteData[]>>({})
@@ -425,6 +430,28 @@ export default function TransactionsPage() {
       alert('Nepodařilo se synchronizovat transakce')
     } finally {
       setSyncing(false)
+    }
+  }
+
+  // Uložit tracking (volá eshop-orders API přes customerOrderId)
+  async function handleSaveTracking(eshopOrderId: string) {
+    setSavingTracking(true)
+    try {
+      const res = await fetch(`/api/eshop-orders/${eshopOrderId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          trackingNumber: trackingForm.trackingNumber.trim() || null,
+          carrier: trackingForm.carrier.trim() || null,
+        }),
+      })
+      if (!res.ok) { alert('Nepodařilo se uložit tracking'); return }
+      await fetchData()
+      setTrackingEditId(null)
+    } catch {
+      alert('Chyba při ukládání trackingu')
+    } finally {
+      setSavingTracking(false)
     }
   }
 
@@ -971,7 +998,6 @@ export default function TransactionsPage() {
                             const t = transaction as any
                             const isSumUp = transaction.transactionId && !transaction.customerOrderId && !transaction.customer && !t.customerName
                             const custName = isSumUp ? 'Anonymní zákazník' : (t.customerName || transaction.customer?.name || 'Anonymní zákazník')
-                            const hasBilling = !!(t.billingStreet || t.billingCity)
                             const paidAt = t._original?.customerOrder?.paidAt
                               ? new Date(t._original.customerOrder.paidAt).toLocaleDateString('cs-CZ')
                               : (transaction.status === 'paid' || transaction.status === 'delivered')
@@ -984,7 +1010,7 @@ export default function TransactionsPage() {
                             const email = t.customerEmail || (transaction.customer as any)?.email
                             const phone = t.customerPhone || (transaction.customer as any)?.phone
                             const ico = t.billingIco || t.customerIco || (transaction.customer as any)?.ico
-                            const payRef = t.variableSymbol
+                            const payRef = t.paymentReference || t.variableSymbol
 
                             const card = "bg-white border border-[#e5e7eb] rounded-[10px] shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden flex flex-col"
                             const cardHeader = "flex items-center gap-2 px-4 bg-[#f8fafc] border-b border-[#e5e7eb] min-h-[34px]"
@@ -1036,38 +1062,30 @@ export default function TransactionsPage() {
                                         Fakturační adresa
                                       </p>
                                     </div>
-                                    {hasBilling ? (
-                                      <>
-                                        <div className={row}>
-                                          <span className={lbl}>Příjemce</span>
-                                          <span className={val}>{t.billingCompany || t.billingName || custName}</span>
-                                        </div>
-                                        <div className={row}>
-                                          <span className={lbl}>Ulice</span>
-                                          <span className={t.billingStreet ? val : 'text-sm text-[#9ca3af] text-right'}>{t.billingStreet || '—'}</span>
-                                        </div>
-                                        <div className={row}>
-                                          <span className={lbl}>Město / PSČ</span>
-                                          <span className={val}>{[t.billingZip, t.billingCity].filter(Boolean).join(' ') || '—'}</span>
-                                        </div>
-                                        <div className={row}>
-                                          <span className={lbl}>Země</span>
-                                          <span className={val}>{t.billingCountry || 'CZ'}</span>
-                                        </div>
-                                      </>
-                                    ) : (
-                                      <div className="py-2">
-                                        <p className="text-xs text-[#9ca3af] italic">Shodná s doručovací adresou</p>
-                                      </div>
-                                    )}
+                                    <div className={row}>
+                                      <span className={lbl}>Příjemce</span>
+                                      <span className={val}>{t.billingCompany || t.billingName || custName}</span>
+                                    </div>
+                                    <div className={row}>
+                                      <span className={lbl}>Ulice</span>
+                                      <span className={t.billingStreet ? val : 'text-sm text-[#9ca3af] text-right'}>{t.billingStreet || '—'}</span>
+                                    </div>
+                                    <div className={row}>
+                                      <span className={lbl}>Město / PSČ</span>
+                                      <span className={val}>{[t.billingZip, t.billingCity].filter(Boolean).join(' ') || '—'}</span>
+                                    </div>
+                                    <div className={row}>
+                                      <span className={lbl}>Země</span>
+                                      <span className={val}>{t.billingCountry || 'CZ'}</span>
+                                    </div>
                                   </div>
                                 </div>
 
-                                {/* ── B) Přehled objednávky ── */}
+                                {/* ── B) Shrnutí objednávky ── */}
                                 <div className={card}>
                                   <div className={cardHeader}>
                                     <FileText className="w-3.5 h-3.5 text-[#6b7280]" />
-                                    <span className={cardTitle}>Přehled objednávky</span>
+                                    <span className={cardTitle}>Shrnutí objednávky</span>
                                   </div>
                                   <div className="px-4 py-1 divide-y divide-[#f3f4f6]">
                                     {transaction.customerOrderId && (
@@ -1154,81 +1172,178 @@ export default function TransactionsPage() {
                           })()}
                         </div>
 
-                        {/* Doprava — 4-column enterprise layout */}
+                        {/* Doprava — 4-column layout (mirrors eshop-orders) */}
                         {((transaction as any).shippingMethod || (transaction as any).pickupPointId) && (() => {
                           const td = transaction as any
-                          const shippingMethodLabel = ({
-                            DPD_HOME: 'DPD — Doručení na adresu',
-                            DPD_PICKUP: 'DPD — Výdejní místo',
-                            ZASILKOVNA_HOME: 'Zásilkovna — Doručení na adresu',
+                          const methodLabel = ({
+                            DPD_HOME:          'DPD — Doručení na adresu',
+                            DPD_PICKUP:        'DPD — Výdejní místo',
+                            ZASILKOVNA_HOME:   'Zásilkovna — Doručení na adresu',
                             ZASILKOVNA_PICKUP: 'Zásilkovna — Výdejní místo / Z-BOX',
-                            COURIER: 'Kurýr',
-                            PICKUP_IN_STORE: 'Osobní odběr',
+                            COURIER:           'Kurýr',
+                            PICKUP_IN_STORE:   'Osobní odběr',
                           } as Record<string, string>)[td.shippingMethod] ?? td.shippingMethod
-                          const carrierLabel = td.pickupPointCarrier === 'zasilkovna'
-                            ? 'ZÁSILKOVNA'
-                            : td.pickupPointCarrier === 'dpd'
-                              ? 'DPD'
-                              : td.carrier?.toUpperCase() || null
-                          const colLbl = "text-[11px] uppercase tracking-wider font-semibold text-[#9ca3af] mb-2"
+                          const hasTracking = !!(td.trackingNumber || td.carrier)
+                          const isEditing   = trackingEditId === transaction.id
+                          const carrierKey  = (td.pickupPointCarrier || td.carrier || '').toLowerCase()
+                          const trackingUrl = td.trackingNumber
+                            ? carrierKey === 'zasilkovna'
+                              ? `https://www.zasilkovna.cz/sledovani-zasilky?barcode=${td.trackingNumber}`
+                              : carrierKey === 'dpd'
+                                ? `https://tracking.dpd.de/status/cs/parcel/${td.trackingNumber}`
+                                : null
+                            : null
+                          const colLbl = "text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-1.5"
                           return (
-                            <div className="bg-white border border-[#e5e7eb] rounded-[10px] shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden">
-                              <div className="flex items-center gap-2 px-4 bg-[#f8fafc] border-b border-[#e5e7eb] min-h-[34px]">
-                                <FileOutput className="w-3.5 h-3.5 text-[#6b7280]" />
-                                <span className="text-[15px] font-semibold text-[#111827]">Doprava</span>
+                            <div className="border border-gray-200 rounded-lg overflow-hidden">
+                              <div className="px-4 py-2 bg-gray-100 border-b border-gray-200 flex items-center gap-2">
+                                <FileOutput className="w-4 h-4 text-gray-500 shrink-0" />
+                                <span className="font-bold text-sm text-gray-900">Doprava</span>
                               </div>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-[#e5e7eb]">
+                              <div className="grid grid-cols-4 divide-x divide-gray-200 bg-white text-sm">
 
-                                {/* Col 1: Způsob dopravy + carrier badge */}
-                                <div className="px-4 py-3 space-y-2">
+                                {/* Col 1: Způsob dopravy */}
+                                <div className="px-4 py-3">
                                   <p className={colLbl}>Způsob dopravy</p>
-                                  <p className="text-sm font-medium text-[#111827] leading-snug">{shippingMethodLabel || '—'}</p>
-                                  {carrierLabel && (
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 uppercase tracking-wider">
-                                      {carrierLabel}
+                                  <p className="font-semibold text-gray-900 text-sm leading-snug">
+                                    {methodLabel || <span className="text-gray-400">—</span>}
+                                  </p>
+                                  {td.pickupPointCarrier && (
+                                    <span className="mt-1.5 inline-block text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
+                                      {td.pickupPointCarrier}
                                     </span>
                                   )}
                                 </div>
 
                                 {/* Col 2: Výdejní místo */}
-                                <div className="px-4 py-3 space-y-1.5">
-                                  <p className={colLbl}>Výdejní místo</p>
+                                <div className="px-4 py-3">
+                                  <p className={colLbl}>
+                                    {td.pickupPointId ? 'Výdejní místo' : 'Doručovací adresa'}
+                                  </p>
                                   {td.pickupPointId ? (
-                                    <>
-                                      <p className="text-sm font-semibold text-[#111827]">{td.pickupPointName || '—'}</p>
-                                      {td.pickupPointAddress && (
-                                        <p className="text-xs text-[#6b7280] leading-snug">{td.pickupPointAddress}</p>
-                                      )}
-                                      <p className="text-[11px] font-mono text-[#9ca3af]">ID {td.pickupPointId}</p>
-                                    </>
-                                  ) : (
-                                    <p className="text-xs text-[#9ca3af] italic">—</p>
-                                  )}
-                                </div>
-
-                                {/* Col 3: Mapa placeholder */}
-                                <div className="px-4 py-3 flex items-stretch">
-                                  <div className="w-full rounded-lg bg-[#f1f5f9] border border-[#e2e8f0] flex flex-col items-center justify-center min-h-[72px] gap-1">
-                                    <ExternalLink className="w-4 h-4 text-[#94a3b8]" />
-                                    <p className="text-[10px] text-[#94a3b8] font-medium">Mapa výdejního místa</p>
-                                  </div>
-                                </div>
-
-                                {/* Col 4: Zásilka + Přidat tracking */}
-                                <div className="px-4 py-3 space-y-2">
-                                  <p className={colLbl}>Zásilka</p>
-                                  {td.trackingNumber ? (
-                                    <div className="space-y-0.5">
-                                      <p className="font-mono text-sm font-medium text-[#111827]">{td.trackingNumber}</p>
-                                      {td.carrier && <p className="text-xs text-[#6b7280]">{td.carrier}</p>}
+                                    <div className="flex items-start gap-2.5">
+                                      <div className="shrink-0 w-8 h-8 rounded-md bg-amber-50 border border-amber-200 flex items-center justify-center">
+                                        <Package className="w-4 h-4 text-amber-500" />
+                                      </div>
+                                      <div className="min-w-0">
+                                        <p className="font-bold text-sm text-gray-900 leading-tight">{td.pickupPointName || '—'}</p>
+                                        {td.pickupPointAddress && (
+                                          <p className="text-gray-500 text-xs mt-0.5 leading-relaxed">{td.pickupPointAddress}</p>
+                                        )}
+                                        <div className="mt-1.5 flex items-center gap-1.5">
+                                          <span className="text-[9px] font-bold uppercase tracking-widest text-gray-400">ID</span>
+                                          <code className="text-xs font-mono bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">{td.pickupPointId}</code>
+                                        </div>
+                                      </div>
                                     </div>
                                   ) : (
-                                    <p className="text-xs text-[#6b7280]">Zásilka nebyla předána dopravci.</p>
+                                    <p className="text-gray-400 text-xs italic">—</p>
                                   )}
-                                  <button className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium text-[#374151] bg-[#f9fafb] border border-[#e5e7eb] rounded-lg hover:bg-[#f3f4f6] transition-colors cursor-pointer">
-                                    <Plus className="w-3 h-3" />
-                                    Přidat tracking
-                                  </button>
+                                </div>
+
+                                {/* Col 3: Mapa (Google Maps iframe — same as eshop-orders) */}
+                                {td.pickupPointId && (td.pickupPointAddress || td.pickupPointName)
+                                  ? (
+                                    <div className="overflow-hidden">
+                                      <iframe
+                                        src={`https://maps.google.com/maps?q=${encodeURIComponent((td.pickupPointAddress || td.pickupPointName)!)}&output=embed&z=16`}
+                                        className="w-full h-full min-h-[110px]"
+                                        loading="lazy"
+                                        referrerPolicy="no-referrer-when-downgrade"
+                                        title="Mapa výdejního místa"
+                                      />
+                                    </div>
+                                  ) : (
+                                    <div />
+                                  )
+                                }
+
+                                {/* Col 4: Zásilka / tracking editor */}
+                                <div className="px-4 py-3 min-w-0">
+                                  <p className={colLbl}>Zásilka</p>
+
+                                  {isEditing ? (
+                                    <div onClick={e => e.stopPropagation()}>
+                                      <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-400 transition-all">
+                                        <input
+                                          type="text"
+                                          value={trackingForm.trackingNumber}
+                                          onChange={e => setTrackingForm(f => ({ ...f, trackingNumber: e.target.value }))}
+                                          onKeyDown={e => { if (e.key === 'Enter') handleSaveTracking(transaction.customerOrderId!); if (e.key === 'Escape') setTrackingEditId(null) }}
+                                          placeholder="Číslo zásilky…"
+                                          className="flex-1 min-w-0 text-xs font-mono bg-transparent border-none outline-none text-gray-900 placeholder-gray-400"
+                                          autoFocus
+                                        />
+                                        <div className="flex items-center gap-1 shrink-0">
+                                          <button
+                                            onClick={() => handleSaveTracking(transaction.customerOrderId!)}
+                                            disabled={savingTracking}
+                                            className="px-2.5 py-1 bg-gray-900 hover:bg-gray-700 text-white text-xs font-semibold rounded-md transition-colors disabled:opacity-50"
+                                          >
+                                            {savingTracking ? '…' : 'Uložit'}
+                                          </button>
+                                          <button
+                                            onClick={e => { e.stopPropagation(); setTrackingEditId(null) }}
+                                            className="px-2 py-1 text-gray-400 hover:text-gray-700 text-xs rounded-md transition-colors"
+                                          >
+                                            ✕
+                                          </button>
+                                        </div>
+                                      </div>
+                                      <p className="text-[9px] text-gray-400 mt-1.5 ml-0.5">Enter pro uložení · Esc pro zrušení</p>
+                                    </div>
+                                  ) : hasTracking ? (
+                                    <div className="space-y-1.5">
+                                      {td.trackingNumber && (
+                                        <div className="flex items-center justify-between gap-2">
+                                          <span className="font-mono text-xs font-bold text-gray-800">{td.trackingNumber}</span>
+                                          <button
+                                            onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(td.trackingNumber!) }}
+                                            className="text-gray-400 hover:text-gray-700 transition-colors"
+                                            title="Kopírovat"
+                                          >
+                                            <RefreshCw className="w-3.5 h-3.5" />
+                                          </button>
+                                        </div>
+                                      )}
+                                      {td.carrier && <p className="text-xs text-gray-500">{td.carrier}</p>}
+                                      <div className="flex items-center gap-2 pt-1.5">
+                                        {trackingUrl && (
+                                          <a
+                                            href={trackingUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            onClick={e => e.stopPropagation()}
+                                            className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors"
+                                          >
+                                            <ExternalLink className="w-3 h-3" />
+                                            Sledovat
+                                          </a>
+                                        )}
+                                        {transaction.customerOrderId && (
+                                          <button
+                                            onClick={e => { e.stopPropagation(); setTrackingForm({ trackingNumber: td.trackingNumber || '', carrier: td.carrier || '' }); setTrackingEditId(transaction.id) }}
+                                            className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+                                          >
+                                            Upravit
+                                          </button>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="space-y-2">
+                                      <p className="text-xs text-gray-400">Zásilka nebyla předána dopravci.</p>
+                                      {transaction.customerOrderId && (
+                                        <button
+                                          onClick={e => { e.stopPropagation(); setTrackingForm({ trackingNumber: '', carrier: td.pickupPointCarrier || '' }); setTrackingEditId(transaction.id) }}
+                                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+                                        >
+                                          <Package className="w-3.5 h-3.5" />
+                                          Přidat tracking
+                                        </button>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
 
                               </div>
