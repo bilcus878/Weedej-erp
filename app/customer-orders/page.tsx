@@ -7,13 +7,13 @@ import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import { ShoppingCart, Plus, Trash2, ChevronDown, ChevronRight, ExternalLink, FileDown } from 'lucide-react'
 import { formatDate, formatPrice } from '@/lib/utils'
-import Link from 'next/link'
 import { generateInvoicePDF } from '@/lib/generateInvoicePDF'
 import { VAT_RATE_LABELS, isNonVatPayer, calculateLineVat, calculateVatSummary, DEFAULT_VAT_RATE, NON_VAT_PAYER_RATE, type VatLineItem } from '@/lib/vatCalculation'
 import CustomerSupplierSelector from '@/components/CustomerSupplierSelector'
 import PaymentDetailsSelector from '@/components/PaymentDetailsSelector'
 import {
   useEntityPage, EntityPage, FilterInput, FilterSelect, LoadingState, ErrorState,
+  DetailSection, DetailRow, PartySection, LinkedDocumentBanner, ActionToolbar,
 } from '@/components/erp'
 import type { ColumnDef, SelectOption } from '@/components/erp'
 
@@ -606,94 +606,42 @@ export default function CustomerOrdersPage() {
 
           return (
             <>
-              {/* Invoice link */}
-              <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded">
-                <div className="text-sm text-center">
-                  <span className="text-gray-600">Faktura: </span>
-                  {order.issuedInvoice ? (
-                    <Link href={`/invoices/issued?highlight=${order.issuedInvoice.id}`} className="text-blue-600 hover:text-blue-800 hover:underline font-medium" onClick={e => e.stopPropagation()}>
-                      {order.issuedInvoice.invoiceNumber}<ExternalLink className="w-3 h-3 inline ml-1" />
-                    </Link>
-                  ) : <span className="text-gray-400">-</span>}
-                </div>
+              {order.issuedInvoice && (
+                <LinkedDocumentBanner links={[{ label: 'Faktura', value: order.issuedInvoice.invoiceNumber, href: `/invoices/issued?highlight=${order.issuedInvoice.id}` }]} />
+              )}
+
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <DetailSection title="Informace o objednávce">
+                  <div className="space-y-1.5">
+                    <DetailRow label="Datum vytvoření" value={formatDate(order.orderDate)} muted />
+                    <DetailRow label="Odesláno" value={order.deliveryNotes?.length ? order.deliveryNotes.map(dn => new Date(dn.deliveryDate).toLocaleDateString('cs-CZ')).join(', ') : undefined} muted />
+                    <DetailRow label="Datum splatnosti" value={(order.issuedInvoice as any)?.dueDate ? formatDate((order.issuedInvoice as any).dueDate) : undefined} muted />
+                    <DetailRow label="Typ platby" value={({ cash: 'Hotovost', card: 'Karta', transfer: 'Bankovní převod' } as Record<string, string>)[order.issuedInvoice?.paymentType ?? ''] || undefined} muted />
+                    <DetailRow label="Zaplaceno" value={order.paidAt ? formatDate(order.paidAt) : undefined} muted />
+                    <DetailRow label="Poznámka" value={order.note ?? undefined} muted />
+                  </div>
+                </DetailSection>
+
+                <PartySection
+                  title={isAnonymous ? 'Anonymní odběratel' : 'Odběratel'}
+                  party={isAnonymous ? { name: 'Anonymní odběratel' } : {
+                    name: cName,
+                    entityType,
+                    contact: (order.customer as any)?.contact,
+                    address: order.customerAddress || (order.customer as any)?.address,
+                    phone: order.customerPhone || (order.customer as any)?.phone,
+                    ico: (order.customer as any)?.ico,
+                    dic: (order.customer as any)?.dic,
+                    email: order.customerEmail || (order.customer as any)?.email,
+                    website: (order.customer as any)?.website,
+                    bankAccount: (order.customer as any)?.bankAccount,
+                    note: (order.customer as any)?.note,
+                  }}
+                />
               </div>
 
-              {/* Order info */}
-              <div className="mt-6 mb-6 border border-gray-200 rounded-lg overflow-hidden">
-                <h4 className="font-bold text-base text-gray-900 px-4 py-3 bg-gray-100 border-b border-gray-200">Informace o objednávce</h4>
-                <div className="border-b">
-                  <h5 className="text-sm font-semibold text-gray-800 px-4 py-3 bg-gray-50">Obecné</h5>
-                  <div className="text-sm">
-                    <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-white">
-                      <div><span className="text-gray-600">Datum vytvoření:</span> <span className="font-medium">{formatDate(order.orderDate)}</span></div>
-                      <div className="border-l border-gray-200 mx-4"></div>
-                      <div><span className="text-gray-600">Odesláno:</span> <span className="font-medium">{order.deliveryNotes && order.deliveryNotes.length > 0 ? order.deliveryNotes.map(dn => new Date(dn.deliveryDate).toLocaleDateString('cs-CZ')).join(', ') : '-'}</span></div>
-                    </div>
-                    <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-gray-50">
-                      <div><span className="text-gray-600">Datum splatnosti:</span> <span className="font-medium">{(order.issuedInvoice as any)?.dueDate ? formatDate((order.issuedInvoice as any).dueDate) : '-'}</span></div>
-                      <div className="border-l border-gray-200 mx-4"></div>
-                      <div><span className="text-gray-600">Typ platby:</span> <span className="font-medium">{order.issuedInvoice?.paymentType === 'cash' ? 'Hotovost' : order.issuedInvoice?.paymentType === 'card' ? 'Karta' : order.issuedInvoice?.paymentType === 'transfer' ? 'Bankovní převod' : '-'}</span></div>
-                    </div>
-                    <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-white">
-                      <div><span className="text-gray-600">Zaplaceno:</span> <span className="font-medium">{order.paidAt ? formatDate(order.paidAt) : '-'}</span></div>
-                      <div className="border-l border-gray-200 mx-4"></div>
-                      <div><span className="text-gray-600">Poznámka:</span> <span className="font-medium">{order.note || '-'}</span></div>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h5 className="text-sm font-semibold text-gray-800 px-4 py-3 bg-gray-50">Odběratel / Zákazník</h5>
-                  <div className="text-sm">
-                    {isAnonymous ? (
-                      <div className="px-4 py-2 bg-white"><span className="text-gray-600">Název: </span><span className="font-bold text-gray-900">Anonymní odběratel</span></div>
-                    ) : (
-                      <>
-                        <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-white">
-                          <div>
-                            <span className="text-gray-600">Název:</span><span className="font-medium"> {cName}</span>
-                            <span className="ml-2 text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-800">{entityType === 'company' ? 'Firma' : 'FO'}</span>
-                          </div>
-                          <div className="border-l border-gray-200 mx-4"></div>
-                          {entityType === 'company' ? (
-                            <div><span className="text-gray-600">Kontaktní osoba:</span> <span className="font-medium">{(order.customer as any)?.contact || '-'}</span></div>
-                          ) : (
-                            <div><span className="text-gray-600">Email:</span> <span className="font-medium">{order.customerEmail || (order.customer as any)?.email || '-'}</span></div>
-                          )}
-                        </div>
-                        <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-gray-50">
-                          <div><span className="text-gray-600">Adresa:</span> <span className="font-medium">{order.customerAddress || (order.customer as any)?.address || '-'}</span></div>
-                          <div className="border-l border-gray-200 mx-4"></div>
-                          <div><span className="text-gray-600">Telefon:</span> <span className="font-medium">{order.customerPhone || (order.customer as any)?.phone || '-'}</span></div>
-                        </div>
-                        {entityType === 'company' && (
-                          <>
-                            <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-white">
-                              <div><span className="text-gray-600">IČO:</span> <span className="font-medium">{(order.customer as any)?.ico || '-'}</span></div>
-                              <div className="border-l border-gray-200 mx-4"></div>
-                              <div><span className="text-gray-600">Email:</span> <span className="font-medium">{order.customerEmail || (order.customer as any)?.email || '-'}</span></div>
-                            </div>
-                            <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-gray-50">
-                              <div><span className="text-gray-600">DIČ:</span> <span className="font-medium">{(order.customer as any)?.dic || '-'}</span></div>
-                              <div className="border-l border-gray-200 mx-4"></div>
-                              <div><span className="text-gray-600">Web:</span> <span className="font-medium">{(order.customer as any)?.website || '-'}</span></div>
-                            </div>
-                            <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-white">
-                              <div><span className="text-gray-600">Bankovní účet:</span> <span className="font-medium">{(order.customer as any)?.bankAccount || '-'}</span></div>
-                              <div className="border-l border-gray-200 mx-4"></div>
-                              <div><span className="text-gray-600">Poznámka:</span> <span className="font-medium">{(order.customer as any)?.note || '-'}</span></div>
-                            </div>
-                          </>
-                        )}
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Items */}
-              <div className="mt-6 mb-6 border border-gray-200 rounded-lg overflow-hidden">
-                <h4 className="font-bold text-base text-gray-900 px-4 py-3 bg-gray-100 border-b border-gray-200">Položky objednávky ({order.items.length})</h4>
+              <div className="mt-3 border border-gray-200 rounded-lg overflow-hidden">
+                <h4 className="font-bold text-sm text-gray-900 px-4 py-2 bg-gray-100 border-b">Položky objednávky ({order.items.length})</h4>
                 {order.items.length > 0 ? (
                   <div className="text-sm">
                     {isVatPayer ? (
@@ -781,10 +729,9 @@ export default function CustomerOrdersPage() {
                 )}
               </div>
 
-              {/* Delivery notes */}
               {order.deliveryNotes && order.deliveryNotes.length > 0 && (
-                <div className="mt-6 mb-6 border border-gray-200 rounded-lg overflow-hidden">
-                  <h4 className="font-bold text-base text-gray-900 px-4 py-3 bg-gray-100 border-b border-gray-200">Výdejky ({order.deliveryNotes.length})</h4>
+                <div className="mt-3 border border-gray-200 rounded-lg overflow-hidden">
+                  <h4 className="font-bold text-sm text-gray-900 px-4 py-2 bg-gray-100 border-b">Výdejky ({order.deliveryNotes.length})</h4>
                   <div className="text-sm">
                     <div className="grid grid-cols-[1.5fr_1fr_0.8fr_1fr_auto] gap-3 px-4 py-2 bg-gray-50 font-semibold text-gray-700 border-b">
                       <div>Číslo výdejky</div><div>Datum</div><div className="text-center">Položek</div><div className="text-right">Částka</div><div className="w-4"></div>
@@ -817,27 +764,30 @@ export default function CustomerOrdersPage() {
               )}
 
               {order.reservations && order.reservations.filter((r: any) => r.status === 'active').length > 0 && (
-                <p className="text-sm text-gray-500 mb-3">Aktivní rezervace: {order.reservations.filter((r: any) => r.status === 'active').length}</p>
+                <p className="text-sm text-gray-500 mt-2">Aktivní rezervace: {order.reservations.filter((r: any) => r.status === 'active').length}</p>
               )}
 
-              <div className="mt-3 flex gap-2">
-                <Button size="sm" variant="secondary" onClick={async () => {
-                  try {
-                    const settings = await fetch('/api/settings').then(r => r.json())
-                    const fakeTransaction = {
-                      id: order.id, transactionCode: order.issuedInvoice?.invoiceNumber || order.orderNumber,
-                      totalAmount: Number(order.totalAmount), totalAmountWithoutVat: Number(order.totalAmountWithoutVat ?? 0), totalVatAmount: Number(order.totalVatAmount ?? 0),
-                      paymentType: order.issuedInvoice?.paymentType || 'transfer', status: order.status, transactionDate: order.orderDate,
-                      customer: order.customer || null, customerName: order.customerName || null,
-                      customerAddress: order.customerAddress, customerPhone: order.customerPhone, customerEmail: order.customerEmail,
-                      items: order.items.map(item => ({ id: item.id || '', quantity: Number(item.quantity), unit: item.unit, price: Number(item.price), vatRate: Number(item.vatRate ?? 0), vatAmount: Number(item.vatAmount ?? 0), priceWithVat: Number(item.priceWithVat ?? item.price), product: item.product || { id: '', name: item.productName || '' } }))
-                    }
-                    await generateInvoicePDF(fakeTransaction as any, settings)
-                  } catch { alert('Nepodařilo se vygenerovat PDF') }
-                }}>
-                  <FileDown className="w-4 h-4 mr-1" />Zobrazit PDF
-                </Button>
-              </div>
+              <ActionToolbar
+                left={
+                  <button className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-medium rounded-lg transition-colors"
+                    onClick={async () => {
+                      try {
+                        const settings = await fetch('/api/settings').then(r => r.json())
+                        const fakeTransaction = {
+                          id: order.id, transactionCode: order.issuedInvoice?.invoiceNumber || order.orderNumber,
+                          totalAmount: Number(order.totalAmount), totalAmountWithoutVat: Number(order.totalAmountWithoutVat ?? 0), totalVatAmount: Number(order.totalVatAmount ?? 0),
+                          paymentType: order.issuedInvoice?.paymentType || 'transfer', status: order.status, transactionDate: order.orderDate,
+                          customer: order.customer || null, customerName: order.customerName || null,
+                          customerAddress: order.customerAddress, customerPhone: order.customerPhone, customerEmail: order.customerEmail,
+                          items: order.items.map(item => ({ id: item.id || '', quantity: Number(item.quantity), unit: item.unit, price: Number(item.price), vatRate: Number(item.vatRate ?? 0), vatAmount: Number(item.vatAmount ?? 0), priceWithVat: Number(item.priceWithVat ?? item.price), product: item.product || { id: '', name: item.productName || '' } }))
+                        }
+                        await generateInvoicePDF(fakeTransaction as any, settings)
+                      } catch { alert('Nepodařilo se vygenerovat PDF') }
+                    }}>
+                    <FileDown className="w-3.5 h-3.5 mr-1" />Zobrazit PDF
+                  </button>
+                }
+              />
             </>
           )
         }}
