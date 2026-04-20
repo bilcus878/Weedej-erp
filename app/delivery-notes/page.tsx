@@ -491,7 +491,7 @@ export default function DeliveryNotesPage() {
         <EntityPage.Header
           title="Výdejky"
           icon={Package}
-          color="orange"
+          color="amber"
           total={ep.rows.length}
           filtered={ep.filtered.length}
           onRefresh={ep.refresh}
