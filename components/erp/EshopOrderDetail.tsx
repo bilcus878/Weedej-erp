@@ -262,28 +262,34 @@ export function EshopOrderDetail({
                 </div>
               )}
             </div>
-            {/* Fakturační adresa — vždy viditelná */}
+            {/* Fakturační adresa */}
             <div className="space-y-1.5 pt-2.5">
               <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2.5 flex items-center gap-1.5">
                 <FileText className="w-3 h-3" />
                 Fakturační adresa
               </p>
-              <div className="flex justify-between gap-2">
-                <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Příjemce</span>
-                <span className="font-semibold text-gray-900 text-right">{order.billingCompany || order.billingName || customerName}</span>
-              </div>
-              <div className="flex justify-between gap-2">
-                <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Ulice</span>
-                <span className="font-medium text-gray-800 text-right">{order.billingStreet || <span className="text-gray-400">—</span>}</span>
-              </div>
-              <div className="flex justify-between gap-2">
-                <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Město / PSČ</span>
-                <span className="font-medium text-gray-800 text-right">{[order.billingZip, order.billingCity].filter(Boolean).join(' ') || <span className="text-gray-400">—</span>}</span>
-              </div>
-              <div className="flex justify-between gap-2">
-                <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Země</span>
-                <span className="font-medium text-gray-800 text-right">{order.billingCountry || 'CZ'}</span>
-              </div>
+              {(order.billingStreet || order.billingCity) ? (
+                <>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Příjemce</span>
+                    <span className="font-semibold text-gray-900 text-right">{order.billingCompany || order.billingName || customerName}</span>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Ulice</span>
+                    <span className="font-medium text-gray-800 text-right">{order.billingStreet || <span className="text-gray-400">—</span>}</span>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Město / PSČ</span>
+                    <span className="font-medium text-gray-800 text-right">{[order.billingZip, order.billingCity].filter(Boolean).join(' ') || <span className="text-gray-400">—</span>}</span>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Země</span>
+                    <span className="font-medium text-gray-800 text-right">{order.billingCountry || 'CZ'}</span>
+                  </div>
+                </>
+              ) : (
+                <p className="text-xs text-gray-400 italic">Shodná s doručovací adresou</p>
+              )}
             </div>
           </div>
         </div>
@@ -297,7 +303,14 @@ export function EshopOrderDetail({
           <div className="px-4 py-2.5 text-sm bg-white space-y-1.5">
             <div className="flex justify-between gap-2">
               <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Objednávka</span>
-              <span className="font-mono font-semibold text-gray-900 text-right">{order.orderNumber}</span>
+              <Link
+                href={`/eshop-orders?highlight=${order.id}`}
+                className="font-mono font-semibold text-blue-600 hover:underline flex items-center gap-0.5 text-right"
+                onClick={e => e.stopPropagation()}
+              >
+                {order.orderNumber}
+                <ExternalLink className="w-3 h-3" />
+              </Link>
             </div>
             <div className="flex justify-between gap-2">
               <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Faktura</span>
