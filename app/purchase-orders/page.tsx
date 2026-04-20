@@ -52,7 +52,7 @@ interface PurchaseOrder {
   supplierICO?: string; supplierDIC?: string; supplierAddress?: string
   supplierContactPerson?: string; supplierEmail?: string; supplierPhone?: string
   supplierBankAccount?: string; supplierWebsite?: string
-  items: PurchaseOrderItem[]; receipts?: Receipt[]; invoice?: { id: string; invoiceNumber: string }
+  items: PurchaseOrderItem[]; receipts?: Receipt[]; invoice?: { id: string; invoiceNumber: string; paymentType?: string }
   [key: string]: any
 }
 
@@ -274,7 +274,7 @@ export default function PurchaseOrdersPage() {
     },
     {
       key: 'payment', header: 'Typ platby',
-      render: r => <p className="text-sm text-gray-700">{{ cash: 'Hotovost', card: 'Karta', transfer: 'Převod' }[(r.invoice as any)?.paymentType] || '-'}</p>,
+      render: r => <p className="text-sm text-gray-700">{({ cash: 'Hotovost', card: 'Karta', transfer: 'Převod' } as Record<string, string>)[r.invoice?.paymentType ?? ''] || '-'}</p>,
     },
     { key: 'items',  header: 'Položek', render: r => <p className="text-sm text-gray-600">{r.items.length}</p> },
     {
@@ -647,7 +647,7 @@ export default function PurchaseOrdersPage() {
                   <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-gray-50">
                     <div><span className="text-gray-600">Očekávané dodání:</span> <span className="font-medium">{order.expectedDate ? formatDate(order.expectedDate) : '-'}</span></div>
                     <div className="border-l border-gray-200 mx-4" />
-                    <div><span className="text-gray-600">Typ platby:</span> <span className="font-medium">{{ cash: 'Hotovost', card: 'Karta', transfer: 'Bankovní převod' }[(order.invoice as any)?.paymentType] || '-'}</span></div>
+                    <div><span className="text-gray-600">Typ platby:</span> <span className="font-medium">{({ cash: 'Hotovost', card: 'Karta', transfer: 'Bankovní převod' } as Record<string, string>)[order.invoice?.paymentType ?? ''] || '-'}</span></div>
                   </div>
                   <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-white">
                     <div><span className="text-gray-600">Datum splatnosti:</span> <span className="font-medium">{(order.invoice as any)?.dueDate ? formatDate((order.invoice as any).dueDate) : '-'}</span></div>

@@ -51,7 +51,7 @@ interface Transaction {
   status: string
   transactionDate: string
   items: TransactionItem[]
-  customer?: { id: string; name: string; email?: string | null; phone?: string | null } | null
+  customer?: { id: string; name: string; email?: string; phone?: string; ico?: string; dic?: string; address?: string } | null
   customerOrderId?: string
   customerOrderNumber?: string
   customerOrderSource?: string
