@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
-import { ShoppingCart, Plus, Trash2, ChevronDown, ChevronRight, ExternalLink, FileDown } from 'lucide-react'
+import { ShoppingCart, Plus, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
 import { formatDate, formatPrice } from '@/lib/utils'
 import { generateInvoicePDF } from '@/lib/generateInvoicePDF'
 import { VAT_RATE_LABELS, isNonVatPayer, calculateLineVat, calculateVatSummary, DEFAULT_VAT_RATE, NON_VAT_PAYER_RATE, type VatLineItem } from '@/lib/vatCalculation'
@@ -13,9 +13,9 @@ import CustomerSupplierSelector from '@/components/CustomerSupplierSelector'
 import PaymentDetailsSelector from '@/components/PaymentDetailsSelector'
 import {
   useEntityPage, EntityPage, FilterInput, FilterSelect, LoadingState, ErrorState,
-  DetailSection, DetailRow, PartySection, LinkedDocumentBanner, ActionToolbar,
+  EshopOrderDetail,
 } from '@/components/erp'
-import type { ColumnDef, SelectOption } from '@/components/erp'
+import type { ColumnDef, SelectOption, OrderDetailData } from '@/components/erp'
 
 export const dynamic = 'force-dynamic'
 
@@ -74,6 +74,58 @@ function getStatusBadge(status: string) {
 }
 
 const emptyManualCustomer = { name: '', entityType: 'company', contactPerson: '', email: '', phone: '', ico: '', dic: '', bankAccount: '', website: '', address: '', note: '' }
+
+function orderToDetailData(order: CustomerOrder): OrderDetailData {
+  const isPaid = ['paid', 'shipped', 'delivered'].includes(order.status)
+  return {
+    id:            order.id,
+    orderNumber:   order.orderNumber,
+    orderDate:     order.orderDate,
+    status:        order.status,
+    totalAmount:   order.totalAmount,
+    totalVatAmount: order.totalVatAmount ?? null,
+    paidAt:        order.paidAt ?? null,
+    shippedAt:     order.shippedAt ?? null,
+    customerName:  order.customer?.name || order.customerName || 'Anonymní odběratel',
+    customerEmail: order.customerEmail || (order.customer as any)?.email || null,
+    customerPhone: order.customerPhone || (order.customer as any)?.phone || null,
+    customerAddress: order.customerAddress || null,
+    billingIco:    (order.customer as any)?.ico || null,
+    note:          order.note ?? null,
+    discountAmount: order.discountAmount ?? null,
+    issuedInvoice: order.issuedInvoice ? {
+      id:            order.issuedInvoice.id,
+      invoiceNumber: order.issuedInvoice.invoiceNumber,
+      paymentStatus: isPaid ? 'paid' : 'unpaid',
+      status:        order.status,
+      invoiceDate:   order.orderDate,
+    } : null,
+    deliveryNotes: (order.deliveryNotes || []).map(dn => ({
+      id:             dn.id,
+      deliveryNumber: dn.deliveryNumber,
+      deliveryDate:   dn.deliveryDate,
+      status:         dn.status || 'active',
+      items: (dn.items || []).map(item => ({
+        id: item.id, quantity: Number(item.quantity), unit: 'ks',
+        productName: null, price: item.product ? Number(item.product.price) : null,
+        priceWithVat: null, vatRate: null, vatAmount: null,
+        product: item.product ? { id: '', name: '', price: Number(item.product.price || 0) } : null,
+      })),
+    })),
+    items: order.items.map(item => ({
+      id:           item.id || '',
+      productId:    item.productId || null,
+      productName:  item.productName || null,
+      quantity:     Number(item.quantity),
+      unit:         item.unit,
+      price:        Number(item.price),
+      vatRate:      Number(item.vatRate ?? 0),
+      vatAmount:    Number(item.vatAmount ?? 0),
+      priceWithVat: Number(item.priceWithVat ?? item.price),
+      product:      item.product ? { id: item.product.id, name: item.product.name, price: Number(item.price), unit: item.unit } : null,
+    })),
+  }
+}
 
 export default function CustomerOrdersPage() {
   const highlightId = useSearchParams().get('highlight')
@@ -238,6 +290,31 @@ export default function CustomerOrdersPage() {
       await ep.refresh()
       alert('Objednávka zrušena')
     } catch (error: any) { alert(error.message || 'Nepodařilo se zrušit objednávku') }
+  }
+
+  async function handleUpdateStatus(orderId: string, status: string) {
+    if (status === 'cancelled') return handleCancelOrder(orderId)
+    const labels: Record<string, string> = { delivered: 'Doručená' }
+    if (!confirm(`Změnit status objednávky na: ${labels[status] ?? status}?`)) return
+    try {
+      const res = await fetch(`/api/customer-orders/${orderId}/status`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }),
+      })
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error) }
+      await ep.refresh()
+    } catch (error: any) { alert(error.message || 'Nepodařilo se změnit status') }
+  }
+
+  async function handleCreateInvoice(order: CustomerOrder) {
+    if (!confirm(`Vystavit fakturu pro objednávku ${order.orderNumber}?`)) return
+    try {
+      const res = await fetch(`/api/customer-orders/${order.id}/create-invoice`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}),
+      })
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error) }
+      await ep.refresh()
+      alert('Faktura vystavena')
+    } catch (error: any) { alert(error.message || 'Nepodařilo se vystavit fakturu') }
   }
 
   const columns: ColumnDef<CustomerOrder>[] = [
@@ -599,198 +676,30 @@ export default function CustomerOrdersPage() {
         expanded={ep.expanded}
         onToggle={ep.toggleExpand}
         rowClassName={r => r.status === 'storno' ? 'bg-red-50 opacity-70' : ''}
-        renderDetail={order => {
-          const entityType = (order as any).customerEntityType || (order.customer as any)?.entityType || 'company'
-          const cName = order.customer?.name || order.customerName || 'Anonymní odběratel'
-          const isAnonymous = cName === 'Anonymní odběratel'
-
-          return (
-            <>
-              {order.issuedInvoice && (
-                <LinkedDocumentBanner links={[{ label: 'Faktura', value: order.issuedInvoice.invoiceNumber, href: `/invoices/issued?highlight=${order.issuedInvoice.id}` }]} />
-              )}
-
-              <div className="mt-3 grid grid-cols-2 gap-3">
-                <DetailSection title="Informace o objednávce">
-                  <div className="space-y-1.5">
-                    <DetailRow label="Datum vytvoření" value={formatDate(order.orderDate)} muted />
-                    <DetailRow label="Odesláno" value={order.deliveryNotes?.length ? order.deliveryNotes.map(dn => new Date(dn.deliveryDate).toLocaleDateString('cs-CZ')).join(', ') : undefined} muted />
-                    <DetailRow label="Datum splatnosti" value={(order.issuedInvoice as any)?.dueDate ? formatDate((order.issuedInvoice as any).dueDate) : undefined} muted />
-                    <DetailRow label="Typ platby" value={({ cash: 'Hotovost', card: 'Karta', transfer: 'Bankovní převod' } as Record<string, string>)[order.issuedInvoice?.paymentType ?? ''] || undefined} muted />
-                    <DetailRow label="Zaplaceno" value={order.paidAt ? formatDate(order.paidAt) : undefined} muted />
-                    <DetailRow label="Poznámka" value={order.note ?? undefined} muted />
-                  </div>
-                </DetailSection>
-
-                <PartySection
-                  title={isAnonymous ? 'Anonymní odběratel' : 'Odběratel'}
-                  party={isAnonymous ? { name: 'Anonymní odběratel' } : {
-                    name: cName,
-                    entityType,
-                    contact: (order.customer as any)?.contact,
-                    address: order.customerAddress || (order.customer as any)?.address,
-                    phone: order.customerPhone || (order.customer as any)?.phone,
-                    ico: (order.customer as any)?.ico,
-                    dic: (order.customer as any)?.dic,
-                    email: order.customerEmail || (order.customer as any)?.email,
-                    website: (order.customer as any)?.website,
-                    bankAccount: (order.customer as any)?.bankAccount,
-                    note: (order.customer as any)?.note,
-                  }}
-                />
-              </div>
-
-              <div className="mt-3 border border-gray-200 rounded-lg overflow-hidden">
-                <h4 className="font-bold text-sm text-gray-900 px-4 py-2 bg-gray-100 border-b">Položky objednávky ({order.items.length})</h4>
-                {order.items.length > 0 ? (
-                  <div className="text-sm">
-                    {isVatPayer ? (
-                      <div className="grid grid-cols-[3fr_repeat(8,1fr)] gap-2 px-4 py-2 bg-gray-50 font-semibold text-gray-700 border-b text-xs">
-                        <div>Produkt</div><div className="text-center">Obj.</div><div className="text-center">Vyskl.</div>
-                        <div className="text-center">Zbývá</div><div className="text-center">DPH</div><div className="text-center">Cena/ks</div>
-                        <div className="text-center">DPH/ks</div><div className="text-center">S DPH/ks</div><div className="text-center">Celkem</div>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr] gap-3 px-4 py-2 bg-gray-50 font-semibold text-gray-700 border-b">
-                        <div>Produkt</div><div className="text-right">Objednáno</div><div className="text-right">Vyskladněno</div>
-                        <div className="text-right">Zbývá</div><div className="text-right">Cena/ks</div><div className="text-right">Cena celkem</div>
-                      </div>
-                    )}
-
-                    {order.items.map((item, i) => {
-                      const shipped = Number(item.shippedQuantity || 0)
-                      const ordered = Number(item.quantity)
-                      const remaining = ordered - shipped
-                      const unitPrice = Number(item.price)
-                      const itemVatRate = Number((item as any).vatRate || (item.product as any)?.vatRate || 21)
-                      const isItemNonVat = isNonVatPayer(itemVatRate)
-                      const vatPerUnit = isItemNonVat ? 0 : unitPrice * itemVatRate / 100
-                      const priceWithVat = unitPrice + vatPerUnit
-                      const totalWithVat = ordered * priceWithVat
-                      const totalWithoutVat = ordered * unitPrice
-                      const isFullyShipped = shipped >= ordered
-                      const isPartiallyShipped = shipped > 0 && shipped < ordered
-                      let bg = i % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                      if (isFullyShipped) bg = 'bg-green-50'
-                      else if (isPartiallyShipped) bg = 'bg-orange-50'
-
-                      return isVatPayer ? (
-                        <div key={i} className={`grid grid-cols-[3fr_repeat(8,1fr)] gap-2 px-4 py-2 ${bg} text-xs`}>
-                          <div className="font-medium">{item.product?.name || item.productName}</div>
-                          <div className="text-center text-gray-600">{ordered} {item.unit}</div>
-                          <div className="text-center font-medium" style={{ color: shipped > 0 ? '#10b981' : '#6b7280' }}>{shipped} {item.unit}</div>
-                          <div className="text-center font-medium" style={{ color: remaining === 0 ? '#10b981' : remaining < ordered ? '#f59e0b' : '#374151' }}>{remaining.toFixed(3)} {item.unit}</div>
-                          <div className="text-center text-gray-500">{isItemNonVat ? '-' : `${itemVatRate}%`}</div>
-                          <div className="text-center text-gray-600">{formatPrice(unitPrice)}</div>
-                          <div className="text-center text-gray-500">{isItemNonVat ? '-' : formatPrice(vatPerUnit)}</div>
-                          <div className="text-center text-gray-700">{formatPrice(priceWithVat)}</div>
-                          <div className="text-center font-semibold text-gray-900">{formatPrice(totalWithVat)}</div>
-                        </div>
-                      ) : (
-                        <div key={i} className={`grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr] gap-3 px-4 py-2 ${bg}`}>
-                          <div className="font-medium">{item.product?.name || item.productName}</div>
-                          <div className="text-right text-gray-600">{ordered} {item.unit}</div>
-                          <div className="text-right font-medium" style={{ color: shipped > 0 ? '#10b981' : '#6b7280' }}>{shipped} {item.unit}</div>
-                          <div className="text-right font-medium" style={{ color: remaining === 0 ? '#10b981' : remaining < ordered ? '#f59e0b' : '#374151' }}>{remaining.toFixed(3)} {item.unit}</div>
-                          <div className="text-right text-gray-600">{formatPrice(unitPrice)}</div>
-                          <div className="text-right font-semibold text-gray-900">{formatPrice(totalWithoutVat)}</div>
-                        </div>
-                      )
-                    })}
-
-                    {order.discountAmount && order.discountAmount > 0 ? (
-                      <>
-                        <div className={`grid ${isVatPayer ? 'grid-cols-[3fr_repeat(8,1fr)]' : 'grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr]'} gap-2 px-4 py-2 bg-gray-50 border-t text-sm`}>
-                          <div className={isVatPayer ? 'col-span-8' : 'col-span-5'} style={{ fontWeight: 500, color: '#374151' }}>Mezisoučet</div>
-                          <div className="text-center font-medium text-gray-700">{formatPrice(order.totalAmount + order.discountAmount)}</div>
-                        </div>
-                        <div className={`grid ${isVatPayer ? 'grid-cols-[3fr_repeat(8,1fr)]' : 'grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr]'} gap-2 px-4 py-2 bg-yellow-50 text-sm`}>
-                          <div className={isVatPayer ? 'col-span-8' : 'col-span-5'} style={{ fontWeight: 500, color: '#111827' }}>
-                            Sleva
-                            {order.discountType === 'percentage' && order.discountValue && <span className="text-sm text-gray-600 ml-2">({order.discountValue}%)</span>}
-                            {order.discountType === 'fixed' && <span className="text-sm text-gray-600 ml-2">(pevná částka)</span>}
-                          </div>
-                          <div className="text-center font-medium text-red-600">-{formatPrice(order.discountAmount)}</div>
-                        </div>
-                        <div className={`grid ${isVatPayer ? 'grid-cols-[3fr_repeat(8,1fr)]' : 'grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr]'} gap-2 px-4 py-2 bg-gray-100 font-bold border-t text-sm`}>
-                          <div className={isVatPayer ? 'col-span-8' : 'col-span-5'}>{isVatPayer ? 'Celková částka s DPH' : 'Celková částka'}</div>
-                          <div className={isVatPayer ? 'text-center' : 'text-right'}>{formatPrice(order.totalAmount)}</div>
-                        </div>
-                      </>
-                    ) : (
-                      <div className={`grid ${isVatPayer ? 'grid-cols-[3fr_repeat(8,1fr)]' : 'grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr]'} gap-2 px-4 py-2 bg-gray-100 font-bold border-t text-sm`}>
-                        <div className={isVatPayer ? 'col-span-8' : 'col-span-5'}>{isVatPayer ? 'Celková částka s DPH' : 'Celková částka'}</div>
-                        <div className={isVatPayer ? 'text-center' : 'text-right'}>{formatPrice(order.totalAmount)}</div>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="px-4 py-3 text-sm text-gray-500 italic">Žádné položky</div>
-                )}
-              </div>
-
-              {order.deliveryNotes && order.deliveryNotes.length > 0 && (
-                <div className="mt-3 border border-gray-200 rounded-lg overflow-hidden">
-                  <h4 className="font-bold text-sm text-gray-900 px-4 py-2 bg-gray-100 border-b">Výdejky ({order.deliveryNotes.length})</h4>
-                  <div className="text-sm">
-                    <div className="grid grid-cols-[1.5fr_1fr_0.8fr_1fr_auto] gap-3 px-4 py-2 bg-gray-50 font-semibold text-gray-700 border-b">
-                      <div>Číslo výdejky</div><div>Datum</div><div className="text-center">Položek</div><div className="text-right">Částka</div><div className="w-4"></div>
-                    </div>
-                    {order.deliveryNotes.map((dn, idx) => {
-                      const dnTotal = dn.items?.reduce((s, item) => {
-                        const up = Number(item.product?.price || 0)
-                        const vr = Number((item.product as any)?.vatRate || 21)
-                        const nonVat = isNonVatPayer(vr)
-                        const vpu = nonVat ? 0 : up * vr / 100
-                        return s + (Number(item.quantity) * (isVatPayer ? up + vpu : up))
-                      }, 0) || 0
-                      return (
-                        <a key={dn.id} href={`/delivery-notes?highlight=${dn.id}`}
-                          className={`grid grid-cols-[1.5fr_1fr_0.8fr_1fr_auto] gap-3 px-4 py-3 hover:bg-blue-50 transition-colors items-center ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}
-                          onClick={e => e.stopPropagation()}>
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-blue-600 hover:underline">{dn.deliveryNumber}</span>
-                            {dn.status === 'storno' && <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded font-medium">STORNO</span>}
-                          </div>
-                          <div className="text-gray-700">{new Date(dn.deliveryDate).toLocaleDateString('cs-CZ')}</div>
-                          <div className="text-gray-700 text-center">{dn.items?.length || 0}</div>
-                          <div className="font-semibold text-gray-900 text-right">{dnTotal.toLocaleString('cs-CZ')} Kč</div>
-                          <div className="flex justify-end"><ExternalLink className="w-4 h-4 text-blue-600" /></div>
-                        </a>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {order.reservations && order.reservations.filter((r: any) => r.status === 'active').length > 0 && (
-                <p className="text-sm text-gray-500 mt-2">Aktivní rezervace: {order.reservations.filter((r: any) => r.status === 'active').length}</p>
-              )}
-
-              <ActionToolbar
-                left={
-                  <button className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-medium rounded-lg transition-colors"
-                    onClick={async () => {
-                      try {
-                        const settings = await fetch('/api/settings').then(r => r.json())
-                        const fakeTransaction = {
-                          id: order.id, transactionCode: order.issuedInvoice?.invoiceNumber || order.orderNumber,
-                          totalAmount: Number(order.totalAmount), totalAmountWithoutVat: Number(order.totalAmountWithoutVat ?? 0), totalVatAmount: Number(order.totalVatAmount ?? 0),
-                          paymentType: order.issuedInvoice?.paymentType || 'transfer', status: order.status, transactionDate: order.orderDate,
-                          customer: order.customer || null, customerName: order.customerName || null,
-                          customerAddress: order.customerAddress, customerPhone: order.customerPhone, customerEmail: order.customerEmail,
-                          items: order.items.map(item => ({ id: item.id || '', quantity: Number(item.quantity), unit: item.unit, price: Number(item.price), vatRate: Number(item.vatRate ?? 0), vatAmount: Number(item.vatAmount ?? 0), priceWithVat: Number(item.priceWithVat ?? item.price), product: item.product || { id: '', name: item.productName || '' } }))
-                        }
-                        await generateInvoicePDF(fakeTransaction as any, settings)
-                      } catch { alert('Nepodařilo se vygenerovat PDF') }
-                    }}>
-                    <FileDown className="w-3.5 h-3.5 mr-1" />Zobrazit PDF
-                  </button>
+        renderDetail={order => (
+          <EshopOrderDetail
+            order={orderToDetailData(order)}
+            isVatPayer={isVatPayer}
+            orderHref={`/customer-orders?highlight=${order.id}`}
+            onPrintPdf={async () => {
+              try {
+                const settings = await fetch('/api/settings').then(r => r.json())
+                const fakeTransaction = {
+                  id: order.id, transactionCode: order.issuedInvoice?.invoiceNumber || order.orderNumber,
+                  totalAmount: Number(order.totalAmount), totalAmountWithoutVat: Number(order.totalAmountWithoutVat ?? 0), totalVatAmount: Number(order.totalVatAmount ?? 0),
+                  paymentType: order.issuedInvoice?.paymentType || 'transfer', status: order.status, transactionDate: order.orderDate,
+                  customer: order.customer || null, customerName: order.customerName || null,
+                  customerAddress: order.customerAddress, customerPhone: order.customerPhone, customerEmail: order.customerEmail,
+                  items: order.items.map(item => ({ id: item.id || '', quantity: Number(item.quantity), unit: item.unit, price: Number(item.price), vatRate: Number(item.vatRate ?? 0), vatAmount: Number(item.vatAmount ?? 0), priceWithVat: Number(item.priceWithVat ?? item.price), product: item.product || { id: '', name: item.productName || '' } }))
                 }
-              />
-            </>
-          )
-        }}
+                await generateInvoicePDF(fakeTransaction as any, settings)
+              } catch { alert('Nepodařilo se vygenerovat PDF') }
+            }}
+            onCreateInvoice={!order.issuedInvoice ? () => handleCreateInvoice(order) : undefined}
+            onUpdateStatus={status => handleUpdateStatus(order.id, status)}
+            onRefresh={ep.refresh}
+          />
+        )}
       />
 
       <EntityPage.Pagination page={ep.page} total={ep.totalPages} onChange={ep.setPage} />
