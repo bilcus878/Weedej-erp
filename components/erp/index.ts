@@ -21,8 +21,6 @@ export type {
 
 // ── Page architecture ────────────────────────────────────────────────────────
 export { EntityPage }           from './layout/EntityPage'
-export { PageHeader }           from './PageHeader'
-
 // ── Hooks ────────────────────────────────────────────────────────────────────
 export { useEntityPage }        from './hooks/useEntityPage'
 export type { EntityPageConfig, EntityPageState } from './hooks/useEntityPage'
