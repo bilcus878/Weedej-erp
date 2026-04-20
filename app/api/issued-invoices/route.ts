@@ -135,6 +135,14 @@ export async function GET() {
         pickupPointName:    invoice.customerOrder?.pickupPointName    ?? null,
         pickupPointAddress: invoice.customerOrder?.pickupPointAddress ?? null,
         pickupPointCarrier: invoice.customerOrder?.pickupPointCarrier ?? null,
+        // Billing address snapshot (from customerOrder — eshop orders only)
+        billingName:        invoice.customerOrder?.billingName        ?? null,
+        billingCompany:     invoice.customerOrder?.billingCompany     ?? null,
+        billingIco:         invoice.customerOrder?.billingIco         ?? null,
+        billingStreet:      invoice.customerOrder?.billingStreet      ?? null,
+        billingCity:        invoice.customerOrder?.billingCity        ?? null,
+        billingZip:         invoice.customerOrder?.billingZip         ?? null,
+        billingCountry:     invoice.customerOrder?.billingCountry     ?? null,
         // Původní data pro debugging
         _original: {
           deliveryNote: invoice.deliveryNote,
