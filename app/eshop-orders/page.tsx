@@ -311,7 +311,7 @@ export default function EshopOrdersPage() {
         onRefresh={ep.refresh}
       />
 
-      {filters.bar('auto 1fr 1fr 1fr 1fr 1fr 1fr')}
+      {filters.bar('auto 1fr 1fr 2fr 1fr 1fr 1fr')}
 
       <EntityPage.Table
         columns={columns}
