@@ -39,8 +39,8 @@ function Root({ children, highlightId }: RootProps) {
 // ─── Header ──────────────────────────────────────────────────────────────────
 
 interface HeaderProps {
-  title:     string
-  icon:      LucideIcon
+  title?:    string
+  icon?:     LucideIcon
   color:     AccentColor
   total:     number
   filtered:  number
@@ -48,30 +48,24 @@ interface HeaderProps {
   actions?:  ReactNode
 }
 
-function Header({ title, icon: Icon, color, total, filtered, onRefresh, actions }: HeaderProps) {
+function Header({ color, total, filtered, onRefresh, actions }: HeaderProps) {
   const c = colorMap[color]
   return (
-    <div className={`relative bg-gradient-to-r ${c.gradient} border-l-4 ${c.border} rounded-lg shadow-sm py-4 px-6`}>
-      <div className="text-center">
-        <h1 className={`text-2xl font-bold ${c.title} flex items-center justify-center gap-2`}>
-          <Icon className="w-6 h-6" />
-          {title}
-          <span className="text-sm font-normal text-gray-600 ml-1">
-            (Zobrazeno{' '}
-            <span className={`font-semibold ${c.count}`}>{filtered}</span>
-            {' '}z{' '}
-            <span className="font-semibold text-gray-700">{total}</span>)
-          </span>
-        </h1>
-      </div>
-      <div className="absolute top-3 right-4 flex items-center gap-2">
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-sm text-gray-500">
+        Zobrazeno{' '}
+        <span className={`font-semibold ${c.count}`}>{filtered}</span>
+        {' '}z{' '}
+        <span className="font-semibold text-gray-700">{total}</span>
+      </span>
+      <div className="flex items-center gap-2">
         {actions}
         {onRefresh && (
           <button
             onClick={onRefresh}
-            className="px-4 py-2 bg-white border border-gray-200 text-gray-600 font-medium rounded-lg shadow-sm hover:bg-gray-50 hover:border-gray-300 transition-all flex items-center gap-2 text-sm"
+            className="px-3 py-1.5 bg-white border border-gray-200 text-gray-600 font-medium rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-all flex items-center gap-1.5 text-sm"
           >
-            <RefreshCw className="h-4 w-4" />
+            <RefreshCw className="h-3.5 w-3.5" />
             Obnovit
           </button>
         )}
