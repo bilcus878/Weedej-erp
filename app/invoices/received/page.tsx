@@ -7,7 +7,7 @@ import InvoiceDetailsModal from '@/components/InvoiceDetailsModal'
 import { formatPrice } from '@/lib/utils'
 import {
   useEntityPage, useFilters, EntityPage, LoadingState, ErrorState,
-  LinkedDocumentBanner, ActionToolbar, SupplierOrderDetail,
+  ActionToolbar, SupplierOrderDetail,
 } from '@/components/erp'
 import type { ColumnDef, SelectOption, SupplierOrderDetailData } from '@/components/erp'
 
@@ -430,13 +430,6 @@ export default function ReceivedInvoicesPage() {
 
             return (
               <>
-                {inv.purchaseOrder && (
-                  <LinkedDocumentBanner
-                    links={[{ label: 'Objednávka', value: inv.purchaseOrder.orderNumber, href: `/purchase-orders?highlight=${inv.purchaseOrder.id}` }]}
-                    color="blue"
-                  />
-                )}
-
                 <div className="mt-3">
                   <SupplierOrderDetail
                     order={detailData}

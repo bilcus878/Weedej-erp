@@ -12,7 +12,7 @@ import CustomerSupplierSelector from '@/components/CustomerSupplierSelector'
 import { calculateLineVat, calculateVatSummary, isNonVatPayer, NON_VAT_PAYER_RATE, DEFAULT_VAT_RATE, VAT_RATE_LABELS, type VatLineItem } from '@/lib/vatCalculation'
 import {
   useEntityPage, useFilters, EntityPage, LoadingState, ErrorState,
-  LinkedDocumentBanner, SupplierOrderDetail,
+  SupplierOrderDetail,
 } from '@/components/erp'
 import type { ColumnDef, SelectOption, SupplierOrderDetailData } from '@/components/erp'
 
@@ -677,9 +677,6 @@ export default function PurchaseOrdersPage() {
           }
           return (
             <>
-              {order.invoice && (
-                <LinkedDocumentBanner links={[{ label: 'Faktura', value: order.invoice.invoiceNumber, href: `/invoices/received?highlight=${order.invoice.id}` }]} />
-              )}
               <div className="mt-3">
                 <SupplierOrderDetail
                   order={detailData}
