@@ -222,7 +222,7 @@ export function CustomerOrderDetail({
     <div className="space-y-4">
 
       {/* ══ DETAIL ══════════════════════════════════════════════════════════════ */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
         {/* ── A) Zákazník + Fakturační adresa ─────────────────────────────── */}
         <div className="border border-gray-200 rounded-lg overflow-hidden flex flex-col">
@@ -381,9 +381,9 @@ export function CustomerOrderDetail({
         </div>
 
         {/* ── C) Doručení ─────────────────────────────────────────────────── */}
-        <div className="md:col-span-2 border border-gray-200 rounded-lg overflow-hidden">
+        <div className="border border-gray-200 rounded-lg overflow-hidden flex flex-col">
 
-          <div className="px-4 py-2 bg-gray-100 border-b border-gray-200 flex items-center justify-between gap-2">
+          <div className="px-4 py-2 bg-gray-100 border-b border-gray-200 flex items-center justify-between gap-2 shrink-0">
             <div className="flex items-center gap-2">
               <Truck className="w-4 h-4 text-gray-500 shrink-0" />
               <span className="font-bold text-sm text-gray-900">Doručení</span>
@@ -398,22 +398,108 @@ export function CustomerOrderDetail({
             </span>
           </div>
 
-          <div className="grid grid-cols-4 divide-x divide-gray-200 bg-white text-sm">
+          {/* Top: Způsob dopravy + tracking | Výdejní místo */}
+          <div className="grid grid-cols-2 divide-x divide-gray-200 bg-white text-sm">
 
-            {/* 1 — Způsob dopravy */}
-            <div className="px-4 py-3">
-              <p className="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">Způsob dopravy</p>
-              <p className="font-semibold text-gray-900 text-sm leading-snug">
-                {order.shippingMethod ? shippingMethodLabel(order.shippingMethod) : <span className="text-gray-400">—</span>}
-              </p>
-              {order.pickupPointCarrier && (
-                <span className="mt-1.5 inline-block text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
-                  {order.pickupPointCarrier}
-                </span>
-              )}
+            {/* Způsob dopravy + tracking */}
+            <div className="px-4 py-3 space-y-3">
+              <div>
+                <p className="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">Způsob dopravy</p>
+                <p className="font-semibold text-gray-900 text-sm leading-snug">
+                  {order.shippingMethod ? shippingMethodLabel(order.shippingMethod) : <span className="text-gray-400">—</span>}
+                </p>
+                {order.pickupPointCarrier && (
+                  <span className="mt-1.5 inline-block text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
+                    {order.pickupPointCarrier}
+                  </span>
+                )}
+              </div>
+
+              {/* Tracking inline */}
+              <div>
+                <p className="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">Zásilka</p>
+                {isEditingTracking ? (
+                  <div onClick={e => e.stopPropagation()}>
+                    <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-400 transition-all">
+                      <input
+                        type="text"
+                        value={trackingForm.trackingNumber}
+                        onChange={e => setTrackingForm(f => ({ ...f, trackingNumber: e.target.value }))}
+                        onKeyDown={e => { if (e.key === 'Enter') handleSaveTracking(); if (e.key === 'Escape') setIsEditingTracking(false) }}
+                        placeholder="Číslo zásilky…"
+                        className="flex-1 min-w-0 text-xs font-mono bg-transparent border-none outline-none text-gray-900 placeholder-gray-400"
+                        autoFocus
+                      />
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          onClick={handleSaveTracking}
+                          disabled={savingTracking}
+                          className="px-2.5 py-1 bg-gray-900 hover:bg-gray-700 text-white text-xs font-semibold rounded-md transition-colors disabled:opacity-50"
+                        >
+                          {savingTracking ? '…' : 'Uložit'}
+                        </button>
+                        <button
+                          onClick={e => { e.stopPropagation(); setIsEditingTracking(false) }}
+                          className="px-2 py-1 text-gray-400 hover:text-gray-700 text-xs rounded-md transition-colors"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-[9px] text-gray-400 mt-1.5">Enter pro uložení · Esc pro zrušení</p>
+                  </div>
+                ) : hasTracking ? (
+                  <div className="space-y-1.5">
+                    {order.trackingNumber && (
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-mono text-xs font-bold text-gray-800 truncate">{order.trackingNumber}</span>
+                        <button
+                          onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(order.trackingNumber!) }}
+                          className="text-gray-400 hover:text-gray-700 transition-colors shrink-0"
+                          title="Kopírovat"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+                    {order.carrier && <p className="text-xs text-gray-500">{order.carrier}</p>}
+                    <div className="flex items-center gap-2 pt-1">
+                      {trackingUrl && (
+                        <a
+                          href={trackingUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={e => e.stopPropagation()}
+                          className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          Sledovat
+                        </a>
+                      )}
+                      <button
+                        onClick={e => { e.stopPropagation(); setTrackingForm({ trackingNumber: order.trackingNumber || '', carrier: order.carrier || '' }); setIsEditingTracking(true) }}
+                        className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+                      >
+                        Upravit
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    <p className="text-xs text-gray-400">Zásilka nebyla předána dopravci.</p>
+                    <button
+                      onClick={e => { e.stopPropagation(); setTrackingForm({ trackingNumber: '', carrier: order.pickupPointCarrier || '' }); setIsEditingTracking(true) }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+                    >
+                      <Package className="w-3.5 h-3.5" />
+                      Přidat tracking
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* 2 — Destinace */}
+            {/* Výdejní místo / Doručovací adresa */}
             <div className="px-4 py-3">
               <p className="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-2">
                 {order.pickupPointId ? 'Výdejní místo' : 'Doručovací adresa'}
@@ -446,109 +532,21 @@ export function CustomerOrderDetail({
                 </div>
               )}
             </div>
-
-            {/* 3 — Mapa */}
-            {order.pickupPointId && (order.pickupPointAddress || order.pickupPointName)
-              ? (
-                <div className="overflow-hidden">
-                  <iframe
-                    src={`https://maps.google.com/maps?q=${encodeURIComponent((order.pickupPointAddress || order.pickupPointName)!)}&output=embed&z=16`}
-                    className="w-full h-full min-h-[110px]"
-                    loading="lazy"
-                    referrerPolicy="no-referrer-when-downgrade"
-                    title="Mapa výdejního místa"
-                  />
-                </div>
-              ) : (
-                <div />
-              )
-            }
-
-            {/* 4 — Zásilka / tracking */}
-            <div className="px-4 py-3 min-w-0">
-              <p className="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-2">Zásilka</p>
-
-              {isEditingTracking ? (
-                <div onClick={e => e.stopPropagation()}>
-                  <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-400 transition-all">
-                    <input
-                      type="text"
-                      value={trackingForm.trackingNumber}
-                      onChange={e => setTrackingForm(f => ({ ...f, trackingNumber: e.target.value }))}
-                      onKeyDown={e => { if (e.key === 'Enter') handleSaveTracking(); if (e.key === 'Escape') setIsEditingTracking(false) }}
-                      placeholder="Číslo zásilky…"
-                      className="flex-1 min-w-0 text-xs font-mono bg-transparent border-none outline-none text-gray-900 placeholder-gray-400"
-                      autoFocus
-                    />
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button
-                        onClick={handleSaveTracking}
-                        disabled={savingTracking}
-                        className="px-2.5 py-1 bg-gray-900 hover:bg-gray-700 text-white text-xs font-semibold rounded-md transition-colors disabled:opacity-50"
-                      >
-                        {savingTracking ? '…' : 'Uložit'}
-                      </button>
-                      <button
-                        onClick={e => { e.stopPropagation(); setIsEditingTracking(false) }}
-                        className="px-2 py-1 text-gray-400 hover:text-gray-700 text-xs rounded-md transition-colors"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  </div>
-                  <p className="text-[9px] text-gray-400 mt-1.5 ml-0.5">Enter pro uložení · Esc pro zrušení</p>
-                </div>
-              ) : hasTracking ? (
-                <div className="space-y-1.5">
-                  {order.trackingNumber && (
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-mono text-xs font-bold text-gray-800">{order.trackingNumber}</span>
-                      <button
-                        onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(order.trackingNumber!) }}
-                        className="text-gray-400 hover:text-gray-700 transition-colors"
-                        title="Kopírovat"
-                      >
-                        <RefreshCw className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  )}
-                  {order.carrier && <p className="text-xs text-gray-500">{order.carrier}</p>}
-                  <div className="flex items-center gap-2 pt-1.5">
-                    {trackingUrl && (
-                      <a
-                        href={trackingUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={e => e.stopPropagation()}
-                        className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors"
-                      >
-                        <ExternalLink className="w-3 h-3" />
-                        Sledovat
-                      </a>
-                    )}
-                    <button
-                      onClick={e => { e.stopPropagation(); setTrackingForm({ trackingNumber: order.trackingNumber || '', carrier: order.carrier || '' }); setIsEditingTracking(true) }}
-                      className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
-                    >
-                      Upravit
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <p className="text-xs text-gray-400">Zásilka nebyla předána dopravci.</p>
-                  <button
-                    onClick={e => { e.stopPropagation(); setTrackingForm({ trackingNumber: '', carrier: order.pickupPointCarrier || '' }); setIsEditingTracking(true) }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
-                  >
-                    <Package className="w-3.5 h-3.5" />
-                    Přidat tracking
-                  </button>
-                </div>
-              )}
-            </div>
-
           </div>
+
+          {/* Mapa — full width pod oběma sloupci */}
+          {order.pickupPointId && (order.pickupPointAddress || order.pickupPointName) && (
+            <div className="border-t border-gray-200 overflow-hidden">
+              <iframe
+                src={`https://maps.google.com/maps?q=${encodeURIComponent((order.pickupPointAddress || order.pickupPointName)!)}&output=embed&z=16`}
+                className="w-full h-[160px]"
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                title="Mapa výdejního místa"
+              />
+            </div>
+          )}
+
         </div>
 
       </div>
