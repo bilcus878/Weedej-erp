@@ -3,7 +3,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import { ChevronDown, ChevronRight, Package, FileDown, XCircle } from 'lucide-react'
 import { formatDate, formatPrice } from '@/lib/utils'
@@ -18,6 +17,7 @@ import {
 import type { ColumnDef, SelectOption } from '@/components/erp'
 import { ExpectedDocumentsPanel } from '@/components/warehouse/expected/ExpectedDocumentsPanel'
 import { QuickPreviewCard } from '@/components/warehouse/expected/QuickPreviewCard'
+import { useClickOutside } from '@/components/warehouse/shared/useClickOutside'
 import { useToast } from '@/components/warehouse/shared/useToast'
 import { Toast } from '@/components/warehouse/shared/Toast'
 
@@ -159,6 +159,9 @@ export default function DeliveryNotesPage() {
   // ── Expected panel state ──────────────────────────────────────────────────
   const [pendingListOpen, setPendingListOpen] = useState(false)
   const [pendingFormOpen, setPendingFormOpen] = useState(false)
+  const [popoverSearch, setPopoverSearch] = useState('')
+  const popoverRef = useRef<HTMLDivElement>(null)
+  useClickOutside(popoverRef, () => setPendingFormOpen(false))
 
   // ── Pending orders display state ──────────────────────────────────────────
   const [filteredPendingOrders, setFilteredPendingOrders] = useState<CustomerOrder[]>([])
@@ -458,22 +461,7 @@ export default function DeliveryNotesPage() {
   if (ep.loading) return <LoadingState />
   if (ep.error)   return <ErrorState message={ep.error} onRetry={ep.refresh} />
 
-  // ── Expected panel: +OV create form ──────────────────────────────────────
-  const ovFormContent = (
-    <div className="px-5 py-4 bg-orange-50/40">
-      <h3 className="text-sm font-semibold text-gray-800 mb-2">Nová objednávka (+OV)</h3>
-      <p className="text-sm text-gray-600 mb-3">
-        Objednávky k expedici vznikají automaticky z e-shopu nebo ručně v sekci{' '}
-        <Link href="/customer-orders" className="text-orange-600 hover:underline font-medium">Zákaznické objednávky</Link>.
-      </p>
-      <div className="flex gap-2">
-        <Link href="/customer-orders" className="inline-flex items-center px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium rounded-lg transition-colors">
-          Přejít na zákaznické objednávky →
-        </Link>
-        <Button variant="ghost" size="sm" onClick={() => setPendingFormOpen(false)}>Zavřít</Button>
-      </div>
-    </div>
-  )
+  // ovFormContent removed — popup is now rendered inline in firstHeader
 
   // ── Expected panel: list content ──────────────────────────────────────────
   const pendingListContent = (
@@ -709,10 +697,7 @@ export default function DeliveryNotesPage() {
         label="výdejky"
         count={filteredPendingOrders.length}
         listOpen={pendingListOpen}
-        formOpen={pendingFormOpen}
         onToggleList={() => setPendingListOpen(v => !v)}
-        onCloseForm={() => setPendingFormOpen(false)}
-        formContent={ovFormContent}
         listContent={pendingListContent}
       />
 
@@ -725,18 +710,94 @@ export default function DeliveryNotesPage() {
         expanded={ep.expanded}
         onToggle={ep.toggleExpand}
         firstHeader={
-          <button
-            onMouseDown={e => e.stopPropagation()}
-            onClick={() => setPendingFormOpen(v => !v)}
-            title={pendingFormOpen ? 'Zavřít formulář (+OV)' : 'Nová výdejka (+OV)'}
-            className={`w-6 h-6 flex items-center justify-center rounded font-bold text-xs transition-colors ${
-              pendingFormOpen
-                ? 'bg-orange-600 text-white'
-                : 'bg-orange-200 text-orange-800 hover:bg-orange-400'
-            }`}
-          >
-            +
-          </button>
+          <div ref={popoverRef} className="relative">
+            <button
+              onClick={() => { setPendingFormOpen(v => !v); setPopoverSearch('') }}
+              title={pendingFormOpen ? 'Zavřít přehled' : 'Očekávané výdejky'}
+              className={`w-6 h-6 flex items-center justify-center rounded font-bold text-xs transition-colors ${
+                pendingFormOpen ? 'bg-orange-600 text-white' : 'bg-orange-200 text-orange-800 hover:bg-orange-400'
+              }`}
+            >
+              +
+            </button>
+
+            {pendingFormOpen && (
+              <div className="absolute left-0 top-full z-50 mt-2 w-[480px] max-h-[500px] flex flex-col bg-white border border-orange-200 rounded-xl shadow-2xl overflow-hidden">
+                {/* Popup header */}
+                <div className="flex items-center justify-between px-4 py-2.5 bg-orange-50 border-b border-orange-200 shrink-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-orange-900">Čeká na expedici</span>
+                    <span className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-xs font-bold ${pendingOrders.length > 0 ? 'bg-orange-600 text-white' : 'bg-orange-200 text-orange-700'}`}>
+                      {pendingOrders.length}
+                    </span>
+                  </div>
+                  <button onClick={() => setPendingFormOpen(false)} className="text-orange-400 hover:text-orange-700 text-xl leading-none transition-colors">×</button>
+                </div>
+
+                {/* Search */}
+                <div className="px-3 py-2 border-b border-gray-100 shrink-0">
+                  <input
+                    type="text"
+                    value={popoverSearch}
+                    onChange={e => setPopoverSearch(e.target.value)}
+                    placeholder="Hledat číslo obj. nebo odběratel..."
+                    className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-xs focus:ring-1 focus:ring-orange-400 focus:border-orange-400 outline-none"
+                    autoFocus
+                  />
+                </div>
+
+                {/* Orders list */}
+                <div className="overflow-y-auto flex-1 divide-y divide-gray-100">
+                  {(() => {
+                    const q = popoverSearch.toLowerCase()
+                    const visible = pendingOrders.filter(o =>
+                      !q ||
+                      o.orderNumber.toLowerCase().includes(q) ||
+                      (o.customer?.name || o.customerName || '').toLowerCase().includes(q)
+                    )
+                    if (visible.length === 0) {
+                      return (
+                        <div className="px-4 py-10 text-center text-sm text-gray-400 italic">
+                          {popoverSearch ? 'Žádné výsledky.' : 'Žádné objednávky čekající na expedici.'}
+                        </div>
+                      )
+                    }
+                    return visible.map(order => (
+                      <div key={order.id} className="flex items-center gap-3 px-4 py-3 hover:bg-orange-50 transition-colors">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-semibold text-gray-900">{order.orderNumber}</p>
+                            <span className="px-1.5 py-0.5 bg-green-100 text-green-800 text-[10px] rounded-full font-semibold shrink-0">Zaplaceno</span>
+                          </div>
+                          <p className="text-xs text-gray-500 truncate mt-0.5">
+                            {order.customer?.name || order.customerName || 'Anonymní zákazník'}
+                          </p>
+                        </div>
+                        <p className="text-xs text-gray-400 shrink-0 tabular-nums">{formatDate(order.orderDate)}</p>
+                        <button
+                          onClick={() => { handlePrepareShipment(order.id); setPendingFormOpen(false) }}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-xs font-semibold rounded-lg transition-colors shrink-0"
+                        >
+                          <Package className="w-3 h-3" />Vyskladnit
+                        </button>
+                      </div>
+                    ))
+                  })()}
+                </div>
+
+                {/* Footer */}
+                <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 shrink-0 flex items-center justify-between">
+                  <span className="text-xs text-gray-400">{pendingOrders.length} celkem</span>
+                  <button
+                    onClick={() => { setPendingListOpen(true); setPendingFormOpen(false) }}
+                    className="text-xs text-orange-600 hover:text-orange-800 hover:underline transition-colors"
+                  >
+                    Rozbalit panel níže →
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         }
         rowClassName={r => r.status === 'storno' ? 'bg-red-50 opacity-70' : ''}
         renderDetail={note => (
