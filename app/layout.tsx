@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import Sidebar from "@/components/Sidebar";
+import { ErpNavbar } from "@/components/ErpNavbar";
 import { Providers } from "@/components/Providers";
 
 export const dynamic = 'force-dynamic';
@@ -22,12 +22,10 @@ export default function RootLayout({
     <html lang="cs">
       <body className={inter.className}>
         <Providers>
-          <div className="flex min-h-screen">
-            <Sidebar />
-            <main className="flex-1 bg-gray-50 p-8 min-w-0 overflow-x-auto">
-              {children}
-            </main>
-          </div>
+          <ErpNavbar />
+          <main className="bg-gray-50 min-h-screen pt-[57px] p-8 min-w-0 overflow-x-auto">
+            {children}
+          </main>
         </Providers>
       </body>
     </html>
