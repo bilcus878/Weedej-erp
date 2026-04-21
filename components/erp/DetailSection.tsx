@@ -8,9 +8,10 @@ interface Props {
   children: ReactNode
   accentColor?: 'gray' | 'red' | 'green'
   headerRight?: ReactNode
+  divided?: boolean
 }
 
-export function DetailSection({ title, icon: Icon, colSpan = '', children, accentColor = 'gray', headerRight }: Props) {
+export function DetailSection({ title, icon: Icon, colSpan = '', children, accentColor = 'gray', headerRight, divided }: Props) {
   const headerBg =
     accentColor === 'red'   ? 'bg-red-50 border-red-200' :
     accentColor === 'green' ? 'bg-green-50 border-green-200' :
@@ -29,7 +30,7 @@ export function DetailSection({ title, icon: Icon, colSpan = '', children, accen
         </div>
         {headerRight}
       </h4>
-      <div className="flex-1 px-4 py-2.5 text-sm bg-white">
+      <div className={`flex-1 px-4 py-2.5 text-sm bg-white${divided ? ' divide-y divide-gray-100' : ''}`}>
         {children}
       </div>
     </div>

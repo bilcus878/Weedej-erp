@@ -2,15 +2,14 @@
 
 import { useState, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { FileText, FileEdit, XCircle, ExternalLink } from 'lucide-react'
+import { FileText, FileEdit, XCircle } from 'lucide-react'
 import InvoiceDetailsModal from '@/components/InvoiceDetailsModal'
-import { isNonVatPayer, DEFAULT_VAT_RATE } from '@/lib/vatCalculation'
 import { formatPrice } from '@/lib/utils'
 import {
   useEntityPage, useFilters, EntityPage, LoadingState, ErrorState,
-  DetailSection, DetailRow, LinkedDocumentBanner, PartySection, ActionToolbar,
+  LinkedDocumentBanner, ActionToolbar, SupplierOrderDetail,
 } from '@/components/erp'
-import type { ColumnDef, SelectOption } from '@/components/erp'
+import type { ColumnDef, SelectOption, SupplierOrderDetailData } from '@/components/erp'
 
 export const dynamic = 'force-dynamic'
 
@@ -369,10 +368,65 @@ export default function ReceivedInvoicesPage() {
           onToggle={ep.toggleExpand}
           rowClassName={r => r.isTemporary && r.status !== 'storno' ? 'border-orange-400 bg-orange-50' : r.status === 'storno' ? 'bg-red-50 opacity-70' : ''}
           renderDetail={inv => {
-            const po = inv.purchaseOrder as any
-            const entityType   = inv.supplierEntityType || po?.supplierEntityType || po?.supplier?.entityType || 'company'
-            const supplierName = inv.supplierName || po?.supplierName || po?.supplier?.name || inv.receipts?.[0]?.supplier?.name || 'Anonymní dodavatel'
+            const po   = inv.purchaseOrder as any
+            const vr   = Number
             const temp = discountTemp[inv.id] || { type: 'percentage', value: '' }
+
+            const detailData: SupplierOrderDetailData = {
+              id:          inv.id,
+              orderNumber: inv.invoiceNumber,
+              orderDate:   inv.invoiceDate,
+              status:      inv.status || 'pending',
+              totalAmount: inv.totalAmount,
+              expectedDate: inv.purchaseOrder?.expectedDate,
+              supplierName:          inv.supplierName          || po?.supplierName          || po?.supplier?.name || inv.receipts?.[0]?.supplier?.name,
+              supplierEmail:         inv.supplierEmail         || po?.supplierEmail         || po?.supplier?.email,
+              supplierPhone:         inv.supplierPhone         || po?.supplierPhone         || po?.supplier?.phone,
+              supplierAddress:       inv.supplierAddress       || po?.supplierAddress       || po?.supplier?.address,
+              supplierContactPerson: inv.supplierContactPerson || po?.supplierContactPerson || po?.supplier?.contact,
+              supplierEntityType:    inv.supplierEntityType    || po?.supplierEntityType    || po?.supplier?.entityType,
+              supplierICO:           inv.supplierIco           || po?.supplierICO           || po?.supplier?.ico,
+              supplierDIC:           inv.supplierDic           || po?.supplierDIC           || po?.supplier?.dic,
+              supplierBankAccount:   inv.supplierBankAccount   || po?.supplierBankAccount   || po?.supplier?.bankAccount,
+              supplierWebsite:       inv.supplierWebsite       || po?.supplierWebsite       || po?.supplier?.website,
+              paymentType:    inv.paymentType    || null,
+              dueDate:        inv.dueDate        || null,
+              variableSymbol: inv.variableSymbol || null,
+              stornoAt:     inv.stornoAt,
+              stornoBy:     inv.stornoBy,
+              stornoReason: inv.stornoReason,
+              discountAmount: inv.discountAmount || null,
+              note: inv.note || null,
+              items: (inv.purchaseOrder?.items ?? []).map((item: any, i: number) => {
+                const price   = vr(item.expectedPrice || 0)
+                const vatRate = vr(item.vatRate || 21)
+                const vatAmount    = price * vatRate / 100
+                const priceWithVat = price + vatAmount
+                return {
+                  id:          item.id || String(i),
+                  productId:   item.productId || null,
+                  productName: item.productName || item.product?.name || null,
+                  quantity:    vr(item.quantity),
+                  unit:        item.unit,
+                  price,
+                  vatRate,
+                  vatAmount,
+                  priceWithVat,
+                  product: item.product
+                    ? { id: item.product.id, name: item.product.name, price: 0, unit: item.unit }
+                    : null,
+                }
+              }),
+              receipts: inv.receipts?.map(r => ({
+                id: r.id, receiptNumber: r.receiptNumber, receiptDate: r.receiptDate, status: r.status,
+                items: r.items?.map(ri => ({
+                  id: ri.id, quantity: vr(ri.quantity),
+                  receivedQuantity: ri.receivedQuantity != null ? vr(ri.receivedQuantity) : undefined,
+                  unit: ri.unit, productName: ri.productName || ri.product?.name || null,
+                  purchasePrice: vr(ri.purchasePrice), product: null,
+                })) || [],
+              })) || [],
+            }
 
             return (
               <>
@@ -383,233 +437,64 @@ export default function ReceivedInvoicesPage() {
                   />
                 )}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <DetailSection title="Informace o faktuře" icon={FileText}>
-                    <div className="space-y-1.5">
-                      <DetailRow label="Datum faktury"      value={inv.invoiceDate ? new Date(inv.invoiceDate).toLocaleDateString('cs-CZ') : undefined} />
-                      <DetailRow label="Datum splatnosti"   value={inv.dueDate ? new Date(inv.dueDate).toLocaleDateString('cs-CZ') : undefined} />
-                      <DetailRow label="Datum dodání"       value={inv.receipts && inv.receipts.length > 0 ? inv.receipts.map(r => new Date(r.receiptDate).toLocaleDateString('cs-CZ')).join(', ') : undefined} />
-                      <DetailRow label="Očekávané dodání"   value={inv.purchaseOrder?.expectedDate ? new Date(inv.purchaseOrder.expectedDate).toLocaleDateString('cs-CZ') : undefined} />
-                      <DetailRow label="Typ platby"         value={inv.paymentType === 'cash' ? 'Hotovost' : inv.paymentType === 'card' ? 'Karta' : inv.paymentType === 'transfer' ? 'Bankovní převod' : inv.paymentType || undefined} />
-                      <DetailRow label="Poznámka"           value={inv.note || undefined} />
-                    </div>
-                  </DetailSection>
-
-                  <PartySection
-                    title="Dodavatel"
-                    party={{
-                      name:        supplierName,
-                      entityType,
-                      contact:     inv.supplierContactPerson || po?.supplierContactPerson || po?.supplier?.contact,
-                      address:     inv.supplierAddress       || po?.supplierAddress       || po?.supplier?.address,
-                      phone:       inv.supplierPhone         || po?.supplierPhone         || po?.supplier?.phone,
-                      ico:         inv.supplierIco           || po?.supplierICO           || po?.supplier?.ico,
-                      dic:         inv.supplierDic           || po?.supplierDIC           || po?.supplier?.dic,
-                      email:       inv.supplierEmail         || po?.supplierEmail         || po?.supplier?.email,
-                      website:     inv.supplierWebsite       || po?.supplierWebsite       || po?.supplier?.website,
-                      bankAccount: inv.supplierBankAccount   || po?.supplierBankAccount   || po?.supplier?.bankAccount,
-                      note:        inv.supplierNote          || undefined,
-                    }}
+                <div className="mt-3">
+                  <SupplierOrderDetail
+                    order={detailData}
+                    isVatPayer={isVatPayer}
+                    orderHref={inv.purchaseOrder ? `/purchase-orders?highlight=${inv.purchaseOrder.id}` : undefined}
+                    onRefresh={ep.refresh}
                   />
                 </div>
 
-                {inv.purchaseOrder?.items && inv.purchaseOrder.items.length > 0 && (
-                  <div className="border border-gray-200 rounded-lg overflow-hidden">
-                    <h4 className="font-bold text-base text-gray-900 px-4 py-3 bg-gray-100 border-b border-gray-200">
-                      Položky ({inv.purchaseOrder.items.length})
-                    </h4>
-                    <div className="text-sm">
-                      {isVatPayer ? (
-                        <div className="grid grid-cols-[3fr_repeat(6,1fr)] gap-2 px-4 py-2 bg-gray-50 font-semibold text-gray-700 border-b text-xs">
-                          <div>Produkt</div>
-                          <div className="text-center">Množství</div>
-                          <div className="text-center">DPH</div>
-                          <div className="text-center">Cena/ks</div>
-                          <div className="text-center">DPH/ks</div>
-                          <div className="text-center">S DPH/ks</div>
-                          <div className="text-center">Celkem</div>
+                {/* Discount widget — invoice-specific, shown only when no discount applied yet */}
+                {inv.status !== 'storno' && !inv.discountAmount && (inv.purchaseOrder?.items?.length ?? 0) > 0 && (
+                  <div className="bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-300 rounded-lg mt-4">
+                    <div className="px-4 py-3">
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <div className="flex items-center gap-2 text-orange-900 font-semibold flex-shrink-0">
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <span className="text-sm">Uplatnit slevu dodavatele</span>
                         </div>
-                      ) : (
-                        <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-3 px-4 py-2 bg-gray-50 font-semibold text-gray-700 border-b">
-                          <div>Produkt</div>
-                          <div className="text-right">Množství</div>
-                          <div className="text-right">Cena za kus</div>
-                          <div className="text-right">Celkem</div>
-                        </div>
-                      )}
-
-                      {inv.purchaseOrder.items.map((item: any, i: number) => {
-                        const unitPrice        = Number(item.expectedPrice || 0)
-                        const itemVatRate      = Number(item.vatRate || DEFAULT_VAT_RATE)
-                        const isItemNonVat     = isNonVatPayer(itemVatRate)
-                        const vatPerUnit       = isItemNonVat ? 0 : unitPrice * itemVatRate / 100
-                        const priceWithVat     = unitPrice + vatPerUnit
-                        const totalWithoutVat  = Number(item.quantity) * unitPrice
-                        const totalWithVat     = Number(item.quantity) * priceWithVat
-                        const even             = i % 2 === 0
-
-                        return isVatPayer ? (
-                          <div key={i} className={`grid grid-cols-[3fr_repeat(6,1fr)] gap-2 px-4 py-2 ${even ? 'bg-white' : 'bg-gray-50'} text-xs`}>
-                            <div className="text-gray-900">{item.product?.name || item.productName}</div>
-                            <div className="text-center text-gray-700">{item.quantity} {item.unit}</div>
-                            <div className="text-center text-gray-500">{isItemNonVat ? '-' : `${itemVatRate}%`}</div>
-                            <div className="text-center text-gray-700">{formatPrice(unitPrice)}</div>
-                            <div className="text-center text-gray-500">{isItemNonVat ? '-' : formatPrice(vatPerUnit)}</div>
-                            <div className="text-center text-gray-700">{formatPrice(priceWithVat)}</div>
-                            <div className="text-center font-semibold text-gray-900">{formatPrice(totalWithVat)}</div>
-                          </div>
-                        ) : (
-                          <div key={i} className={`grid grid-cols-[2fr_1fr_1fr_1fr] gap-3 px-4 py-2 ${even ? 'bg-white' : 'bg-gray-50'}`}>
-                            <div className="text-gray-900">{item.product?.name || item.productName}</div>
-                            <div className="text-right text-gray-700">{item.quantity} {item.unit}</div>
-                            <div className="text-right text-gray-700">{formatPrice(unitPrice)}</div>
-                            <div className="text-right font-semibold text-gray-900">{formatPrice(totalWithoutVat)}</div>
-                          </div>
-                        )
-                      })}
-
-                      {inv.discountAmount && inv.discountAmount > 0 ? (
-                        <>
-                          <div className={`grid ${isVatPayer ? 'grid-cols-[3fr_repeat(6,1fr)]' : 'grid-cols-[2fr_1fr_1fr_1fr]'} gap-2 px-4 py-2 bg-gray-50 border-t text-sm`}>
-                            <div className={isVatPayer ? 'col-span-6' : 'col-span-3'} style={{ fontWeight: 500, color: '#374151' }}>Mezisoučet</div>
-                            <div className={`${isVatPayer ? 'text-center' : 'text-right'} font-medium text-gray-700`}>
-                              {formatPrice(inv.totalAmount + inv.discountAmount)}
-                            </div>
-                          </div>
-                          <div className={`grid ${isVatPayer ? 'grid-cols-[3fr_repeat(6,1fr)]' : 'grid-cols-[2fr_1fr_1fr_1fr]'} gap-2 px-4 py-2 bg-yellow-50 text-sm`}>
-                            <div className={isVatPayer ? 'col-span-6' : 'col-span-3'} style={{ fontWeight: 500, color: '#111827' }}>
-                              Sleva dodavatele
-                              {inv.discountType === 'percentage' && inv.discountValue && (
-                                <span className="text-sm text-gray-600 ml-2">({inv.discountValue}%)</span>
-                              )}
-                              {inv.discountType === 'fixed' && (
-                                <span className="text-sm text-gray-600 ml-2">(pevná částka)</span>
-                              )}
-                            </div>
-                            <div className={`${isVatPayer ? 'text-center' : 'text-right'} font-medium text-red-600`}>
-                              -{formatPrice(inv.discountAmount)}
-                            </div>
-                          </div>
-                          <div className={`grid ${isVatPayer ? 'grid-cols-[3fr_repeat(6,1fr)]' : 'grid-cols-[2fr_1fr_1fr_1fr]'} gap-2 px-4 py-2 bg-gray-100 font-bold border-t text-sm`}>
-                            <div className={isVatPayer ? 'col-span-6' : 'col-span-3'}>{isVatPayer ? 'Celková částka s DPH' : 'Celková částka'}</div>
-                            <div className={isVatPayer ? 'text-center' : 'text-right'}>{formatPrice(inv.totalAmount)}</div>
-                          </div>
-                        </>
-                      ) : (
-                        <div className={`grid ${isVatPayer ? 'grid-cols-[3fr_repeat(6,1fr)]' : 'grid-cols-[2fr_1fr_1fr_1fr]'} gap-2 px-4 py-2 bg-gray-100 font-bold border-t text-sm`}>
-                          <div className={isVatPayer ? 'col-span-6' : 'col-span-3'}>{isVatPayer ? 'Celková částka s DPH' : 'Celková částka'}</div>
-                          <div className={isVatPayer ? 'text-center' : 'text-right'}>{formatPrice(inv.totalAmount)}</div>
-                        </div>
-                      )}
-
-                      {inv.status !== 'storno' && !inv.discountAmount && (
-                        <div className="bg-gradient-to-r from-orange-50 to-amber-50 border-t-2 border-orange-300">
-                          <div className="px-4 py-3">
-                            <div className="flex items-center gap-3">
-                              <div className="flex items-center gap-2 text-orange-900 font-semibold flex-shrink-0">
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                <span className="text-sm">Uplatnit slevu dodavatele</span>
+                        <select
+                          value={temp.type}
+                          onChange={e => setDiscountTemp(prev => ({ ...prev, [inv.id]: { type: e.target.value, value: '' } }))}
+                          className="px-2 py-1 border border-orange-300 rounded text-xs focus:border-orange-500 focus:ring-orange-500 bg-white"
+                        >
+                          <option value="percentage">%</option>
+                          <option value="fixed">Kč</option>
+                        </select>
+                        <input
+                          type="number" step="0.01" min="0" max={temp.type === 'percentage' ? '100' : undefined}
+                          value={temp.value}
+                          onChange={e => setDiscountTemp(prev => ({ ...prev, [inv.id]: { ...prev[inv.id] ?? { type: 'percentage' }, value: e.target.value } }))}
+                          placeholder={temp.type === 'fixed' ? '100' : '10'}
+                          className="w-24 px-2 py-1 border border-orange-300 rounded text-xs focus:border-orange-500 focus:ring-orange-500 bg-white"
+                        />
+                        {temp.value && (() => {
+                          const subtotal    = (inv.purchaseOrder?.items ?? []).reduce((s: number, item: any) => s + (item.quantity * (item.expectedPrice || 0)), 0)
+                          const discountAmt = temp.type === 'percentage' ? (subtotal * parseFloat(temp.value)) / 100 : parseFloat(temp.value)
+                          const newTotal    = subtotal - discountAmt
+                          return (
+                            <>
+                              <div className="flex items-center gap-2 text-xs text-orange-700">
+                                <span className="text-gray-500">→</span>
+                                <span>Sleva: <span className="font-bold">-{discountAmt.toLocaleString('cs-CZ')} Kč</span></span>
+                                <span className="text-gray-500">|</span>
+                                <span>Nová cena: <span className="font-bold text-orange-900">{newTotal.toLocaleString('cs-CZ')} Kč</span></span>
                               </div>
-
-                              <select
-                                value={temp.type}
-                                onChange={e => setDiscountTemp(prev => ({ ...prev, [inv.id]: { type: e.target.value, value: '' } }))}
-                                className="px-2 py-1 border border-orange-300 rounded text-xs focus:border-orange-500 focus:ring-orange-500 bg-white"
+                              <button
+                                onClick={() => handleApplyDiscount(inv.id, temp.type, temp.value)}
+                                className="ml-auto px-3 py-1 bg-orange-600 hover:bg-orange-700 text-white text-xs rounded font-medium transition-colors"
                               >
-                                <option value="percentage">%</option>
-                                <option value="fixed">Kč</option>
-                              </select>
-
-                              <input
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                max={temp.type === 'percentage' ? '100' : undefined}
-                                value={temp.value}
-                                onChange={e => setDiscountTemp(prev => ({ ...prev, [inv.id]: { ...prev[inv.id] ?? { type: 'percentage' }, value: e.target.value } }))}
-                                placeholder={temp.type === 'fixed' ? '100' : '10'}
-                                className="w-24 px-2 py-1 border border-orange-300 rounded text-xs focus:border-orange-500 focus:ring-orange-500 bg-white"
-                              />
-
-                              {temp.value && (() => {
-                                const subtotal     = (inv.purchaseOrder?.items ?? []).reduce((s: number, item: any) => s + (item.quantity * (item.expectedPrice || 0)), 0)
-                                const discountAmt  = temp.type === 'percentage' ? (subtotal * parseFloat(temp.value)) / 100 : parseFloat(temp.value)
-                                const newTotal     = subtotal - discountAmt
-                                return (
-                                  <>
-                                    <div className="flex items-center gap-2 text-xs text-orange-700">
-                                      <span className="text-gray-500">→</span>
-                                      <span>Sleva:</span>
-                                      <span className="font-bold">-{discountAmt.toLocaleString('cs-CZ')} Kč</span>
-                                      <span className="text-gray-500">|</span>
-                                      <span>Nová cena:</span>
-                                      <span className="font-bold text-orange-900">{newTotal.toLocaleString('cs-CZ')} Kč</span>
-                                    </div>
-                                    <button
-                                      onClick={() => handleApplyDiscount(inv.id, temp.type, temp.value)}
-                                      className="ml-auto px-3 py-1 bg-orange-600 hover:bg-orange-700 text-white text-xs rounded font-medium transition-colors"
-                                    >
-                                      Uplatnit
-                                    </button>
-                                  </>
-                                )
-                              })()}
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {inv.receipts && inv.receipts.length > 0 && (
-                  <div className="border border-gray-200 rounded-lg overflow-hidden">
-                    <h4 className="font-bold text-base text-gray-900 px-4 py-3 bg-gray-100 border-b border-gray-200">
-                      Příjemky ({inv.receipts.length})
-                    </h4>
-                    <div className="text-sm">
-                      <div className="grid grid-cols-[1.5fr_1fr_0.8fr_1fr_auto] gap-3 px-4 py-2 bg-gray-50 font-semibold text-gray-700 border-b">
-                        <div>Číslo příjemky</div>
-                        <div>Datum</div>
-                        <div className="text-center">Položek</div>
-                        <div className="text-right">Částka</div>
-                        <div className="w-4"></div>
+                                Uplatnit
+                              </button>
+                            </>
+                          )
+                        })()}
                       </div>
-                      {inv.receipts.map((receipt, idx) => {
-                        const receiptTotal = receipt.items?.reduce((s, item) => s + ((item.receivedQuantity || item.quantity) * Number(item.purchasePrice)), 0) || 0
-                        return (
-                          <a
-                            key={receipt.id}
-                            href={`/receipts?highlight=${receipt.id}`}
-                            className={`grid grid-cols-[1.5fr_1fr_0.8fr_1fr_auto] gap-3 px-4 py-2 hover:bg-blue-50 transition-colors items-center ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}
-                            onClick={e => e.stopPropagation()}
-                          >
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium text-blue-600 hover:underline text-sm">{receipt.receiptNumber}</span>
-                              {receipt.status === 'storno' && (
-                                <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded font-medium">STORNO</span>
-                              )}
-                            </div>
-                            <div className="text-sm text-gray-700">{new Date(receipt.receiptDate).toLocaleDateString('cs-CZ')}</div>
-                            <div className="text-sm text-gray-700 text-center">{receipt.items?.length || 0}</div>
-                            <div className="text-sm font-semibold text-gray-900 text-right">{receiptTotal.toLocaleString('cs-CZ')} Kč</div>
-                            <div className="flex justify-end"><ExternalLink className="w-4 h-4 text-blue-600" /></div>
-                          </a>
-                        )
-                      })}
                     </div>
-                  </div>
-                )}
-
-                {inv.status === 'storno' && inv.stornoReason && (
-                  <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded">
-                    <p className="text-sm font-medium text-red-900">Stornováno</p>
-                    <p className="text-sm text-red-700 mt-1">Důvod: {inv.stornoReason}</p>
-                    {inv.stornoAt && (
-                      <p className="text-xs text-red-600 mt-1">Datum storna: {new Date(inv.stornoAt).toLocaleDateString('cs-CZ')}</p>
-                    )}
                   </div>
                 )}
 
