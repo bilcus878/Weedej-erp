@@ -33,6 +33,8 @@ interface EshopDeliveryNoteItem {
   id: string
   quantity: number
   unit: string
+  productId?: string | null
+  inventoryItemId?: string | null
   productName?: string | null
   price?: number | null
   priceWithVat?: number | null
@@ -177,15 +179,17 @@ function orderToDetailData(order: EshopOrder): OrderDetailData {
       deliveryDate:   dn.deliveryDate,
       status:         dn.status,
       items: dn.items.map(item => ({
-        id:           item.id,
-        quantity:     Number(item.quantity),
-        unit:         item.unit,
-        productName:  item.productName ?? null,
-        price:        item.price != null ? Number(item.price) : null,
-        priceWithVat: item.priceWithVat != null ? Number(item.priceWithVat) : null,
-        vatRate:      item.vatRate != null ? Number(item.vatRate) : null,
-        vatAmount:    item.vatAmount != null ? Number(item.vatAmount) : null,
-        product:      item.product ?? null,
+        id:              item.id,
+        quantity:        Number(item.quantity),
+        unit:            item.unit,
+        productId:       item.productId ?? null,
+        inventoryItemId: item.inventoryItemId ?? null,
+        productName:     item.productName ?? null,
+        price:           item.price != null ? Number(item.price) : null,
+        priceWithVat:    item.priceWithVat != null ? Number(item.priceWithVat) : null,
+        vatRate:         item.vatRate != null ? Number(item.vatRate) : null,
+        vatAmount:       item.vatAmount != null ? Number(item.vatAmount) : null,
+        product:         item.product ?? null,
       })),
     })),
   }

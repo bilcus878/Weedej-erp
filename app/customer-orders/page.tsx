@@ -34,7 +34,7 @@ interface CustomerOrderItem {
 
 interface DeliveryNote {
   id: string; deliveryNumber: string; deliveryDate: string; status?: string; note?: string
-  items?: { id: string; quantity: number; product?: { price: number } }[]
+  items?: { id: string; quantity: number; productId?: string | null; inventoryItemId?: string | null; product?: { price: number } }[]
 }
 
 interface IssuedInvoice { id: string; invoiceNumber: string; paymentType: string; dueDate?: string }
@@ -109,6 +109,7 @@ function orderToDetailData(order: CustomerOrder): OrderDetailData {
       status:         dn.status || 'active',
       items: (dn.items || []).map(item => ({
         id: item.id, quantity: Number(item.quantity), unit: 'ks',
+        productId: item.productId ?? null, inventoryItemId: item.inventoryItemId ?? null,
         productName: null, price: item.product ? Number(item.product.price) : null,
         priceWithVat: null, vatRate: null, vatAmount: null,
         product: item.product ? { id: '', name: '', price: Number(item.product.price || 0) } : null,

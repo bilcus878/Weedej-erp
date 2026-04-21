@@ -36,6 +36,7 @@ interface PurchaseOrderItem {
 
 interface ReceiptItem {
   id: string; quantity: number; receivedQuantity?: number; purchasePrice: number; unit: string
+  productId?: string | null; inventoryItemId?: string | null
   product?: { name: string }; productName?: string
 }
 
@@ -672,6 +673,7 @@ export default function PurchaseOrdersPage() {
                 receivedQuantity: ri.receivedQuantity != null ? vr(ri.receivedQuantity) : undefined,
                 unit: ri.unit, productName: ri.productName || ri.product?.name || null,
                 purchasePrice: vr(ri.purchasePrice), product: null,
+                productId: ri.productId ?? null, inventoryItemId: ri.inventoryItemId ?? null,
               })) || [],
             })) || [],
           }

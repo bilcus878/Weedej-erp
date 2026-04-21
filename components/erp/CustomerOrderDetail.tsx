@@ -30,6 +30,8 @@ export interface OrderDetailDeliveryNoteItem {
   id: string
   quantity: number
   unit: string
+  productId?: string | null
+  inventoryItemId?: string | null
   productName?: string | null
   price?: number | null
   priceWithVat?: number | null
@@ -220,6 +222,15 @@ export function CustomerOrderDetail({
   const [isEditingTracking, setIsEditingTracking] = useState(false)
   const [trackingForm, setTrackingForm] = useState({ trackingNumber: '', carrier: '' })
   const [savingTracking, setSavingTracking] = useState(false)
+
+  const inventoryLookup: Record<string, string> = {}
+  for (const dn of order.deliveryNotes || []) {
+    for (const dni of dn.items) {
+      if (dni.productId && dni.inventoryItemId) {
+        inventoryLookup[dni.productId] = dni.inventoryItemId
+      }
+    }
+  }
 
   const customerName = order.customerName || 'Zákazník'
   const hasTracking  = !!(order.trackingNumber || order.carrier)
@@ -651,23 +662,23 @@ export function CustomerOrderDetail({
           </h4>
           <div className="text-sm">
             {isVatPayer ? (
-              <div className="grid grid-cols-[3fr_repeat(6,1fr)_0.7fr] gap-2 px-4 py-2 bg-gray-50 font-semibold text-gray-700 border-b text-xs">
+              <div className="grid grid-cols-[3fr_0.7fr_repeat(6,1fr)] gap-2 px-4 py-2 bg-gray-50 font-semibold text-gray-700 border-b text-xs">
                 <div>Produkt</div>
+                <div className="text-center">Pohyb</div>
                 <div className="text-center">Množství</div>
                 <div className="text-center">DPH</div>
                 <div className="text-center">Cena/ks</div>
                 <div className="text-center">DPH/ks</div>
                 <div className="text-center">S DPH/ks</div>
                 <div className="text-center">Celkem</div>
-                <div className="text-center">Pohyb</div>
               </div>
             ) : (
-              <div className="grid grid-cols-[2fr_1fr_1fr_1fr_0.7fr] gap-3 px-4 py-2 bg-gray-50 font-semibold text-gray-700 border-b">
+              <div className="grid grid-cols-[2fr_0.7fr_1fr_1fr_1fr] gap-3 px-4 py-2 bg-gray-50 font-semibold text-gray-700 border-b">
                 <div>Produkt</div>
+                <div className="text-center">Pohyb</div>
                 <div className="text-right">Množství</div>
                 <div className="text-right">Cena za kus</div>
                 <div className="text-right">Celkem</div>
-                <div className="text-center">Pohyb</div>
               </div>
             )}
 
@@ -688,35 +699,36 @@ export function CustomerOrderDetail({
                 const rawRowTotal  = priceWithVat * qty
                 const rowTotal     = rawRowTotal > Number(order.totalAmount) * 1.05 ? priceWithVat : rawRowTotal
 
+                const invMovId = item.productId ? (inventoryLookup[item.productId] ?? null) : null
                 const invLink = item.productId
-                  ? <Link href={`/inventory?selectedProduct=${item.productId}`} className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-medium rounded-md shadow-sm border border-green-200 transition-colors" onClick={e => e.stopPropagation()}>Zobrazit</Link>
+                  ? <Link href={`/inventory?selectedProduct=${item.productId}${invMovId ? `&highlightMovement=${invMovId}` : ''}`} className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-medium rounded-md shadow-sm border border-green-200 transition-colors" onClick={e => e.stopPropagation()}>Zobrazit</Link>
                   : <span className="text-gray-300 text-xs">—</span>
                 return isVatPayer ? (
-                  <div key={item.id} className={`grid grid-cols-[3fr_repeat(6,1fr)_0.7fr] gap-2 px-4 py-2 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'} text-xs`}>
+                  <div key={item.id} className={`grid grid-cols-[3fr_0.7fr_repeat(6,1fr)] gap-2 px-4 py-2 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'} text-xs`}>
                     <div className="font-medium text-gray-900">{item.product?.name || item.productName}</div>
+                    <div className="text-center">{invLink}</div>
                     <div className="text-center text-gray-600">{qtyDisplay}</div>
                     <div className="text-center text-gray-500">{vatRate}%</div>
                     <div className="text-center text-gray-600">{formatPrice(unitPrice)}</div>
                     <div className="text-center text-gray-500">{formatPrice(vatPerUnit)}</div>
                     <div className="text-center text-gray-700">{formatPrice(priceWithVat)}</div>
                     <div className="text-center font-semibold text-gray-900">{formatPrice(rowTotal)}</div>
-                    <div className="text-center">{invLink}</div>
                   </div>
                 ) : (
-                  <div key={item.id} className={`grid grid-cols-[2fr_1fr_1fr_1fr_0.7fr] gap-3 px-4 py-2 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                  <div key={item.id} className={`grid grid-cols-[2fr_0.7fr_1fr_1fr_1fr] gap-3 px-4 py-2 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
                     <div className="font-medium text-gray-900">{item.product?.name || item.productName}</div>
+                    <div className="text-center">{invLink}</div>
                     <div className="text-right text-gray-600">{qtyDisplay}</div>
                     <div className="text-right text-gray-600">{formatPrice(priceWithVat)}</div>
                     <div className="text-right font-semibold text-gray-900">{formatPrice(rowTotal)}</div>
-                    <div className="text-center">{invLink}</div>
                   </div>
                 )
               })}
 
             {/* Mezisoučty */}
             {(() => {
-              const colGrid   = isVatPayer ? 'grid-cols-[3fr_repeat(6,1fr)_0.7fr]' : 'grid-cols-[2fr_1fr_1fr_1fr_0.7fr]'
-              const labelSpan = isVatPayer ? 'col-span-6' : 'col-span-3'
+              const colGrid   = isVatPayer ? 'grid-cols-[3fr_0.7fr_repeat(6,1fr)]' : 'grid-cols-[2fr_0.7fr_1fr_1fr_1fr]'
+              const labelSpan = isVatPayer ? 'col-span-7' : 'col-span-4'
               const nullItems    = order.items.filter(item => item.productId === null)
               const shippingItem = nullItems.find(item => /(doprav|shipping)/i.test(item.productName || ''))
               const discountItem = nullItems.find(item => !/(doprav|shipping)/i.test(item.productName || ''))
@@ -756,8 +768,8 @@ export function CustomerOrderDetail({
               )
             })()}
 
-            <div className={`grid ${isVatPayer ? 'grid-cols-[3fr_repeat(6,1fr)_0.7fr]' : 'grid-cols-[2fr_1fr_1fr_1fr_0.7fr]'} gap-2 px-4 py-2 bg-gray-100 font-bold border-t text-sm`}>
-              <div className={isVatPayer ? 'col-span-6' : 'col-span-3'}>{isVatPayer ? 'Celková částka s DPH' : 'Celková částka'}</div>
+            <div className={`grid ${isVatPayer ? 'grid-cols-[3fr_0.7fr_repeat(6,1fr)]' : 'grid-cols-[2fr_0.7fr_1fr_1fr_1fr]'} gap-2 px-4 py-2 bg-gray-100 font-bold border-t text-sm`}>
+              <div className={isVatPayer ? 'col-span-7' : 'col-span-4'}>{isVatPayer ? 'Celková částka s DPH' : 'Celková částka'}</div>
               <div className={isVatPayer ? 'text-center' : 'text-right'}>{formatPrice(Number(order.totalAmount))}</div>
             </div>
           </div>
