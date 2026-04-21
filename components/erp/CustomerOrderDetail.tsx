@@ -49,9 +49,14 @@ export interface OrderDetailDeliveryNote {
 export interface OrderDetailInvoice {
   id: string
   invoiceNumber: string
+  paymentType:   string  // 'card' | 'cash' | 'bank_transfer'
   paymentStatus: string  // 'paid' | 'unpaid'
   status: string
   invoiceDate: string
+  dueDate?: string | null
+  variableSymbol?: string | null
+  constantSymbol?: string | null
+  specificSymbol?: string | null
 }
 
 export interface OrderDetailData {
@@ -154,6 +159,33 @@ function getStatusBadge(status: string) {
         </span>
       )
   }
+}
+
+function paymentTypeLabel(type: string): string {
+  const labels: Record<string, string> = {
+    card:          'Platební karta',
+    cash:          'Hotovost',
+    bank_transfer: 'Bankovní převod',
+    online:        'Online platba',
+    stripe:        'Stripe',
+  }
+  return labels[type] ?? type
+}
+
+function paymentTypeBadge(type: string) {
+  const map: Record<string, { bg: string; text: string }> = {
+    card:          { bg: 'bg-blue-100',   text: 'text-blue-800'   },
+    cash:          { bg: 'bg-green-100',  text: 'text-green-800'  },
+    bank_transfer: { bg: 'bg-purple-100', text: 'text-purple-800' },
+    online:        { bg: 'bg-blue-100',   text: 'text-blue-800'   },
+    stripe:        { bg: 'bg-indigo-100', text: 'text-indigo-800' },
+  }
+  const s = map[type] ?? { bg: 'bg-gray-100', text: 'text-gray-800' }
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${s.bg} ${s.text}`}>
+      {paymentTypeLabel(type)}
+    </span>
+  )
 }
 
 function shippingMethodLabel(method: string): string {
@@ -362,10 +394,42 @@ export function CustomerOrderDetail({
             </div>
             {/* Platba */}
             <div className="py-3 space-y-2.5 mt-auto">
-              <div className="flex justify-between items-center gap-2">
-                <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Ref. platby</span>
-                <span className="font-mono text-xs text-gray-500 text-right break-all">{order.paymentReference || <span className="text-gray-400">—</span>}</span>
-              </div>
+              {order.issuedInvoice?.paymentType && (
+                <div className="flex justify-between items-center gap-2">
+                  <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Způsob platby</span>
+                  <span>{paymentTypeBadge(order.issuedInvoice.paymentType)}</span>
+                </div>
+              )}
+              {order.issuedInvoice?.dueDate && (
+                <div className="flex justify-between items-center gap-2">
+                  <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Splatnost</span>
+                  <span className="font-medium text-gray-800 text-right">{new Date(order.issuedInvoice.dueDate).toLocaleDateString('cs-CZ')}</span>
+                </div>
+              )}
+              {order.issuedInvoice?.variableSymbol && (
+                <div className="flex justify-between items-center gap-2">
+                  <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Var. symbol</span>
+                  <span className="font-mono font-medium text-gray-800 text-right">{order.issuedInvoice.variableSymbol}</span>
+                </div>
+              )}
+              {order.issuedInvoice?.constantSymbol && (
+                <div className="flex justify-between items-center gap-2">
+                  <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Kon. symbol</span>
+                  <span className="font-mono font-medium text-gray-800 text-right">{order.issuedInvoice.constantSymbol}</span>
+                </div>
+              )}
+              {order.issuedInvoice?.specificSymbol && (
+                <div className="flex justify-between items-center gap-2">
+                  <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Spec. symbol</span>
+                  <span className="font-mono font-medium text-gray-800 text-right">{order.issuedInvoice.specificSymbol}</span>
+                </div>
+              )}
+              {order.paymentReference && (
+                <div className="flex justify-between items-center gap-2">
+                  <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Ref. platby</span>
+                  <span className="font-mono text-xs text-gray-500 text-right break-all">{order.paymentReference}</span>
+                </div>
+              )}
               {order.note && !order.note.startsWith('Platba:') && (
                 <div className="flex justify-between items-center gap-2">
                   <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Poznámka</span>

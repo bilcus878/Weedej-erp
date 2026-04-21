@@ -27,6 +27,10 @@ export async function GET() {
             paymentStatus: true,
             status: true,
             invoiceDate: true,
+            dueDate: true,
+            variableSymbol: true,
+            constantSymbol: true,
+            specificSymbol: true,
           }
         },
         EshopUser: {

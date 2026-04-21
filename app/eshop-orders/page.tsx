@@ -56,6 +56,10 @@ interface IssuedInvoiceSummary {
   paymentStatus: string
   status: string
   invoiceDate: string
+  dueDate?: string | null
+  variableSymbol?: string | null
+  constantSymbol?: string | null
+  specificSymbol?: string | null
 }
 
 interface EshopUser {
@@ -156,11 +160,16 @@ function orderToDetailData(order: EshopOrder): OrderDetailData {
       product:      item.product ?? null,
     })),
     issuedInvoice: order.issuedInvoice ? {
-      id:            order.issuedInvoice.id,
-      invoiceNumber: order.issuedInvoice.invoiceNumber,
-      paymentStatus: order.issuedInvoice.paymentStatus,
-      status:        order.issuedInvoice.status,
-      invoiceDate:   order.issuedInvoice.invoiceDate,
+      id:             order.issuedInvoice.id,
+      invoiceNumber:  order.issuedInvoice.invoiceNumber,
+      paymentType:    order.issuedInvoice.paymentType,
+      paymentStatus:  order.issuedInvoice.paymentStatus,
+      status:         order.issuedInvoice.status,
+      invoiceDate:    order.issuedInvoice.invoiceDate,
+      dueDate:        order.issuedInvoice.dueDate ?? null,
+      variableSymbol: order.issuedInvoice.variableSymbol ?? null,
+      constantSymbol: order.issuedInvoice.constantSymbol ?? null,
+      specificSymbol: order.issuedInvoice.specificSymbol ?? null,
     } : null,
     deliveryNotes: (order.deliveryNotes ?? []).map(dn => ({
       id:             dn.id,
