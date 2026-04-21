@@ -126,10 +126,10 @@ export default function Dashboard() {
   const invoiceBalance = useMemo(() => {
     const receivedTotal = receivedInvoices
       .filter(i => i.status !== 'storno')
-      .reduce((sum, i) => sum + (i.totalAmount || 0), 0)
+      .reduce((sum, i) => sum + Number(i.totalAmount || 0), 0)
     const issuedTotal = issuedInvoices
       .filter(i => i.status !== 'storno')
-      .reduce((sum, i) => sum + (i.totalAmount || 0), 0)
+      .reduce((sum, i) => sum + Number(i.totalAmount || 0), 0)
     return issuedTotal - receivedTotal
   }, [receivedInvoices, issuedInvoices])
 
@@ -178,7 +178,7 @@ export default function Dashboard() {
     const active = customerOrders.filter(o => o.status !== 'storno')
     const newCount = customerOrders.filter(o => o.status === 'new').length
     const processingCount = customerOrders.filter(o => o.status === 'processing' || o.status === 'paid').length
-    const totalValue = active.reduce((sum, o) => sum + (o.totalAmount || 0), 0)
+    const totalValue = active.reduce((sum, o) => sum + Number(o.totalAmount || 0), 0)
     return { total: customerOrders.length, newCount, processingCount, totalValue }
   }, [customerOrders])
 
@@ -197,7 +197,7 @@ export default function Dashboard() {
         id: i.id,
         number: i.invoiceNumber,
         date: i.invoiceDate,
-        amount: i.totalAmount || 0,
+        amount: Number(i.totalAmount || 0),
         status: i.status,
         type: 'received' as const,
         name: i.supplierName ||
@@ -213,7 +213,7 @@ export default function Dashboard() {
         id: i.id,
         number: i.invoiceNumber,
         date: i.issueDate,
-        amount: i.totalAmount || 0,
+        amount: Number(i.totalAmount || 0),
         status: i.status,
         type: 'issued' as const,
         name: i.customer?.name || i.customerName || 'Anonymní'
@@ -278,15 +278,6 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Hlavička */}
-      <div className="bg-gradient-to-r from-slate-50 to-blue-50 border-l-4 border-blue-500 rounded-lg shadow-sm py-4 px-6">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-blue-600">
-            Dashboard
-          </h1>
-        </div>
-      </div>
-
       {/* KPI karty - hlavní metriky */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Tržby dnes */}
@@ -687,7 +678,7 @@ export default function Dashboard() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-semibold text-gray-900">{formatPrice(order.totalAmount || 0)}</p>
+                      <p className="text-sm font-semibold text-gray-900">{formatPrice(Number(order.totalAmount || 0))}</p>
                       <p className="text-xs text-gray-500">{formatDate(order.orderDate)}</p>
                     </div>
                   </div>

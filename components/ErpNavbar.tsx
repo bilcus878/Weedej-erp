@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  Menu, X, LogOut, Settings, ChevronDown,
+  Menu, X, LogOut, Settings, ChevronDown, LayoutDashboard,
   Warehouse, ShoppingCart, Receipt, Users, Package,
   PackageCheck, PackageMinus, ClipboardList,
   FileText, CreditCard, Globe, FileOutput, Truck,
@@ -225,6 +225,15 @@ export function ErpNavbar() {
 
         {/* Center: nav groups — desktop only */}
         <div className="hidden md:flex items-center gap-7">
+          <Link
+            href="/"
+            className={`flex items-center gap-1.5 text-sm font-medium transition-colors duration-150 py-1 ${
+              pathname === '/' ? 'text-violet-600' : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <LayoutDashboard className="w-3.5 h-3.5" />
+            Dashboard
+          </Link>
           {navGroups.map(group => (
             <NavDropdown key={group.label} group={group} pathname={pathname} />
           ))}
@@ -249,6 +258,16 @@ export function ErpNavbar() {
       {mobileOpen && (
         <div className="fixed top-[57px] left-0 right-0 z-40 bg-white border-b border-gray-200 shadow-lg overflow-y-auto max-h-[calc(100vh-57px)] md:hidden">
           <div className="px-4 py-3 flex flex-col gap-0.5">
+            <Link
+              href="/"
+              onClick={() => setMobileOpen(false)}
+              className={`flex items-center gap-2.5 text-sm font-medium px-3 py-2.5 rounded-lg transition-colors ${
+                pathname === '/' ? 'text-violet-700 bg-violet-50' : 'text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              <LayoutDashboard className={`w-4 h-4 ${pathname === '/' ? 'text-violet-500' : 'text-gray-400'}`} />
+              Dashboard
+            </Link>
             {navGroups.map(group => {
               const isGroupOpen = mobileOpenGroup === group.label
               const GroupIcon   = group.icon
