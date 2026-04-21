@@ -101,11 +101,12 @@ interface TableProps<T> {
   rowClassName?: (row: T) => string
   empty?:        ReactNode
   emptyMessage?: string
+  firstHeader?:  ReactNode
 }
 
 function Table<T>({
   columns, rows, getRowId, expanded, onToggle,
-  renderDetail, rowClassName, empty, emptyMessage,
+  renderDetail, rowClassName, empty, emptyMessage, firstHeader,
 }: TableProps<T>) {
   const { highlightId } = useContext(PageCtx)
   const gridTemplate = `auto ${columns.map(c => c.width ?? '1fr').join(' ')}`
@@ -125,7 +126,9 @@ function Table<T>({
         className="grid items-center gap-4 px-4 py-3 bg-gray-100 border rounded-lg text-xs font-semibold text-gray-700"
         style={{ gridTemplateColumns: gridTemplate }}
       >
-        <div className="w-8" />
+        <div className="w-8 flex items-center justify-center">
+          {firstHeader ?? null}
+        </div>
         {columns.map(col => (
           <div key={col.key} className={`text-${col.align ?? 'center'} ${col.className ?? ''}`}>
             {col.header}

@@ -492,17 +492,7 @@ export default function DeliveryNotesPage() {
 
       {/* Column header */}
       <div className="grid grid-cols-[24px_1fr_1.5fr_1fr_auto] items-center gap-4 px-4 py-2 bg-orange-100 border border-orange-200 rounded-lg text-xs font-semibold text-orange-900">
-        <button
-          onClick={() => setPendingFormOpen(v => !v)}
-          title={pendingFormOpen ? 'Zavřít formulář' : 'Vytvořit novou výdejku (+OV)'}
-          className={`w-6 h-6 flex items-center justify-center rounded font-bold text-xs transition-colors shrink-0 ${
-            pendingFormOpen
-              ? 'bg-orange-600 text-white'
-              : 'bg-orange-300 text-orange-900 hover:bg-orange-400'
-          }`}
-        >
-          +
-        </button>
+        <div />
         <div>Číslo zak.</div>
         <div>Odběratel</div>
         <div>Datum objednávky</div>
@@ -734,6 +724,20 @@ export default function DeliveryNotesPage() {
         getRowId={r => r.id}
         expanded={ep.expanded}
         onToggle={ep.toggleExpand}
+        firstHeader={
+          <button
+            onMouseDown={e => e.stopPropagation()}
+            onClick={() => setPendingFormOpen(v => !v)}
+            title={pendingFormOpen ? 'Zavřít formulář (+OV)' : 'Nová výdejka (+OV)'}
+            className={`w-6 h-6 flex items-center justify-center rounded font-bold text-xs transition-colors ${
+              pendingFormOpen
+                ? 'bg-orange-600 text-white'
+                : 'bg-orange-200 text-orange-800 hover:bg-orange-400'
+            }`}
+          >
+            +
+          </button>
+        }
         rowClassName={r => r.status === 'storno' ? 'bg-red-50 opacity-70' : ''}
         renderDetail={note => (
           <>
