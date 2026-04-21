@@ -2,7 +2,6 @@
 
 import { useState, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import { Plus, Package, ChevronDown, ChevronRight, Trash2 } from 'lucide-react'
@@ -14,6 +13,7 @@ import {
   useEntityPage, useFilters, EntityPage, LoadingState, ErrorState,
   SupplierOrderDetail,
 } from '@/components/erp'
+import { CreateOrderPopup } from '@/components/warehouse/create/CreateOrderPopup'
 import type { ColumnDef, SelectOption, SupplierOrderDetailData } from '@/components/erp'
 
 export const dynamic = 'force-dynamic'
@@ -295,21 +295,23 @@ export default function PurchaseOrdersPage() {
     <EntityPage highlightId={ep.highlightId}>
       <EntityPage.Header title="Objednávky vydané" icon={Package} color="blue" total={ep.rows.length} filtered={ep.filtered.length} onRefresh={ep.refresh} />
 
-      {/* New order form card */}
-      <Card className="border-2 border-blue-300 bg-blue-50 shadow-lg">
-        <CardHeader className="cursor-pointer hover:bg-blue-100 transition-colors" onClick={() => showForm ? setShowForm(false) : handleOpenForm()}>
-          <div className="flex items-center gap-2">
-            {showForm ? <ChevronDown className="h-6 w-6 text-blue-600" /> : <ChevronRight className="h-6 w-6 text-blue-600" />}
-            <CardTitle className="text-blue-900 flex items-center gap-2">
-              <Package className="w-5 h-5" />
-              Nová objednávka dodavateli
-              {showForm && orderNumber && <span className="text-sm font-mono bg-blue-800 text-white px-3 py-1 rounded ml-2">#{orderNumber}</span>}
-            </CardTitle>
-          </div>
-        </CardHeader>
 
-        {showForm && (
-          <CardContent className="p-6 bg-white">
+      {filters.bar('auto 1fr 1fr 1fr 1fr 1fr 1fr 1fr')}
+
+      <EntityPage.Table
+        columns={columns}
+        rows={ep.paginated}
+        getRowId={r => r.id}
+        expanded={ep.expanded}
+        onToggle={ep.toggleExpand}
+        firstHeader={
+          <CreateOrderPopup
+            title="Nová objednávka dodavateli"
+            orderNumber={showForm ? orderNumber : undefined}
+            open={showForm}
+            onOpen={handleOpenForm}
+            onClose={() => { setShowForm(false); resetForm() }}
+          >
             <form onSubmit={handleSubmit} className="space-y-3">
               <div className="grid grid-cols-2 gap-3 items-stretch">
                 {/* Dodavatel */}
@@ -601,18 +603,8 @@ export default function PurchaseOrdersPage() {
                 </Button>
               </div>
             </form>
-          </CardContent>
-        )}
-      </Card>
-
-      {filters.bar('auto 1fr 1fr 1fr 1fr 1fr 1fr 1fr')}
-
-      <EntityPage.Table
-        columns={columns}
-        rows={ep.paginated}
-        getRowId={r => r.id}
-        expanded={ep.expanded}
-        onToggle={ep.toggleExpand}
+          </CreateOrderPopup>
+        }
         rowClassName={r => r.status === 'storno' ? 'bg-red-50 opacity-70' : ''}
         renderDetail={order => {
           const sup = order.supplier as any
