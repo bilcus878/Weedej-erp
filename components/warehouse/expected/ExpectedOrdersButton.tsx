@@ -52,19 +52,19 @@ export function ExpectedOrdersButton({
     : orders
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative flex items-center gap-1">
       <button
         onClick={() => { setOpen(v => !v); setSearch('') }}
         title={open ? 'Zavřít přehled' : headerLabel}
-        className={`h-6 px-2 flex items-center gap-1 rounded font-bold text-xs transition-colors whitespace-nowrap ${
+        className={`w-7 h-7 flex items-center justify-center rounded font-bold text-base transition-colors ${
           open ? 'bg-orange-600 text-white' : 'bg-orange-200 text-orange-800 hover:bg-orange-400'
         }`}
       >
-        <span>+</span>
-        {orders.length > 0 && (
-          <span className="opacity-80">({orders.length})</span>
-        )}
+        +
       </button>
+      {orders.length > 0 && (
+        <span className="text-xs font-semibold text-orange-700 whitespace-nowrap">({orders.length})</span>
+      )}
 
       {open && (
         <div className="absolute left-0 top-full z-50 mt-2 w-[480px] max-h-[500px] flex flex-col bg-white border border-orange-200 rounded-xl shadow-2xl overflow-hidden">
