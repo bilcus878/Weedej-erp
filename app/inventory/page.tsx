@@ -312,6 +312,7 @@ export default function InventoryPage() {
 
   if (ep.loading) return <LoadingState />
   if (ep.error)   return <ErrorState message={ep.error} onRetry={ep.refresh} />
+  if (selectedProductId && loadingMovements) return <LoadingState />
 
   // ──────────────────── Product detail view ────────────────────
   if (selectedProductId) {
@@ -441,12 +442,7 @@ export default function InventoryPage() {
 
         {/* Tabulka pohybů */}
         <div ref={movementsSectionRef} className="bg-white rounded-lg shadow-sm border border-gray-200">
-          {loadingMovements ? (
-            <div className="flex items-center justify-center gap-3 py-16 text-gray-500">
-              <RefreshCw className="w-5 h-5 animate-spin text-purple-500" />
-              <span className="text-sm">Načítám pohyby...</span>
-            </div>
-          ) : filteredMovements.length === 0 ? (
+          {filteredMovements.length === 0 ? (
             <div className="text-center py-12">
               <p className="text-gray-500">{stockMovements.length === 0 ? 'Žádné skladové pohyby' : 'Žádné pohyby odpovídající filtru'}</p>
             </div>
