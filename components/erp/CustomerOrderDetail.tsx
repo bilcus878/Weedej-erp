@@ -166,24 +166,27 @@ function paymentTypeLabel(type: string): string {
     card:          'Platební karta',
     cash:          'Hotovost',
     bank_transfer: 'Bankovní převod',
+    transfer:      'Bankovní převod',
     online:        'Online platba',
     stripe:        'Stripe',
   }
   return labels[type] ?? type
 }
 
-function paymentTypeBadge(type: string) {
-  const map: Record<string, { bg: string; text: string }> = {
-    card:          { bg: 'bg-blue-100',   text: 'text-blue-800'   },
-    cash:          { bg: 'bg-green-100',  text: 'text-green-800'  },
-    bank_transfer: { bg: 'bg-purple-100', text: 'text-purple-800' },
-    online:        { bg: 'bg-blue-100',   text: 'text-blue-800'   },
-    stripe:        { bg: 'bg-indigo-100', text: 'text-indigo-800' },
+function paymentTypeBadge(type: string, paymentStatus?: string) {
+  const isPaid = paymentStatus === 'paid'
+  const map: Record<string, { bg: string; text: string; icon: string }> = {
+    card:          { bg: isPaid ? 'bg-blue-600'   : 'bg-blue-100',   text: isPaid ? 'text-white' : 'text-blue-800',   icon: '💳' },
+    cash:          { bg: isPaid ? 'bg-green-600'  : 'bg-green-100',  text: isPaid ? 'text-white' : 'text-green-800',  icon: '💵' },
+    bank_transfer: { bg: isPaid ? 'bg-purple-600' : 'bg-purple-100', text: isPaid ? 'text-white' : 'text-purple-800', icon: '🏦' },
+    transfer:      { bg: isPaid ? 'bg-purple-600' : 'bg-purple-100', text: isPaid ? 'text-white' : 'text-purple-800', icon: '🏦' },
+    online:        { bg: isPaid ? 'bg-blue-600'   : 'bg-blue-100',   text: isPaid ? 'text-white' : 'text-blue-800',   icon: '🌐' },
+    stripe:        { bg: isPaid ? 'bg-indigo-600' : 'bg-indigo-100', text: isPaid ? 'text-white' : 'text-indigo-800', icon: '⚡' },
   }
-  const s = map[type] ?? { bg: 'bg-gray-100', text: 'text-gray-800' }
+  const s = map[type] ?? { bg: 'bg-gray-100', text: 'text-gray-800', icon: '' }
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${s.bg} ${s.text}`}>
-      {paymentTypeLabel(type)}
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${s.bg} ${s.text}`}>
+      {s.icon} {paymentTypeLabel(type)}{isPaid ? ' — zaplaceno' : ''}
     </span>
   )
 }
@@ -397,7 +400,7 @@ export function CustomerOrderDetail({
               {order.issuedInvoice?.paymentType && (
                 <div className="flex justify-between items-center gap-2">
                   <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Způsob platby</span>
-                  <span>{paymentTypeBadge(order.issuedInvoice.paymentType)}</span>
+                  <span>{paymentTypeBadge(order.issuedInvoice.paymentType, order.issuedInvoice.paymentStatus)}</span>
                 </div>
               )}
               {order.issuedInvoice?.dueDate && (
