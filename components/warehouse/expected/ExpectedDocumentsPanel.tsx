@@ -1,7 +1,8 @@
 'use client'
 
-import type { ReactNode } from 'react'
+import { useRef, useCallback, type ReactNode } from 'react'
 import { ChevronDown, ChevronRight, Plus } from 'lucide-react'
+import { useClickOutside } from '../shared/useClickOutside'
 
 interface ExpectedDocumentsPanelProps {
   label: string
@@ -12,6 +13,7 @@ interface ExpectedDocumentsPanelProps {
   formOpen: boolean
   onToggleList: () => void
   onToggleForm: () => void
+  onCloseForm: () => void
   listContent?: ReactNode
   formContent?: ReactNode
 }
@@ -25,43 +27,69 @@ export function ExpectedDocumentsPanel({
   formOpen,
   onToggleList,
   onToggleForm,
+  onCloseForm,
   listContent,
   formContent,
 }: ExpectedDocumentsPanelProps) {
   const hasError = !!error
+  const panelRef = useRef<HTMLDivElement>(null)
+
+  const stableClose = useCallback(onCloseForm, [onCloseForm])
+  useClickOutside(panelRef, stableClose)
 
   return (
     <div
-      className={`rounded-lg overflow-hidden border-2 bg-white ${
+      ref={panelRef}
+      className={`relative rounded-lg border-2 bg-white ${
         hasError ? 'border-red-300' : 'border-orange-200'
       }`}
     >
-      {/* ── Compact strip ── always visible, ~48px tall */}
-      <div
-        className={`flex items-stretch ${
-          hasError ? 'bg-red-50' : 'bg-orange-50'
-        }`}
-      >
-        {/* +OV button — creates a new expected document */}
-        <button
-          onClick={onToggleForm}
-          title={formOpen ? 'Zavřít formulář' : 'Vytvořit nový očekávaný doklad (+OV)'}
-          className={`flex items-center gap-1 px-3 text-xs font-bold border-r transition-colors shrink-0 ${
-            hasError
-              ? 'border-red-200'
-              : formOpen
-              ? 'bg-orange-600 text-white border-orange-600 hover:bg-orange-700'
-              : 'border-orange-200 text-orange-700 hover:bg-orange-100'
-          }`}
-        >
-          <Plus className="w-3 h-3" />
-          <span>{createLabel}</span>
-        </button>
+      {/* ── Always-visible strip ── */}
+      <div className={`flex items-stretch ${hasError ? 'bg-red-50' : 'bg-orange-50'} rounded-lg`}>
 
-        {/* Label + count — clicking anywhere on the label also toggles the list */}
+        {/* LEFT: vertical action column — +OP/+OV above, chevron below */}
+        <div className={`flex flex-col items-center shrink-0 border-r ${hasError ? 'border-red-200' : 'border-orange-200'}`}>
+          {/* +OP / +OV create button */}
+          <button
+            onClick={onToggleForm}
+            title={formOpen ? 'Zavřít formulář' : `Vytvořit nový očekávaný doklad (+${createLabel})`}
+            className={`flex-1 flex items-center justify-center gap-0.5 px-2.5 text-xs font-bold border-b transition-colors w-full ${
+              hasError
+                ? 'border-red-200 text-gray-300 cursor-not-allowed'
+                : formOpen
+                ? 'bg-orange-600 text-white border-orange-600 hover:bg-orange-700'
+                : 'border-orange-200 text-orange-700 hover:bg-orange-100'
+            }`}
+            disabled={hasError}
+          >
+            <Plus className="w-2.5 h-2.5" />
+            <span>{createLabel}</span>
+          </button>
+
+          {/* Expand / collapse arrow */}
+          <button
+            onClick={onToggleList}
+            title={listOpen ? 'Sbalit seznam' : 'Rozbalit seznam'}
+            className={`flex-1 flex items-center justify-center px-2.5 w-full transition-colors ${
+              hasError
+                ? 'text-red-400 hover:bg-red-100'
+                : listOpen
+                ? 'bg-orange-100 text-orange-600 hover:bg-orange-200'
+                : 'text-orange-500 hover:bg-orange-100'
+            }`}
+          >
+            {listOpen ? (
+              <ChevronDown className="h-4 w-4" />
+            ) : (
+              <ChevronRight className="h-4 w-4" />
+            )}
+          </button>
+        </div>
+
+        {/* RIGHT: label + count — clicking also toggles list */}
         <button
           onClick={onToggleList}
-          className="flex-1 flex items-center gap-3 px-4 py-3 text-left hover:bg-orange-100 transition-colors min-w-0"
+          className="flex-1 flex items-center gap-3 px-4 py-3 text-left hover:bg-orange-100 transition-colors min-w-0 rounded-r-lg"
         >
           <span
             className={`text-sm font-semibold truncate ${
@@ -89,41 +117,35 @@ export function ExpectedDocumentsPanel({
             <span className="text-xs text-red-600 truncate">{error}</span>
           )}
         </button>
-
-        {/* Expand arrow — toggles list only */}
-        <button
-          onClick={onToggleList}
-          title={listOpen ? 'Sbalit seznam' : 'Rozbalit seznam'}
-          className={`px-3 border-l transition-colors shrink-0 ${
-            hasError
-              ? 'border-red-200 hover:bg-red-100'
-              : listOpen
-              ? 'bg-orange-100 border-orange-200 hover:bg-orange-200'
-              : 'border-orange-200 hover:bg-orange-100'
-          }`}
-        >
-          {listOpen ? (
-            <ChevronDown className={`h-5 w-5 ${hasError ? 'text-red-600' : 'text-orange-600'}`} />
-          ) : (
-            <ChevronRight className={`h-5 w-5 ${hasError ? 'text-red-600' : 'text-orange-600'}`} />
-          )}
-        </button>
       </div>
 
-      {/* ── Create form panel — opens when +OV is clicked ── */}
-      {formOpen && (
-        <div className="border-t-2 border-orange-200 bg-white">
-          {formContent ?? (
-            <div className="px-5 py-4 text-sm text-gray-500 italic">
-              Formulář není k dispozici.
-            </div>
-          )}
+      {/* ── Floating create popover — anchored to top-left of panel ── */}
+      {formOpen && !hasError && (
+        <div className="absolute top-full left-0 z-50 mt-1 w-80 bg-white border border-orange-200 rounded-xl shadow-2xl overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-2.5 bg-orange-50 border-b border-orange-200">
+            <span className="text-xs font-semibold text-orange-800 uppercase tracking-wide">
+              +{createLabel} — Nový doklad
+            </span>
+            <button
+              onClick={onCloseForm}
+              className="text-orange-400 hover:text-orange-700 transition-colors text-lg leading-none"
+            >
+              ×
+            </button>
+          </div>
+          <div className="p-4">
+            {formContent ?? (
+              <p className="text-sm text-gray-500 italic">
+                Formulář není k dispozici.
+              </p>
+            )}
+          </div>
         </div>
       )}
 
-      {/* ── List panel — opens when arrow is clicked ── */}
+      {/* ── Expanded list panel ── */}
       {listOpen && (
-        <div className="border-t-2 border-orange-200">
+        <div className="border-t-2 border-orange-200 rounded-b-lg overflow-hidden">
           {hasError ? (
             <div className="px-5 py-4 text-sm text-red-700 bg-red-50">
               {error}

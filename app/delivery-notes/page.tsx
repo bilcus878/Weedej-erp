@@ -17,6 +17,7 @@ import {
 } from '@/components/erp'
 import type { ColumnDef, SelectOption } from '@/components/erp'
 import { ExpectedDocumentsPanel } from '@/components/warehouse/expected/ExpectedDocumentsPanel'
+import { QuickPreviewCard } from '@/components/warehouse/expected/QuickPreviewCard'
 import { useToast } from '@/components/warehouse/shared/useToast'
 import { Toast } from '@/components/warehouse/shared/Toast'
 
@@ -524,9 +525,43 @@ export default function DeliveryNotesPage() {
                       : <p className="text-sm text-gray-700">{order.customerName || '-'}</p>}
                   </div>
                   <div><p className="text-sm text-gray-700">{formatDate(order.orderDate)}</p></div>
-                  <Button size="sm" className="bg-orange-600 hover:bg-orange-700 text-white w-28" onClick={() => handlePrepareShipment(order.id)}>
-                    <Package className="w-4 h-4 mr-1" />Vyskladnit
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <QuickPreviewCard cardContent={
+                      <div className="space-y-2.5 text-sm">
+                        <div>
+                          <p className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Číslo objednávky</p>
+                          <p className="font-semibold text-gray-900">{order.orderNumber}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Odběratel</p>
+                          <p className="text-gray-800">{order.customer?.name || order.customerName || '—'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Datum objednávky</p>
+                          <p className="text-gray-700">{formatDate(order.orderDate)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Hodnota</p>
+                          <p className="font-semibold text-gray-900">{formatPrice(order.totalAmount)}</p>
+                        </div>
+                        {order.shippingMethod && (
+                          <div>
+                            <p className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Doprava</p>
+                            <p className="text-gray-700 text-xs">{SHIPPING_LABELS[order.shippingMethod] ?? order.shippingMethod}</p>
+                          </div>
+                        )}
+                        <button
+                          onClick={() => handlePrepareShipment(order.id)}
+                          className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-orange-600 hover:bg-orange-700 text-white text-xs font-semibold rounded-lg transition-colors mt-1"
+                        >
+                          <Package className="w-3.5 h-3.5" />Vyskladnit
+                        </button>
+                      </div>
+                    } />
+                    <Button size="sm" className="bg-orange-600 hover:bg-orange-700 text-white w-28" onClick={() => handlePrepareShipment(order.id)}>
+                      <Package className="w-4 h-4 mr-1" />Vyskladnit
+                    </Button>
+                  </div>
                 </div>
 
                 {isExpanded && (
@@ -677,6 +712,7 @@ export default function DeliveryNotesPage() {
         formOpen={pendingFormOpen}
         onToggleList={() => setPendingListOpen(v => !v)}
         onToggleForm={() => setPendingFormOpen(v => !v)}
+        onCloseForm={() => setPendingFormOpen(false)}
         formContent={ovFormContent}
         listContent={pendingListContent}
       />

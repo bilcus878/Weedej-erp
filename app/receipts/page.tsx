@@ -16,6 +16,7 @@ import {
 } from '@/components/erp'
 import type { ColumnDef, SelectOption } from '@/components/erp'
 import { ExpectedDocumentsPanel } from '@/components/warehouse/expected/ExpectedDocumentsPanel'
+import { QuickPreviewCard } from '@/components/warehouse/expected/QuickPreviewCard'
 import { useToast } from '@/components/warehouse/shared/useToast'
 import { Toast } from '@/components/warehouse/shared/Toast'
 
@@ -413,40 +414,37 @@ export default function ReceiptsPage() {
   if (ep.loading) return <LoadingState />
   if (ep.error)   return <ErrorState message={ep.error} onRetry={ep.refresh} />
 
-  // ── Expected panel: +OV quick create form ─────────────────────────────────
+  // ── Expected panel: +OP quick create form (compact for popover) ──────────
   const ovFormContent = (
-    <div className="px-5 py-4 bg-orange-50/40">
-      <h3 className="text-sm font-semibold text-gray-800 mb-3">Nová objednávka (+OP)</h3>
-      <form onSubmit={handleOvSubmit} className="grid grid-cols-[1fr_1fr_2fr_auto] gap-3 items-end">
-        <div>
-          <label className="text-xs font-medium text-gray-600 block mb-1">Dodavatel <span className="text-red-500">*</span></label>
-          <select
-            value={ovSupplier}
-            onChange={e => setOvSupplier(e.target.value)}
-            required
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-400 focus:border-orange-400 bg-white"
-          >
-            <option value="">— vyberte —</option>
-            {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="text-xs font-medium text-gray-600 block mb-1">Datum objednávky</label>
-          <Input type="date" value={ovDate} onChange={e => setOvDate(e.target.value)} className="text-sm" />
-        </div>
-        <div>
-          <label className="text-xs font-medium text-gray-600 block mb-1">Poznámka <span className="text-gray-400">(volitelné)</span></label>
-          <Input value={ovNote} onChange={e => setOvNote(e.target.value)} placeholder="Poznámka k objednávce..." className="text-sm" />
-        </div>
-        <div className="flex gap-2 pb-0.5">
-          <Button type="button" variant="ghost" size="sm" onClick={() => setPendingFormOpen(false)}>Zrušit</Button>
-          <Button type="submit" size="sm" disabled={!ovSupplier || ovSubmitting} className="bg-orange-600 hover:bg-orange-700 text-white">
-            {ovSubmitting ? '...' : 'Vytvořit →'}
-          </Button>
-        </div>
-      </form>
-      <p className="text-xs text-gray-500 mt-2">Položky přidáte v sekci <Link href="/purchase-orders" className="text-orange-600 hover:underline">Nákupní objednávky</Link>.</p>
-    </div>
+    <form onSubmit={handleOvSubmit} className="space-y-3">
+      <div>
+        <label className="text-xs font-medium text-gray-600 block mb-1">
+          Dodavatel <span className="text-red-500">*</span>
+        </label>
+        <select
+          value={ovSupplier}
+          onChange={e => setOvSupplier(e.target.value)}
+          required
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-400 focus:border-orange-400 bg-white"
+        >
+          <option value="">— vyberte —</option>
+          {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+        </select>
+      </div>
+      <div>
+        <label className="text-xs font-medium text-gray-600 block mb-1">Datum objednávky</label>
+        <Input type="date" value={ovDate} onChange={e => setOvDate(e.target.value)} className="text-sm w-full" />
+      </div>
+      <div className="flex gap-2 justify-end pt-1">
+        <Button type="button" variant="ghost" size="sm" onClick={() => setPendingFormOpen(false)}>Zrušit</Button>
+        <Button type="submit" size="sm" disabled={!ovSupplier || ovSubmitting} className="bg-orange-600 hover:bg-orange-700 text-white">
+          {ovSubmitting ? '...' : 'Vytvořit →'}
+        </Button>
+      </div>
+      <p className="text-xs text-gray-500 border-t border-orange-100 pt-2">
+        Položky přidáte v <Link href="/purchase-orders" className="text-orange-600 hover:underline">Nákupní objednávky</Link>.
+      </p>
+    </form>
   )
 
   // ── Expected panel: list content ──────────────────────────────────────────
@@ -496,9 +494,37 @@ export default function ReceiptsPage() {
                       : <p className="text-sm text-gray-700 truncate">{order.supplierName || '-'}</p>}
                   </div>
                   <div><p className="text-sm text-gray-700">{formatDate(order.orderDate)}</p></div>
-                  <Button size="sm" className="bg-orange-600 hover:bg-orange-700 text-white w-28" onClick={() => handleCreateFromOrder(order.id)}>
-                    <Package className="w-4 h-4 mr-1" />Naskladnit
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <QuickPreviewCard cardContent={
+                      <div className="space-y-2.5 text-sm">
+                        <div>
+                          <p className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Číslo objednávky</p>
+                          <p className="font-semibold text-gray-900">{order.orderNumber}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Dodavatel</p>
+                          <p className="text-gray-800">{order.supplier?.name || order.supplierName || '—'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Datum objednávky</p>
+                          <p className="text-gray-700">{formatDate(order.orderDate)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Položek k naskladnění</p>
+                          <p className="text-gray-700">{order.items.filter((i: any) => i.remainingQuantity > 0).length} / {order.items.length}</p>
+                        </div>
+                        <button
+                          onClick={() => handleCreateFromOrder(order.id)}
+                          className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-orange-600 hover:bg-orange-700 text-white text-xs font-semibold rounded-lg transition-colors mt-1"
+                        >
+                          <Package className="w-3.5 h-3.5" />Naskladnit
+                        </button>
+                      </div>
+                    } />
+                    <Button size="sm" className="bg-orange-600 hover:bg-orange-700 text-white w-28" onClick={() => handleCreateFromOrder(order.id)}>
+                      <Package className="w-4 h-4 mr-1" />Naskladnit
+                    </Button>
+                  </div>
                 </div>
 
                 {isExpanded && (
@@ -613,6 +639,7 @@ export default function ReceiptsPage() {
         formOpen={pendingFormOpen}
         onToggleList={() => setPendingListOpen(v => !v)}
         onToggleForm={() => setPendingFormOpen(v => !v)}
+        onCloseForm={() => setPendingFormOpen(false)}
         formContent={ovFormContent}
         listContent={pendingListContent}
       />
