@@ -317,7 +317,7 @@ export default function InventoryPage() {
     const productSummary = ep.rows.find(s => s.productId === selectedProductId)
     if (!productSummary) return
     setMeta({
-      count: `(zobrazeno ${filteredMovements.length} z ${stockMovements.length} pohybů)`,
+      count: `(${filteredMovements.length}/${stockMovements.length})`,
       subTitle: productSummary.productName,
       pageTitleOnClick: handleBackToInventory,
     })
