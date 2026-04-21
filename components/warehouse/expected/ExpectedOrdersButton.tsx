@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { Package } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { useClickOutside } from '../shared/useClickOutside'
@@ -18,8 +18,8 @@ interface ExpectedOrdersButtonProps {
   headerLabel: string
   actionLabel: string
   searchPlaceholder?: string
+  autoOpen?: boolean
   onAction: (orderId: string) => void
-  onExpandPanel: () => void
 }
 
 export function ExpectedOrdersButton({
@@ -27,13 +27,22 @@ export function ExpectedOrdersButton({
   headerLabel,
   actionLabel,
   searchPlaceholder = 'Hledat číslo obj...',
+  autoOpen = false,
   onAction,
-  onExpandPanel,
 }: ExpectedOrdersButtonProps) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const ref = useRef<HTMLDivElement>(null)
+  const hasAutoOpened = useRef(false)
+
   useClickOutside(ref, () => setOpen(false))
+
+  useEffect(() => {
+    if (autoOpen && orders.length > 0 && !hasAutoOpened.current) {
+      setOpen(true)
+      hasAutoOpened.current = true
+    }
+  }, [autoOpen, orders.length])
 
   const visible = search
     ? orders.filter(o => {
@@ -47,11 +56,14 @@ export function ExpectedOrdersButton({
       <button
         onClick={() => { setOpen(v => !v); setSearch('') }}
         title={open ? 'Zavřít přehled' : headerLabel}
-        className={`w-6 h-6 flex items-center justify-center rounded font-bold text-xs transition-colors ${
+        className={`h-6 px-2 flex items-center gap-1 rounded font-bold text-xs transition-colors whitespace-nowrap ${
           open ? 'bg-orange-600 text-white' : 'bg-orange-200 text-orange-800 hover:bg-orange-400'
         }`}
       >
-        +
+        <span>+</span>
+        {orders.length > 0 && (
+          <span className="opacity-80">({orders.length})</span>
+        )}
       </button>
 
       {open && (
@@ -120,14 +132,8 @@ export function ExpectedOrdersButton({
           </div>
 
           {/* Footer */}
-          <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 shrink-0 flex items-center justify-between">
+          <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 shrink-0">
             <span className="text-xs text-gray-400">{orders.length} celkem</span>
-            <button
-              onClick={() => { onExpandPanel(); setOpen(false) }}
-              className="text-xs text-orange-600 hover:text-orange-800 hover:underline transition-colors"
-            >
-              Rozbalit panel níže →
-            </button>
           </div>
 
         </div>

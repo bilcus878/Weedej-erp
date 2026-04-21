@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo, useRef } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Package, CheckCircle, FileDown, XCircle, ChevronDown, ChevronRight } from 'lucide-react'
@@ -15,9 +15,7 @@ import {
   DetailSection, DetailRow, ActionToolbar, LinkedDocumentBanner,
 } from '@/components/erp'
 import type { ColumnDef, SelectOption } from '@/components/erp'
-import { ExpectedDocumentsPanel } from '@/components/warehouse/expected/ExpectedDocumentsPanel'
 import { ExpectedOrdersButton } from '@/components/warehouse/expected/ExpectedOrdersButton'
-import { QuickPreviewCard } from '@/components/warehouse/expected/QuickPreviewCard'
 import { useToast } from '@/components/warehouse/shared/useToast'
 import { Toast } from '@/components/warehouse/shared/Toast'
 
@@ -84,28 +82,10 @@ export default function ReceiptsPage() {
   const highlightId = useSearchParams().get('highlight')
   const [isVatPayer, setIsVatPayer] = useState(true)
 
-  // ── Expected panel state ──────────────────────────────────────────────────
-  const [pendingListOpen, setPendingListOpen] = useState(false)
-
   // ── Pending orders data ───────────────────────────────────────────────────
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [pendingOrders, setPendingOrders]           = useState<PurchaseOrder[]>([])
   const [pendingOrdersError, setPendingOrdersError] = useState<string | null>(null)
-  const [expandedPendingOrders, setExpandedPendingOrders] = useState<Set<string>>(new Set())
-
-  // ── Pending orders filters ────────────────────────────────────────────────
-  const [pendingFilterOrderNumber, setPendingFilterOrderNumber] = useState('')
-  const [pendingFilterSupplier,    setPendingFilterSupplier]    = useState('')
-  const [pendingFilterDate,        setPendingFilterDate]        = useState('')
-  const [pendingCurrentPage,       setPendingCurrentPage]       = useState(1)
-  const pendingItemsPerPage = 10
-
-  // ── Quick +OV form state ──────────────────────────────────────────────────
-  const [ovSupplier,  setOvSupplier]  = useState('')
-  const [ovDate,      setOvDate]      = useState(new Date().toISOString().split('T')[0])
-  const [ovNote,      setOvNote]      = useState('')
-  const [ovSubmitting, setOvSubmitting] = useState(false)
-
   // ── Process modal state ───────────────────────────────────────────────────
   const [showProcessModal, setShowProcessModal] = useState(false)
   const [processingReceiptId, setProcessingReceiptId]   = useState<string | null>(null)
@@ -193,45 +173,6 @@ export default function ReceiptsPage() {
     return () => { clearInterval(interval); document.removeEventListener('visibilitychange', handleVisibility) }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  const filteredPendingOrders = useMemo(() => {
-    let f = [...pendingOrders] as any[]
-    if (pendingFilterOrderNumber) f = f.filter(o => o.orderNumber.toLowerCase().includes(pendingFilterOrderNumber.toLowerCase()))
-    if (pendingFilterSupplier)    f = f.filter(o => (o.supplier?.name || '').toLowerCase().includes(pendingFilterSupplier.toLowerCase()))
-    if (pendingFilterDate)        f = f.filter(o => new Date(o.orderDate).toISOString().split('T')[0] === pendingFilterDate)
-    return f
-  }, [pendingOrders, pendingFilterOrderNumber, pendingFilterSupplier, pendingFilterDate])
-
-  function togglePendingExpanded(orderId: string) {
-    setExpandedPendingOrders(prev => {
-      const next = new Set(prev)
-      next.has(orderId) ? next.delete(orderId) : next.add(orderId)
-      return next
-    })
-  }
-
-  // ── +OV quick create purchase order ──────────────────────────────────────
-  async function handleOvSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!ovSupplier || ovSubmitting) return
-    setOvSubmitting(true)
-    try {
-      const res = await fetch('/api/purchase-orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ supplierId: ovSupplier, orderDate: ovDate, note: ovNote, items: [] }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Chyba při vytváření objednávky')
-      setOvSupplier(''); setOvDate(new Date().toISOString().split('T')[0]); setOvNote('')
-      showToast('success', '✅ Objednávka vytvořena. Přidejte položky v sekci Nákupní objednávky.')
-      await fetchPendingOrders()
-    } catch (err: any) {
-      showToast('error', err.message || 'Chyba při vytváření objednávky')
-    } finally {
-      setOvSubmitting(false)
-    }
-  }
 
   // ── Open process modal from pending order ─────────────────────────────────
   function handleCreateFromOrder(orderId: string) {
@@ -413,179 +354,6 @@ export default function ReceiptsPage() {
   if (ep.loading) return <LoadingState />
   if (ep.error)   return <ErrorState message={ep.error} onRetry={ep.refresh} />
 
-  // ovFormContent removed — popup is now rendered inline in firstHeader
-
-  // ── Expected panel: list content ──────────────────────────────────────────
-  const pendingListContent = (
-    <div className="p-4 space-y-3">
-      {/* Filters inside the panel */}
-      <div className="grid grid-cols-[auto_1fr_1fr_1fr] items-center gap-3 px-3 py-2 bg-white border border-orange-200 rounded-lg">
-        <button
-          onClick={() => { setPendingFilterOrderNumber(''); setPendingFilterSupplier(''); setPendingFilterDate('') }}
-          className="w-7 h-7 bg-gray-200 hover:bg-gray-300 text-gray-600 text-xs rounded flex items-center justify-center"
-          title="Vymazat filtry"
-        >✕</button>
-        <input type="text"  value={pendingFilterOrderNumber} onChange={e => { setPendingFilterOrderNumber(e.target.value); setPendingCurrentPage(1) }} placeholder="Číslo obj..." className="px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-orange-400" />
-        <input type="text"  value={pendingFilterSupplier}    onChange={e => { setPendingFilterSupplier(e.target.value);    setPendingCurrentPage(1) }} placeholder="Dodavatel..."  className="px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-orange-400" />
-        <input type="date"  value={pendingFilterDate}         onChange={e => { setPendingFilterDate(e.target.value);         setPendingCurrentPage(1) }} className="px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-orange-400" />
-      </div>
-
-      {/* Column header */}
-      <div className="grid grid-cols-[24px_1fr_1.5fr_1fr_auto] items-center gap-4 px-4 py-2 bg-orange-100 border border-orange-200 rounded-lg text-xs font-semibold text-orange-900">
-        <div />
-        <div>Číslo obj.</div>
-        <div>Dodavatel</div>
-        <div>Datum objednávky</div>
-        <div className="w-28" />
-      </div>
-
-      {/* Rows */}
-      <div className="space-y-2">
-        {filteredPendingOrders
-          .slice((pendingCurrentPage - 1) * pendingItemsPerPage, pendingCurrentPage * pendingItemsPerPage)
-          .map((order: any) => {
-            const isExpanded = expandedPendingOrders.has(order.id)
-            return (
-              <div key={order.id} className="border-2 border-orange-200 rounded-lg bg-white">
-                <div className="grid grid-cols-[24px_1fr_1.5fr_1fr_auto] items-center gap-4 px-4 py-3 hover:bg-orange-50 transition-colors">
-                  <button onClick={() => togglePendingExpanded(order.id)} className="flex items-center justify-center">
-                    {isExpanded
-                      ? <ChevronDown  className="h-4 w-4 text-orange-600" />
-                      : <ChevronRight className="h-4 w-4 text-orange-600" />}
-                  </button>
-                  <div className="cursor-pointer" onClick={() => togglePendingExpanded(order.id)}>
-                    <p className="text-sm font-semibold text-gray-900 truncate">{order.orderNumber}</p>
-                  </div>
-                  <div>
-                    {order.supplier?.id
-                      ? <Link href={`/suppliers?highlight=${order.supplier.id}`} className="text-sm text-blue-600 hover:underline truncate block" onClick={e => e.stopPropagation()}>{order.supplier.name}</Link>
-                      : <p className="text-sm text-gray-700 truncate">{order.supplierName || '-'}</p>}
-                  </div>
-                  <div><p className="text-sm text-gray-700">{formatDate(order.orderDate)}</p></div>
-                  <div className="flex items-center gap-2">
-                    <QuickPreviewCard cardContent={
-                      <div className="space-y-2.5 text-sm">
-                        <div>
-                          <p className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Číslo objednávky</p>
-                          <p className="font-semibold text-gray-900">{order.orderNumber}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Dodavatel</p>
-                          <p className="text-gray-800">{order.supplier?.name || order.supplierName || '—'}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Datum objednávky</p>
-                          <p className="text-gray-700">{formatDate(order.orderDate)}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Položek k naskladnění</p>
-                          <p className="text-gray-700">{order.items.filter((i: any) => i.remainingQuantity > 0).length} / {order.items.length}</p>
-                        </div>
-                        <button
-                          onClick={() => handleCreateFromOrder(order.id)}
-                          className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-orange-600 hover:bg-orange-700 text-white text-xs font-semibold rounded-lg transition-colors mt-1"
-                        >
-                          <Package className="w-3.5 h-3.5" />Naskladnit
-                        </button>
-                      </div>
-                    } />
-                    <Button size="sm" className="bg-orange-600 hover:bg-orange-700 text-white w-28" onClick={() => handleCreateFromOrder(order.id)}>
-                      <Package className="w-4 h-4 mr-1" />Naskladnit
-                    </Button>
-                  </div>
-                </div>
-
-                {isExpanded && (
-                  <div className="border-t-2 border-orange-200 p-4 bg-gray-50">
-                    <div className="border rounded-lg overflow-hidden">
-                      {isVatPayer ? (
-                        <div className="grid grid-cols-[2fr_0.8fr_0.8fr_0.8fr_0.5fr_0.8fr_0.5fr_0.8fr_1fr] gap-2 px-3 py-1.5 bg-gray-100 text-[11px] font-semibold text-gray-700 border-b">
-                          <div>Položky k přijetí</div>
-                          <div className="text-center">Objednáno</div><div className="text-center">Naskladněno</div>
-                          <div className="text-center">Zbývá</div><div className="text-center">DPH</div>
-                          <div className="text-center">Cena/ks</div><div className="text-center">DPH/ks</div>
-                          <div className="text-center">S DPH/ks</div><div className="text-center">Celkem</div>
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr] gap-3 px-3 py-1.5 bg-gray-100 text-[11px] font-semibold text-gray-700 border-b">
-                          <div>Položky k přijetí</div>
-                          <div className="text-right">Objednáno</div><div className="text-right">Naskladněno</div>
-                          <div className="text-right">Zbývá</div><div className="text-right">Cena/ks</div><div className="text-right">Celkem</div>
-                        </div>
-                      )}
-
-                      {order.items.map((item: any, i: number) => {
-                        const received  = Number(item.alreadyReceivedQuantity || 0)
-                        const ordered   = Number(item.quantity)
-                        const remaining = Number(item.remainingQuantity || 0)
-                        const unitPrice = Number(item.expectedPrice || 0)
-                        const itemVatRate = Number(item.vatRate || item.product?.vatRate || DEFAULT_VAT_RATE)
-                        const isItemNonVat = isNonVatPayer(itemVatRate)
-                        const vatPerUnit = isItemNonVat ? 0 : unitPrice * itemVatRate / 100
-                        const priceWithVat = unitPrice + vatPerUnit
-                        const total = ordered * (isVatPayer ? priceWithVat : unitPrice)
-                        const receivedColor  = received === 0 ? 'text-gray-400' : received >= ordered ? 'text-green-600' : 'text-orange-500'
-                        const remainingColor = remaining === 0 ? 'text-green-600' : remaining === ordered ? 'text-red-600' : 'text-orange-600'
-                        return isVatPayer ? (
-                          <div key={item.id} className={`grid grid-cols-[2fr_0.8fr_0.8fr_0.8fr_0.5fr_0.8fr_0.5fr_0.8fr_1fr] gap-2 px-3 py-1.5 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                            <div className="text-[13px] text-gray-900">{item.product?.name || item.productName || 'Neznámý produkt'}</div>
-                            <div className="text-[13px] text-gray-700 text-center">{ordered.toLocaleString('cs-CZ')} {item.unit}</div>
-                            <div className={`text-[13px] font-semibold text-center ${receivedColor}`}>{received.toLocaleString('cs-CZ')} {item.unit}</div>
-                            <div className={`text-[13px] font-semibold text-center ${remainingColor}`}>{remaining.toLocaleString('cs-CZ')} {item.unit}</div>
-                            <div className="text-[13px] text-gray-500 text-center">{isItemNonVat ? '-' : `${itemVatRate}%`}</div>
-                            <div className="text-[13px] text-gray-700 text-center">{formatPrice(unitPrice)}</div>
-                            <div className="text-[13px] text-gray-500 text-center">{isItemNonVat ? '-' : formatPrice(vatPerUnit)}</div>
-                            <div className="text-[13px] text-gray-700 text-center">{formatPrice(priceWithVat)}</div>
-                            <div className="text-[13px] font-semibold text-gray-900 text-center">{formatPrice(total)}</div>
-                          </div>
-                        ) : (
-                          <div key={item.id} className={`grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr] gap-3 px-3 py-1.5 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                            <div className="text-[13px] text-gray-900">{item.product?.name || item.productName || 'Neznámý produkt'}</div>
-                            <div className="text-[13px] text-gray-700 text-right">{ordered.toLocaleString('cs-CZ')} {item.unit}</div>
-                            <div className={`text-[13px] font-semibold text-right ${receivedColor}`}>{received.toLocaleString('cs-CZ')} {item.unit}</div>
-                            <div className={`text-[13px] font-semibold text-right ${remainingColor}`}>{remaining.toLocaleString('cs-CZ')} {item.unit}</div>
-                            <div className="text-[13px] text-gray-700 text-right">{formatPrice(unitPrice)}</div>
-                            <div className="text-[13px] font-semibold text-gray-900 text-right">{formatPrice(total)}</div>
-                          </div>
-                        )
-                      })}
-
-                      <div className={`grid ${isVatPayer ? 'grid-cols-[2fr_0.8fr_0.8fr_0.8fr_0.5fr_0.8fr_0.5fr_0.8fr_1fr]' : 'grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr]'} gap-2 px-3 py-1.5 bg-gray-100 border-t-2 font-bold`}>
-                        <div className={`${isVatPayer ? 'col-span-8' : 'col-span-5'} text-[13px]`}>{isVatPayer ? 'Celková částka s DPH' : 'Celková částka objednávky'}</div>
-                        <div className={`text-[13px] ${isVatPayer ? 'text-center' : 'text-right'}`}>
-                          {formatPrice(order.items.reduce((sum: number, item: any) => {
-                            const up = Number(item.expectedPrice || 0)
-                            const vr = Number(item.vatRate || item.product?.vatRate || DEFAULT_VAT_RATE)
-                            const nonVat = isNonVatPayer(vr)
-                            const pwv = up + (nonVat ? 0 : up * vr / 100)
-                            return sum + Number(item.quantity) * (isVatPayer ? pwv : up)
-                          }, 0))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )
-          })}
-      </div>
-
-      {/* Pagination inside panel */}
-      {filteredPendingOrders.length > pendingItemsPerPage && (() => {
-        const totalPages = Math.ceil(filteredPendingOrders.length / pendingItemsPerPage)
-        return (
-          <div className="flex items-center justify-end gap-2 pt-1">
-            <button onClick={() => setPendingCurrentPage(p => Math.max(1, p - 1))} disabled={pendingCurrentPage === 1} className="px-3 py-1.5 bg-orange-100 text-orange-900 rounded hover:bg-orange-200 disabled:opacity-50 text-sm font-medium">Předchozí</button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
-              <button key={p} onClick={() => setPendingCurrentPage(p)} className={`px-3 py-1.5 rounded text-sm font-medium ${pendingCurrentPage === p ? 'bg-orange-600 text-white' : 'bg-orange-100 text-orange-900 hover:bg-orange-200'}`}>{p}</button>
-            ))}
-            <button onClick={() => setPendingCurrentPage(p => Math.min(totalPages, p + 1))} disabled={pendingCurrentPage >= totalPages} className="px-3 py-1.5 bg-orange-100 text-orange-900 rounded hover:bg-orange-200 disabled:opacity-50 text-sm font-medium">Další</button>
-          </div>
-        )
-      })()}
-    </div>
-  )
-
   return (
     <EntityPage highlightId={ep.highlightId}>
       <EntityPage.Header
@@ -595,16 +363,6 @@ export default function ReceiptsPage() {
         total={ep.rows.length}
         filtered={ep.filtered.length}
         onRefresh={ep.refresh}
-      />
-
-      {/* ── Compact expected receipts panel ── */}
-      <ExpectedDocumentsPanel
-        label="příjemky"
-        count={filteredPendingOrders.length}
-        error={pendingOrdersError}
-        listOpen={pendingListOpen}
-        onToggleList={() => setPendingListOpen(v => !v)}
-        listContent={pendingListContent}
       />
 
       {filters.bar('auto 1fr 1fr 1fr 1fr 1fr 1fr')}
@@ -626,8 +384,8 @@ export default function ReceiptsPage() {
             headerLabel="Čeká na naskladnění"
             actionLabel="Naskladnit"
             searchPlaceholder="Hledat číslo obj. nebo dodavatel..."
+            autoOpen={pendingOrders.length > 0}
             onAction={handleCreateFromOrder}
-            onExpandPanel={() => setPendingListOpen(true)}
           />
         }
         rowClassName={r => r.status === 'storno' || r.status === 'cancelled' ? 'bg-red-50 opacity-70' : ''}
