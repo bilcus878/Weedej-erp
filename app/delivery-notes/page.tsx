@@ -251,6 +251,7 @@ export default function DeliveryNotesPage() {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
+    if (pendingOrders.length > 0) setIsPendingSectionExpanded(true)
     let filtered = [...pendingOrders]
     if (pendingFilterOrderNumber) filtered = filtered.filter(o => o.orderNumber.toLowerCase().includes(pendingFilterOrderNumber.toLowerCase()))
     if (pendingFilterCustomer)    filtered = filtered.filter(o => (o.customer?.name || o.customerName || '').toLowerCase().includes(pendingFilterCustomer.toLowerCase()))
