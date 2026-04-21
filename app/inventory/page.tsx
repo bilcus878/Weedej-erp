@@ -65,9 +65,10 @@ export default function InventoryPage() {
   const [products,   setProducts]   = useState<Product[]>([])
   const [isVatPayer, setIsVatPayer] = useState(true)
 
-  const [selectedProductId, setSelectedProductId] = useState<string | null>(null)
-  const [stockMovements,    setStockMovements]     = useState<StockMovement[]>([])
-  const [expandedMovements, setExpandedMovements]  = useState<Set<string>>(new Set())
+  const [selectedProductId,  setSelectedProductId]  = useState<string | null>(null)
+  const [stockMovements,     setStockMovements]      = useState<StockMovement[]>([])
+  const [expandedMovements,  setExpandedMovements]   = useState<Set<string>>(new Set())
+  const [loadingMovements,   setLoadingMovements]    = useState(false)
   const highlightMovementId = searchParams.get('highlightMovement')
   const movementsSectionRef = useRef<HTMLDivElement>(null)
 
@@ -179,6 +180,7 @@ export default function InventoryPage() {
   }, [])
 
   async function fetchProductMovements(productId: string) {
+    setLoadingMovements(true)
     try {
       const response = await fetch(`/api/products/${productId}`)
       const data = await response.json()
@@ -215,6 +217,8 @@ export default function InventoryPage() {
       setStockMovements(movements)
     } catch (error) {
       console.error('Chyba při načítání pohybů:', error)
+    } finally {
+      setLoadingMovements(false)
     }
   }
 
@@ -437,7 +441,12 @@ export default function InventoryPage() {
 
         {/* Tabulka pohybů */}
         <div ref={movementsSectionRef} className="bg-white rounded-lg shadow-sm border border-gray-200">
-          {filteredMovements.length === 0 ? (
+          {loadingMovements ? (
+            <div className="flex items-center justify-center gap-3 py-16 text-gray-500">
+              <RefreshCw className="w-5 h-5 animate-spin text-purple-500" />
+              <span className="text-sm">Načítám pohyby...</span>
+            </div>
+          ) : filteredMovements.length === 0 ? (
             <div className="text-center py-12">
               <p className="text-gray-500">{stockMovements.length === 0 ? 'Žádné skladové pohyby' : 'Žádné pohyby odpovídající filtru'}</p>
             </div>
