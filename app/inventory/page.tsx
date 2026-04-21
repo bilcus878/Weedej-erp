@@ -167,7 +167,7 @@ export default function InventoryPage() {
       el.scrollIntoView({ behavior: 'smooth', block: 'center' })
       hasScrolledToMovement.current = true
     }
-  }, [highlightMovementId, movementsPage])
+  }, [highlightMovementId, movementsPage, stockMovements])
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
