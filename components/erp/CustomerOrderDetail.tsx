@@ -794,18 +794,24 @@ export function CustomerOrderDetail({
                   return sum + packs * (isVatPayer ? priceWithVatPU : unitPrice)
                 }, 0)
                 return (
-                  <Link
+                  <div
                     key={dn.id}
-                    href={`/delivery-notes?highlight=${dn.id}`}
                     className="grid grid-cols-[1.5fr_1fr_0.8fr_1fr_auto] gap-3 px-4 py-3 bg-white hover:bg-green-50 transition-colors items-center"
-                    onClick={e => e.stopPropagation()}
                   >
-                    <div className="font-medium text-green-700 hover:underline">{dn.deliveryNumber}</div>
+                    <div className="font-medium text-green-700">{dn.deliveryNumber}</div>
                     <div className="text-gray-700">{new Date(dn.deliveryDate).toLocaleDateString('cs-CZ')}</div>
                     <div className="text-gray-700 text-center">{dn.items.length}</div>
                     <div className="font-semibold text-gray-900 text-right">{dnTotal.toLocaleString('cs-CZ')} Kč</div>
-                    <div className="flex justify-end"><ExternalLink className="w-4 h-4 text-green-600" /></div>
-                  </Link>
+                    <div className="flex justify-end">
+                      <Link
+                        href={`/delivery-notes?highlight=${dn.id}`}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-medium rounded-md shadow-sm border border-green-200 transition-colors"
+                        onClick={e => e.stopPropagation()}
+                      >
+                        Zobrazit
+                      </Link>
+                    </div>
+                  </div>
                 )
               })}
             </div>

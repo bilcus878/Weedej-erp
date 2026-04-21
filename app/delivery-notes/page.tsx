@@ -851,7 +851,7 @@ export default function DeliveryNotesPage() {
                           : null
                       const bg = i % 2 === 0 ? 'bg-white' : 'bg-gray-50'
                       const inventoryLink = item.productId && item.inventoryItemId
-                        ? <Link href={`/inventory?selectedProduct=${item.productId}&highlightMovement=${item.inventoryItemId}`} className="inline-flex items-center px-2 py-0.5 bg-green-600 hover:bg-green-700 text-white text-xs rounded font-medium" onClick={e => e.stopPropagation()}>Zobrazit</Link>
+                        ? <Link href={`/inventory?selectedProduct=${item.productId}&highlightMovement=${item.inventoryItemId}`} className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-medium rounded-md shadow-sm border border-green-200 transition-colors" onClick={e => e.stopPropagation()}>Zobrazit</Link>
                         : <span className="text-gray-400 text-xs">-</span>
                       return isVatPayer ? (
                         <div key={i} className={`grid grid-cols-[3fr_1fr_1fr_0.5fr_1fr_0.5fr_1fr_1fr] gap-2 px-4 py-2 ${bg} text-xs`}>

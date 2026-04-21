@@ -559,18 +559,24 @@ export function SupplierOrderDetail({
                   return sum + Number(qty) * Number(item.purchasePrice)
                 }, 0)
                 return (
-                  <Link
+                  <div
                     key={receipt.id}
-                    href={`/receipts?highlight=${receipt.id}`}
                     className="grid grid-cols-[1.5fr_1fr_0.8fr_1fr_auto] gap-3 px-4 py-3 bg-white hover:bg-green-50 transition-colors items-center"
-                    onClick={e => e.stopPropagation()}
                   >
-                    <div className="font-medium text-green-700 hover:underline">{receipt.receiptNumber}</div>
+                    <div className="font-medium text-green-700">{receipt.receiptNumber}</div>
                     <div className="text-gray-700">{new Date(receipt.receiptDate).toLocaleDateString('cs-CZ')}</div>
                     <div className="text-gray-700 text-center">{receipt.items.length}</div>
                     <div className="font-semibold text-gray-900 text-right">{receiptTotal.toLocaleString('cs-CZ')} Kč</div>
-                    <div className="flex justify-end"><ExternalLink className="w-4 h-4 text-green-600" /></div>
-                  </Link>
+                    <div className="flex justify-end">
+                      <Link
+                        href={`/receipts?highlight=${receipt.id}`}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-medium rounded-md shadow-sm border border-green-200 transition-colors"
+                        onClick={e => e.stopPropagation()}
+                      >
+                        Zobrazit
+                      </Link>
+                    </div>
+                  </div>
                 )
               })}
             </div>
