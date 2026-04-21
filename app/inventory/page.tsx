@@ -1,15 +1,16 @@
 'use client'
 
-import { useEffect, useState, useMemo, useRef } from 'react'
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import { formatPrice, formatQuantity, formatDate } from '@/lib/utils'
 import { isNonVatPayer } from '@/lib/vatCalculation'
-import { ArrowLeft, ChevronDown, ChevronUp, ChevronRight, Edit2, RefreshCw, Warehouse } from 'lucide-react'
+import { ChevronDown, ChevronUp, ChevronRight, Edit2, RefreshCw, Warehouse } from 'lucide-react'
 import {
   useEntityPage, EntityPage, LoadingState, ErrorState,
 } from '@/components/erp'
+import { useNavbarMeta } from '@/components/NavbarMetaContext'
 
 export const dynamic = 'force-dynamic'
 
@@ -60,6 +61,7 @@ export default function InventoryPage() {
   const searchParams = useSearchParams()
   const highlightId = searchParams.get('highlight')
   const sectionRef  = useRef<HTMLDivElement>(null)
+  const { setMeta } = useNavbarMeta()
 
   const [categories, setCategories] = useState<any[]>([])
   const [products,   setProducts]   = useState<Product[]>([])
@@ -178,6 +180,24 @@ export default function InventoryPage() {
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
+
+  const handleBackToInventory = useCallback(() => {
+    setSelectedProductId(null)
+    setStockMovements([])
+  }, [])
+
+  useEffect(() => {
+    if (!selectedProductId) return
+    const productSummary = ep.rows.find(s => s.productId === selectedProductId)
+    if (!productSummary) return
+    setMeta({
+      count: `(zobrazeno ${filteredMovements.length} z ${stockMovements.length} pohybů)`,
+      subTitle: productSummary.productName,
+      pageTitleOnClick: handleBackToInventory,
+    })
+    return () => setMeta({ count: '', subTitle: undefined, pageTitleOnClick: null })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProductId, filteredMovements.length, stockMovements.length, handleBackToInventory])
 
   async function fetchProductMovements(productId: string) {
     setLoadingMovements(true)
@@ -340,30 +360,6 @@ export default function InventoryPage() {
 
     return (
       <div className="space-y-6">
-        <div className="bg-gradient-to-r from-slate-50 to-purple-50 border-l-4 border-purple-500 rounded-lg shadow-sm py-4 px-6">
-          <div className="relative">
-            <div className="text-center">
-              <h1 className="text-2xl font-bold text-purple-700">
-                {productSummary?.productName}
-                <span className="text-sm font-normal text-gray-600 ml-3">
-                  (Zobrazeno <span className="font-semibold text-purple-600">{filteredMovements.length}</span> z <span className="font-semibold text-gray-700">{stockMovements.length}</span> pohybů)
-                </span>
-              </h1>
-            </div>
-            <div className="absolute top-0 left-0">
-              <button onClick={() => { setSelectedProductId(null); setStockMovements([]) }} className="px-4 py-2 bg-gradient-to-r from-purple-500 to-purple-600 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl hover:from-purple-600 hover:to-purple-700 transform hover:scale-105 transition-all duration-200 flex items-center gap-2">
-                <ArrowLeft className="h-4 w-4" />
-                Zpět
-              </button>
-            </div>
-            <div className="absolute top-0 right-0">
-              <button onClick={() => setShowManualAdjustmentForm(!showManualAdjustmentForm)} className="px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl hover:from-orange-600 hover:to-orange-700 transform hover:scale-105 transition-all duration-200 flex items-center gap-2">
-                <Edit2 className="h-4 w-4" />
-                Manko/Přebytek
-              </button>
-            </div>
-          </div>
-        </div>
 
         {showManualAdjustmentForm && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -449,7 +445,13 @@ export default function InventoryPage() {
           ) : (
             <>
               <div className="grid grid-cols-[auto_1fr_1fr_1fr_1fr] items-center gap-4 px-4 py-3 bg-gray-100 border-b rounded-t-lg text-xs font-semibold text-gray-700">
-                <div className="w-8"></div>
+                <button
+                  onClick={() => setShowManualAdjustmentForm(true)}
+                  className="flex items-center gap-1 px-2 py-1 bg-orange-50 hover:bg-orange-100 text-orange-700 text-xs font-medium rounded border border-orange-200 transition-colors whitespace-nowrap"
+                >
+                  <Edit2 className="w-3 h-3 shrink-0" />
+                  Manko/Přebytek
+                </button>
                 <div className="text-center">Datum</div>
                 <div className="text-center">Typ</div>
                 <div className="text-center">Množství</div>

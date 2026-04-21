@@ -214,13 +214,22 @@ export function ErpNavbar() {
     <>
       <nav className="fixed top-0 left-0 right-0 z-[60] flex items-center justify-between px-6 md:px-10 h-[57px] bg-white border-b border-gray-200 shadow-sm">
 
-        {/* Left: Logo + page title */}
+        {/* Left: Logo + page title + optional breadcrumb */}
         <div className="flex-1 flex items-center gap-3 min-w-0">
           <Logo variant="dark" size="md" />
           {pageTitle && (
             <>
               <span className="text-gray-300 text-lg font-light select-none">/</span>
-              <span className="text-sm font-medium text-gray-700 truncate">{pageTitle}</span>
+              {meta.pageTitleOnClick
+                ? <button onClick={meta.pageTitleOnClick} className="text-sm font-medium text-blue-600 hover:underline truncate">{pageTitle}</button>
+                : <span className="text-sm font-medium text-gray-700 truncate">{pageTitle}</span>
+              }
+            </>
+          )}
+          {meta.subTitle && (
+            <>
+              <span className="text-gray-300 text-lg font-light select-none">/</span>
+              <span className="text-sm font-medium text-gray-700 truncate">{meta.subTitle}</span>
             </>
           )}
           {meta.count && (

@@ -4,6 +4,8 @@ import { createContext, useContext, useState, type ReactNode } from 'react'
 
 interface NavbarMeta {
   count: string
+  subTitle?: string
+  pageTitleOnClick?: (() => void) | null
 }
 
 interface NavbarMetaCtx {
