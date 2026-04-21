@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { useSession, signOut } from 'next-auth/react'
 import { Logo } from '@/components/ui/Logo'
+import { useNavbarMeta } from '@/components/NavbarMetaContext'
 
 // ─── Nav struktura ────────────────────────────────────────────────────────────
 
@@ -205,6 +206,7 @@ export function ErpNavbar() {
 
   const displayName = session?.user?.name ?? session?.user?.email?.split('@')[0] ?? 'Účet'
   const pageTitle   = getPageTitle(pathname)
+  const { meta }    = useNavbarMeta()
 
   if (pathname === '/login') return null
 
@@ -220,6 +222,9 @@ export function ErpNavbar() {
               <span className="text-gray-300 text-lg font-light select-none">/</span>
               <span className="text-sm font-medium text-gray-700 truncate">{pageTitle}</span>
             </>
+          )}
+          {meta.count && (
+            <span className="text-xs text-gray-400 hidden sm:block whitespace-nowrap">{meta.count}</span>
           )}
         </div>
 

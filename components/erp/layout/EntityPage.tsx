@@ -1,9 +1,10 @@
 'use client'
 
-import { createContext, useContext, type ReactNode } from 'react'
-import { ChevronDown, ChevronRight, RefreshCw } from 'lucide-react'
+import { createContext, useContext, useEffect, type ReactNode } from 'react'
+import { ChevronDown, ChevronRight } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { ColumnDef, AccentColor } from '../table/ColumnDef'
+import { useNavbarMeta } from '@/components/NavbarMetaContext'
 
 // ─── Context ─────────────────────────────────────────────────────────────────
 
@@ -39,39 +40,26 @@ function Root({ children, highlightId }: RootProps) {
 // ─── Header ──────────────────────────────────────────────────────────────────
 
 interface HeaderProps {
-  title?:    string
-  icon?:     LucideIcon
-  color:     AccentColor
-  total:     number
-  filtered:  number
+  title?:     string
+  icon?:      LucideIcon
+  color:      AccentColor
+  total:      number
+  filtered:   number
   onRefresh?: () => void
-  actions?:  ReactNode
+  actions?:   ReactNode
 }
 
-function Header({ color, total, filtered, onRefresh, actions }: HeaderProps) {
+function Header({ color, total, filtered, actions }: HeaderProps) {
   const c = colorMap[color]
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <span className="text-sm text-gray-500">
-        Zobrazeno{' '}
-        <span className={`font-semibold ${c.count}`}>{filtered}</span>
-        {' '}z{' '}
-        <span className="font-semibold text-gray-700">{total}</span>
-      </span>
-      <div className="flex items-center gap-2">
-        {actions}
-        {onRefresh && (
-          <button
-            onClick={onRefresh}
-            className="px-3 py-1.5 bg-white border border-gray-200 text-gray-600 font-medium rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-all flex items-center gap-1.5 text-sm"
-          >
-            <RefreshCw className="h-3.5 w-3.5" />
-            Obnovit
-          </button>
-        )}
-      </div>
-    </div>
-  )
+  const { setMeta } = useNavbarMeta()
+
+  useEffect(() => {
+    setMeta({ count: `Zobrazeno ${filtered} z ${total}` })
+    return () => setMeta({ count: '' })
+  }, [filtered, total, setMeta])
+
+  if (!actions) return null
+  return <div className="flex justify-end">{actions}</div>
 }
 
 // ─── Filters ─────────────────────────────────────────────────────────────────
