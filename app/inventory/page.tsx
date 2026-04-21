@@ -186,19 +186,6 @@ export default function InventoryPage() {
     setStockMovements([])
   }, [])
 
-  useEffect(() => {
-    if (!selectedProductId) return
-    const productSummary = ep.rows.find(s => s.productId === selectedProductId)
-    if (!productSummary) return
-    setMeta({
-      count: `(zobrazeno ${filteredMovements.length} z ${stockMovements.length} pohybů)`,
-      subTitle: productSummary.productName,
-      pageTitleOnClick: handleBackToInventory,
-    })
-    return () => setMeta({ count: '', subTitle: undefined, pageTitleOnClick: null })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedProductId, filteredMovements.length, stockMovements.length, handleBackToInventory])
-
   async function fetchProductMovements(productId: string) {
     setLoadingMovements(true)
     try {
@@ -324,6 +311,19 @@ export default function InventoryPage() {
     if (filterNote)        filtered = filtered.filter(item => item.note?.toLowerCase().includes(filterNote.toLowerCase()))
     return filtered
   }, [stockMovements, filterDate, filterType, filterMinQuantity, filterNote])
+
+  useEffect(() => {
+    if (!selectedProductId) return
+    const productSummary = ep.rows.find(s => s.productId === selectedProductId)
+    if (!productSummary) return
+    setMeta({
+      count: `(zobrazeno ${filteredMovements.length} z ${stockMovements.length} pohybů)`,
+      subTitle: productSummary.productName,
+      pageTitleOnClick: handleBackToInventory,
+    })
+    return () => setMeta({ count: '', subTitle: undefined, pageTitleOnClick: null })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProductId, filteredMovements.length, stockMovements.length, handleBackToInventory])
 
   function SortIcon({ field }: { field: SortField }) {
     if (sortField !== field) return null
