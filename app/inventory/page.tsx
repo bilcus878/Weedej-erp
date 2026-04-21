@@ -147,19 +147,26 @@ export default function InventoryPage() {
     if (selectedProductId) fetchProductMovements(selectedProductId)
   }, [selectedProductId])
 
+  const hasScrolledToMovement = useRef(false)
+
   useEffect(() => {
-    if (highlightMovementId && filteredMovements.length > 0) {
-      const index = filteredMovements.findIndex(m => m.id === highlightMovementId)
-      if (index !== -1) {
-        setMovementsPage(Math.floor(index / movementsPerPage) + 1)
-        setExpandedMovements(new Set([highlightMovementId]))
-        setTimeout(() => {
-          document.getElementById(`movement-${highlightMovementId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-        }, 100)
-      }
-    }
+    if (!highlightMovementId || filteredMovements.length === 0) return
+    const index = filteredMovements.findIndex(m => m.id === highlightMovementId)
+    if (index === -1) return
+    hasScrolledToMovement.current = false
+    setMovementsPage(Math.floor(index / movementsPerPage) + 1)
+    setExpandedMovements(new Set([highlightMovementId]))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [highlightMovementId, stockMovements, movementsPerPage])
+
+  useEffect(() => {
+    if (!highlightMovementId || hasScrolledToMovement.current) return
+    const el = document.getElementById(`movement-${highlightMovementId}`)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      hasScrolledToMovement.current = true
+    }
+  }, [highlightMovementId, movementsPage])
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
