@@ -94,11 +94,13 @@ function orderToDetailData(order: CustomerOrder): OrderDetailData {
     note:          order.note ?? null,
     discountAmount: order.discountAmount ?? null,
     issuedInvoice: order.issuedInvoice ? {
-      id:            order.issuedInvoice.id,
-      invoiceNumber: order.issuedInvoice.invoiceNumber,
-      paymentStatus: isPaid ? 'paid' : 'unpaid',
-      status:        order.status,
-      invoiceDate:   order.orderDate,
+      id:             order.issuedInvoice.id,
+      invoiceNumber:  order.issuedInvoice.invoiceNumber,
+      paymentType:    order.issuedInvoice.paymentType,
+      paymentStatus:  isPaid ? 'paid' : 'unpaid',
+      status:         order.status,
+      invoiceDate:    order.orderDate,
+      dueDate:        order.issuedInvoice.dueDate ?? null,
     } : null,
     deliveryNotes: (order.deliveryNotes || []).map(dn => ({
       id:             dn.id,

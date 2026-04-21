@@ -49,7 +49,7 @@ export interface OrderDetailDeliveryNote {
 export interface OrderDetailInvoice {
   id: string
   invoiceNumber: string
-  paymentType:   string  // 'card' | 'cash' | 'bank_transfer'
+  paymentType?:  string  // 'card' | 'cash' | 'bank_transfer'
   paymentStatus: string  // 'paid' | 'unpaid'
   status: string
   invoiceDate: string
