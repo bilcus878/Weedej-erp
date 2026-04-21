@@ -441,7 +441,7 @@ export function SupplierOrderDetail({
           </h4>
           <div className="text-sm">
             {isVatPayer ? (
-              <div className="grid grid-cols-[3fr_repeat(8,1fr)] gap-2 px-4 py-2 bg-gray-50 font-semibold text-gray-700 border-b text-xs">
+              <div className="grid grid-cols-[3fr_repeat(8,1fr)_0.7fr] gap-2 px-4 py-2 bg-gray-50 font-semibold text-gray-700 border-b text-xs">
                 <div>Produkt</div>
                 <div className="text-center">Obj.</div>
                 <div className="text-center">Přijato</div>
@@ -451,15 +451,17 @@ export function SupplierOrderDetail({
                 <div className="text-center">DPH/ks</div>
                 <div className="text-center">S DPH/ks</div>
                 <div className="text-center">Celkem</div>
+                <div className="text-center">Pohyb</div>
               </div>
             ) : (
-              <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr] gap-3 px-4 py-2 bg-gray-50 font-semibold text-gray-700 border-b">
+              <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_0.7fr] gap-3 px-4 py-2 bg-gray-50 font-semibold text-gray-700 border-b">
                 <div>Produkt</div>
                 <div className="text-right">Objednáno</div>
                 <div className="text-right">Přijato</div>
                 <div className="text-right">Zbývá</div>
                 <div className="text-right">Cena/ks</div>
                 <div className="text-right">Celkem</div>
+                <div className="text-center">Pohyb</div>
               </div>
             )}
 
@@ -477,8 +479,11 @@ export function SupplierOrderDetail({
               if (received >= ordered && ordered > 0) bg = 'bg-green-50'
               else if (received > 0) bg = 'bg-orange-50'
 
+              const invLink = item.productId
+                ? <Link href={`/inventory?selectedProduct=${item.productId}`} className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-medium rounded-md shadow-sm border border-green-200 transition-colors" onClick={e => e.stopPropagation()}>Zobrazit</Link>
+                : <span className="text-gray-300 text-xs">—</span>
               return isVatPayer ? (
-                <div key={item.id} className={`grid grid-cols-[3fr_repeat(8,1fr)] gap-2 px-4 py-2 ${bg} text-xs`}>
+                <div key={item.id} className={`grid grid-cols-[3fr_repeat(8,1fr)_0.7fr] gap-2 px-4 py-2 ${bg} text-xs`}>
                   <div className="font-medium text-gray-900">{item.product?.name || item.productName}</div>
                   <div className="text-center text-gray-600">{ordered} {item.unit}</div>
                   <div className="text-center font-medium" style={{ color: received > 0 ? '#10b981' : '#6b7280' }}>{received} {item.unit}</div>
@@ -488,22 +493,24 @@ export function SupplierOrderDetail({
                   <div className="text-center text-gray-500">{formatPrice(vatPerUnit)}</div>
                   <div className="text-center text-gray-700">{formatPrice(priceWithVat)}</div>
                   <div className="text-center font-semibold text-gray-900">{formatPrice(rowTotal)}</div>
+                  <div className="text-center">{invLink}</div>
                 </div>
               ) : (
-                <div key={item.id} className={`grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr] gap-3 px-4 py-2 ${bg}`}>
+                <div key={item.id} className={`grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_0.7fr] gap-3 px-4 py-2 ${bg}`}>
                   <div className="font-medium text-gray-900">{item.product?.name || item.productName}</div>
                   <div className="text-right text-gray-600">{ordered} {item.unit}</div>
                   <div className="text-right font-medium" style={{ color: received > 0 ? '#10b981' : '#6b7280' }}>{received} {item.unit}</div>
                   <div className="text-right font-medium" style={{ color: remaining === 0 ? '#10b981' : remaining < ordered ? '#f59e0b' : '#374151' }}>{remaining.toFixed(3)} {item.unit}</div>
                   <div className="text-right text-gray-600">{formatPrice(unitPrice)}</div>
                   <div className="text-right font-semibold text-gray-900">{formatPrice(ordered * unitPrice)}</div>
+                  <div className="text-center">{invLink}</div>
                 </div>
               )
             })}
 
             {/* Mezisoučty */}
             {(() => {
-              const colGrid   = isVatPayer ? 'grid-cols-[3fr_repeat(8,1fr)]' : 'grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr]'
+              const colGrid   = isVatPayer ? 'grid-cols-[3fr_repeat(8,1fr)_0.7fr]' : 'grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_0.7fr]'
               const labelSpan = isVatPayer ? 'col-span-8' : 'col-span-5'
               const subtotal  = order.items.reduce((sum, item) => sum + Number(item.quantity) * Number(item.priceWithVat), 0)
               if (!order.discountAmount || order.discountAmount <= 0) {

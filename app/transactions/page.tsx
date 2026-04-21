@@ -9,8 +9,9 @@ import { generateInvoicePDF } from '@/lib/generateInvoicePDF'
 import { isNonVatPayer, DEFAULT_VAT_RATE } from '@/lib/vatCalculation'
 import {
   useEntityPage, useFilters, EntityPage, LoadingState, ErrorState,
+  CustomerOrderDetail,
 } from '@/components/erp'
-import type { ColumnDef, SelectOption } from '@/components/erp'
+import type { ColumnDef, SelectOption, OrderDetailData } from '@/components/erp'
 import Button from '@/components/ui/Button'
 
 export const dynamic = 'force-dynamic'
@@ -237,189 +238,73 @@ export default function TransactionsPage() {
           return ''
         }}
         emptyMessage={ep.rows.length === 0 ? 'Žádné faktury. Synchronizuj transakce ze SumUp API.' : 'Žádné faktury odpovídají zvoleným filtrům.'}
-        renderDetail={tx => (
-          <>
-            {/* SumUp receipt + invoice banner */}
-            {tx.receiptId && (() => {
-              const match = tx.receiptId.match(/urn:sumup:pos:sale:([^:]+):([a-f0-9-]{36})[:;]/)
-              if (!match) return null
-              const receiptUrl = `https://sales-receipt.sumup.com/pos/public/v1/${match[1]}/receipt/${match[2]}?format=html`
-              return (
-                <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded">
-                  <div className="text-sm text-center flex items-center justify-center gap-4">
-                    {tx.issuedInvoice && (
-                      <>
-                        <span className="text-gray-600">Faktura: </span>
-                        <Link href={`/invoices/issued?highlight=${tx.issuedInvoice.id}`} className="text-blue-600 hover:underline font-medium">
-                          {tx.issuedInvoice.invoiceNumber}
-                          <ExternalLink className="w-3 h-3 inline ml-1" />
-                        </Link>
-                      </>
-                    )}
-                    <div className="flex items-center gap-2">
-                      <span className="text-gray-600">SumUp účtenka: </span>
-                      <a href={receiptUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline font-medium">
-                        Zobrazit<ExternalLink className="w-3 h-3 inline ml-1" />
-                      </a>
-                    </div>
+        renderDetail={tx => {
+          const detail: OrderDetailData = {
+            id: tx.id,
+            orderNumber: tx.transactionCode,
+            orderDate: tx.transactionDate,
+            status: tx.status === 'completed' ? 'paid' : tx.status === 'storno' ? 'cancelled' : 'new',
+            totalAmount: tx.totalAmount,
+            paidAt: tx.transactionDate,
+            customerName: tx.deliveryNote?.customerOrder?.customer?.name || tx.customer?.name || tx.customerName || 'Anonymní zákazník',
+            paymentReference: tx.sumupTransactionCode || null,
+            items: tx.items
+              .filter((i: any) => i.productId !== null)
+              .map((i: any) => ({
+                id: i.id,
+                productId: i.productId,
+                productName: i.productName || i.product?.name,
+                quantity: Number(i.quantity),
+                unit: i.unit,
+                price: Number(i.price || 0),
+                vatRate: Number(i.vatRate || 0),
+                vatAmount: Number(i.vatAmount || 0),
+                priceWithVat: Number(i.priceWithVat || 0),
+                product: i.product ? { id: i.product.id, name: i.product.name, price: Number(i.price || 0), unit: i.unit } : null,
+              })),
+            issuedInvoice: tx.issuedInvoice ? {
+              id: tx.issuedInvoice.id,
+              invoiceNumber: tx.issuedInvoice.invoiceNumber,
+              paymentStatus: 'paid',
+              status: 'completed',
+              invoiceDate: tx.transactionDate,
+            } : null,
+            deliveryNotes: tx.deliveryNote ? [{
+              id: tx.deliveryNote.id,
+              deliveryNumber: tx.deliveryNote.deliveryNumber,
+              deliveryDate: tx.deliveryNote.deliveryDate,
+              status: 'active',
+              items: (tx.deliveryNote.items || []).map((i: any) => ({
+                id: i.id,
+                quantity: Number(i.quantity),
+                unit: 'ks',
+              })),
+            }] : [],
+          }
+
+          return (
+            <>
+              {tx.receiptId && (() => {
+                const match = tx.receiptId!.match(/urn:sumup:pos:sale:([^:]+):([a-f0-9-]{36})[:;]/)
+                if (!match) return null
+                const receiptUrl = `https://sales-receipt.sumup.com/pos/public/v1/${match[1]}/receipt/${match[2]}?format=html`
+                return (
+                  <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-center flex items-center justify-center gap-4">
+                    <span className="text-gray-600">SumUp účtenka:</span>
+                    <a href={receiptUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline font-medium flex items-center gap-1">
+                      Zobrazit <ExternalLink className="w-3 h-3" />
+                    </a>
                   </div>
-                </div>
-              )
-            })()}
-
-            {/* PDF invoice */}
-            {tx.transactionCode.match(/^\d{7}$/) && (
-              <div className="mb-3">
-                <span className="text-sm font-medium text-gray-700">PDF faktura: </span>
-                <button onClick={() => handlePrintInvoice(tx)} className="text-blue-600 hover:underline text-sm font-medium">
-                  Generovat
-                </button>
-              </div>
-            )}
-
-            {/* Transaction info */}
-            <div className="mt-6 mb-6 border border-gray-200 rounded-lg overflow-hidden">
-              <h4 className="font-bold text-base text-gray-900 px-4 py-3 bg-gray-100 border-b border-gray-200">Informace o transakci</h4>
-              <div className="border-b">
-                <h5 className="text-sm font-semibold text-gray-800 px-4 py-3 bg-gray-50">Obecné</h5>
-                <div className="text-sm">
-                  <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-white">
-                    <div><span className="text-gray-600">Datum vytvoření:</span> <span className="font-medium">{new Date(tx.transactionDate).toLocaleDateString('cs-CZ')}</span></div>
-                    <div className="border-l border-gray-200 mx-4" />
-                    <div><span className="text-gray-600">Vydáno:</span> <span className="font-medium">{tx.deliveryNote ? new Date(tx.deliveryNote.deliveryDate).toLocaleDateString('cs-CZ') : new Date(tx.transactionDate).toLocaleDateString('cs-CZ')}</span></div>
-                  </div>
-                  <div className="grid grid-cols-[1fr_auto_1fr] px-4 py-2 bg-gray-50">
-                    <div><span className="text-gray-600">Zaplaceno:</span> <span className="font-medium">{new Date(tx.transactionDate).toLocaleDateString('cs-CZ')}</span></div>
-                    <div className="border-l border-gray-200 mx-4" />
-                    <div><span className="text-gray-600">Typ platby:</span> <span className="font-medium">
-                      {tx.paymentType === 'cash' ? 'Hotovost' : tx.paymentType === 'card' ? 'Karta' : tx.paymentType === 'transfer' ? 'Bankovní převod' : '-'}
-                    </span></div>
-                  </div>
-                </div>
-              </div>
-              <div>
-                <h5 className="text-sm font-semibold text-gray-800 px-4 py-3 bg-gray-50">Odběratel / Zákazník</h5>
-                <div className="px-4 py-2 bg-white text-sm">
-                  <span className="text-gray-600">Název:</span>
-                  <span className="font-medium ml-2">
-                    {tx.deliveryNote?.customerOrder?.customer?.name || tx.customer?.name || tx.customerName || 'Anonymní zákazník'}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Items table */}
-            <div className="mt-6 mb-6 border border-gray-200 rounded-lg overflow-hidden">
-              <h4 className="font-bold text-base text-gray-900 px-4 py-3 bg-gray-100 border-b border-gray-200">
-                Položky ({tx.items.filter((i: any) => i.productId !== null).length})
-              </h4>
-              <div className="text-sm">
-                {isVatPayer ? (
-                  <div className="grid grid-cols-[3fr_repeat(6,1fr)] gap-2 px-4 py-2 bg-gray-50 font-semibold text-gray-700 border-b text-xs">
-                    <div>Produkt</div>
-                    <div className="text-center">Množství</div>
-                    <div className="text-center">DPH</div>
-                    <div className="text-center">Cena/ks</div>
-                    <div className="text-center">DPH/ks</div>
-                    <div className="text-center">S DPH/ks</div>
-                    <div className="text-center">Celkem</div>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-3 px-4 py-2 bg-gray-50 font-semibold text-gray-700 border-b">
-                    <div>Produkt</div>
-                    <div className="text-right">Množství</div>
-                    <div className="text-right">Cena za kus</div>
-                    <div className="text-right">Celkem</div>
-                  </div>
-                )}
-
-                {tx.items.filter((i: any) => i.productId !== null).map((item: any, idx: number) => {
-                  const catalog       = products.find(p => p.id === item.product.id)
-                  const vatRate       = Number(item.vatRate || (catalog as any)?.vatRate || DEFAULT_VAT_RATE)
-                  const isItemNonVat  = isNonVatPayer(vatRate)
-                  const unitPrice     = Number(item.price || 0)
-                  const vatPerUnit    = Number(item.vatAmount || 0)
-                  const priceWithVat  = Number(item.priceWithVat || 0)
-                  const totalWithVat  = priceWithVat * Number(item.quantity)
-                  const totalNoVat    = unitPrice * Number(item.quantity)
-
-                  return isVatPayer ? (
-                    <div key={item.id} className={`grid grid-cols-[3fr_repeat(6,1fr)] gap-2 px-4 py-2 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} text-xs`}>
-                      <div className="text-gray-900">{item.product.name}</div>
-                      <div className="text-center text-gray-700">{formatQuantity(item.quantity, item.unit)}</div>
-                      <div className="text-center text-gray-500">{isItemNonVat ? '-' : `${vatRate}%`}</div>
-                      <div className="text-center text-gray-700">{formatPrice(unitPrice)}</div>
-                      <div className="text-center text-gray-500">{isItemNonVat ? '-' : formatPrice(vatPerUnit)}</div>
-                      <div className="text-center text-gray-700">{formatPrice(priceWithVat)}</div>
-                      <div className="text-center font-semibold text-gray-900">{formatPrice(totalWithVat)}</div>
-                    </div>
-                  ) : (
-                    <div key={item.id} className={`grid grid-cols-[2fr_1fr_1fr_1fr] gap-3 px-4 py-2 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                      <div className="text-gray-900">{item.product.name}</div>
-                      <div className="text-right text-gray-700">{formatQuantity(item.quantity, item.unit)}</div>
-                      <div className="text-right text-gray-700">{formatPrice(unitPrice)}</div>
-                      <div className="text-right font-semibold text-gray-900">{formatPrice(totalNoVat)}</div>
-                    </div>
-                  )
-                })}
-
-                {/* Discount / subtotal */}
-                {(() => {
-                  const catalogTotal   = tx.items.filter((i: any) => i.productId !== null).reduce((sum: number, i: any) => sum + (Number(i.priceWithVat || i.price || 0) * Number(i.quantity || 1)), 0)
-                  const discountItem   = tx.items.find((i: any) => i.productId === null)
-                  const discountAmount = discountItem ? (Number(discountItem.priceWithVat) || Number(discountItem.price) || 0) * Number(discountItem.quantity || 1) : 0
-                  if (discountAmount === 0) return null
-                  const spanClass = isVatPayer ? 'col-span-6' : 'col-span-3'
-                  return (
-                    <>
-                      <div className={`grid ${isVatPayer ? 'grid-cols-[3fr_repeat(6,1fr)]' : 'grid-cols-[2fr_1fr_1fr_1fr]'} gap-2 px-4 py-2 bg-gray-50 border-t text-sm`}>
-                        <div className={spanClass}>Mezisoučet</div>
-                        <div className="text-center">{formatPrice(catalogTotal)}</div>
-                      </div>
-                      <div className={`grid ${isVatPayer ? 'grid-cols-[3fr_repeat(6,1fr)]' : 'grid-cols-[2fr_1fr_1fr_1fr]'} gap-2 px-4 py-2 bg-yellow-50 border-t text-sm`}>
-                        <div className={spanClass} style={{ fontWeight: 500, color: '#111827' }}>Sleva</div>
-                        <div className="text-center text-red-600 font-medium">{formatPrice(discountAmount)}</div>
-                      </div>
-                    </>
-                  )
-                })()}
-
-                <div className={`grid ${isVatPayer ? 'grid-cols-[3fr_repeat(6,1fr)]' : 'grid-cols-[2fr_1fr_1fr_1fr]'} gap-2 px-4 py-2 bg-gray-100 font-bold border-t text-sm`}>
-                  <div className={isVatPayer ? 'col-span-6' : 'col-span-3'}>{isVatPayer ? 'Celkem zaplaceno s DPH' : 'Celkem zaplaceno'}</div>
-                  <div className={isVatPayer ? 'text-center' : 'text-right'}>{formatPrice(tx.totalAmount)}</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Delivery note */}
-            {tx.deliveryNote && (
-              <div className="mt-6 mb-6 border border-gray-200 rounded-lg overflow-hidden">
-                <h4 className="font-bold text-base text-gray-900 px-4 py-3 bg-gray-100 border-b border-gray-200">Výdejky (1)</h4>
-                <div className="text-sm">
-                  <div className="grid grid-cols-[1.5fr_1fr_0.8fr_1fr_auto] gap-3 px-4 py-2 bg-gray-50 font-semibold text-gray-700 border-b">
-                    <div>Číslo výdejky</div>
-                    <div>Datum</div>
-                    <div className="text-center">Položek</div>
-                    <div className="text-right">Částka</div>
-                    <div className="w-4" />
-                  </div>
-                  <Link
-                    href={`/delivery-notes?highlight=${tx.deliveryNote.id}`}
-                    className="grid grid-cols-[1.5fr_1fr_0.8fr_1fr_auto] gap-3 px-4 py-3 bg-white hover:bg-blue-50 transition-colors items-center"
-                  >
-                    <span className="font-medium text-blue-600 hover:underline">{tx.deliveryNote.deliveryNumber}</span>
-                    <span className="text-gray-700">{new Date(tx.deliveryNote.deliveryDate).toLocaleDateString('cs-CZ')}</span>
-                    <span className="text-gray-700 text-center">{tx.deliveryNote.items?.length || 0}</span>
-                    <span className="font-semibold text-gray-900 text-right">
-                      {(tx.deliveryNote.items?.reduce((s: number, i: any) => s + Number(i.quantity) * Number(i.product?.price || 0), 0) || 0).toLocaleString('cs-CZ')} Kč
-                    </span>
-                    <ExternalLink className="w-4 h-4 text-blue-600" />
-                  </Link>
-                </div>
-              </div>
-            )}
-          </>
-        )}
+                )
+              })()}
+              <CustomerOrderDetail
+                order={detail}
+                isVatPayer={isVatPayer}
+                onPrintPdf={tx.transactionCode.match(/^\d{7}$/) ? () => handlePrintInvoice(tx) : undefined}
+              />
+            </>
+          )
+        }}
       />
 
       <EntityPage.Pagination page={ep.page} total={ep.totalPages} onChange={ep.setPage} />

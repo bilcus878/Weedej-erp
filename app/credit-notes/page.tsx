@@ -3,12 +3,12 @@
 import { useState, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { FileText, XCircle } from 'lucide-react'
-import { formatPrice, formatQuantity } from '@/lib/utils'
+import { formatPrice } from '@/lib/utils'
 import {
   useEntityPage, useFilters, EntityPage, LoadingState, ErrorState,
-  DetailSection, DetailRow, LinkedDocumentBanner, PartySection, ItemsTable, ActionToolbar,
+  LinkedDocumentBanner, ActionToolbar, CustomerOrderDetail,
 } from '@/components/erp'
-import type { ErpItem, ColumnDef, SelectOption } from '@/components/erp'
+import type { ColumnDef, SelectOption, OrderDetailData } from '@/components/erp'
 
 export const dynamic = 'force-dynamic'
 
@@ -177,78 +177,74 @@ export default function CreditNotesPage() {
         expanded={ep.expanded}
         onToggle={ep.toggleExpand}
         rowClassName={r => r.status === 'storno' ? 'bg-red-50 opacity-70' : ''}
-        renderDetail={cn => (
-          <>
-            {(() => {
-              const links = [
-                { label: 'Faktura', value: cn.invoiceNumber, href: `/invoices/issued?highlight=${cn.issuedInvoiceId}` },
-                ...(cn.customerOrderId ? [{ label: 'Objednávka', value: cn.customerOrderNumber || 'Zobrazit', href: `/customer-orders?highlight=${cn.customerOrderId}` }] : []),
-                ...(!cn.customerOrderId && cn.transactionId ? [{ label: 'Transakce', value: cn.transactionCode || 'Zobrazit', href: `/transactions?highlight=${cn.transactionId}` }] : []),
-              ]
-              return <LinkedDocumentBanner links={links} color="purple" />
-            })()}
+        renderDetail={cn => {
+          const detail: OrderDetailData = {
+            id: cn.id,
+            orderNumber: cn.creditNoteNumber,
+            orderDate: cn.creditNoteDate,
+            status: cn.status === 'storno' ? 'cancelled' : 'paid',
+            totalAmount: cn.totalAmount,
+            customerName: cn.customer?.name || cn.customerName || null,
+            customerEmail: cn.customerEmail,
+            customerPhone: cn.customerPhone,
+            customerAddress: cn.customerAddress,
+            billingIco: cn.customerIco || null,
+            billingName: cn.customer?.name || cn.customerName || null,
+            note: [cn.reason, cn.note].filter(Boolean).join(' · ') || null,
+            stornoAt: cn.stornoAt,
+            stornoReason: cn.stornoReason,
+            items: cn.items.map(i => ({
+              id: i.id,
+              productId: null,
+              productName: i.productName,
+              quantity: i.quantity,
+              unit: i.unit,
+              price: i.price,
+              vatRate: i.vatRate,
+              vatAmount: i.vatAmount,
+              priceWithVat: i.priceWithVat,
+            })),
+            issuedInvoice: {
+              id: cn.issuedInvoiceId,
+              invoiceNumber: cn.invoiceNumber,
+              paymentStatus: 'paid',
+              status: 'active',
+              invoiceDate: cn.creditNoteDate,
+            },
+          }
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <DetailSection title="Informace o dobropisu" icon={FileText}>
-                <div className="space-y-1.5">
-                  <DetailRow label="Datum vystavení" value={new Date(cn.creditNoteDate).toLocaleDateString('cs-CZ')} />
-                  <DetailRow label="Původní faktura"  value={cn.invoiceNumber} />
-                  <DetailRow label="Důvod"            value={cn.reason || undefined} />
-                  <DetailRow label="Poznámka"         value={cn.note   || undefined} />
-                  {cn.status === 'storno' && (
-                    <>
-                      <DetailRow label="Důvod storna" value={<span className="text-red-600">{cn.stornoReason || '—'}</span>} />
-                      <DetailRow label="Datum storna" value={cn.stornoAt ? <span className="text-red-600">{new Date(cn.stornoAt).toLocaleDateString('cs-CZ')}</span> : undefined} />
-                    </>
-                  )}
-                </div>
-              </DetailSection>
+          return (
+            <>
+              {(() => {
+                const links = [
+                  { label: 'Faktura', value: cn.invoiceNumber, href: `/invoices/issued?highlight=${cn.issuedInvoiceId}` },
+                  ...(cn.customerOrderId ? [{ label: 'Objednávka', value: cn.customerOrderNumber || 'Zobrazit', href: `/customer-orders?highlight=${cn.customerOrderId}` }] : []),
+                  ...(!cn.customerOrderId && cn.transactionId ? [{ label: 'Transakce', value: cn.transactionCode || 'Zobrazit', href: `/transactions?highlight=${cn.transactionId}` }] : []),
+                ]
+                return <LinkedDocumentBanner links={links} color="purple" />
+              })()}
 
-              <PartySection
-                title="Odběratel / Zákazník"
-                party={{
-                  name:        cn.customer?.name        || cn.customerName        || 'Bez odběratele',
-                  entityType:  cn.customer?.entityType  || cn.customerEntityType  || 'company',
-                  contact:     cn.customer?.contact,
-                  address:     cn.customerAddress       || cn.customer?.address,
-                  phone:       cn.customerPhone         || cn.customer?.phone,
-                  ico:         cn.customerIco           || cn.customer?.ico,
-                  dic:         cn.customerDic           || cn.customer?.dic,
-                  email:       cn.customerEmail         || cn.customer?.email,
-                  website:     cn.customer?.website,
-                  bankAccount: cn.customer?.bankAccount,
-                  note:        cn.customer?.note,
-                }}
-              />
-            </div>
-
-            {cn.items.length === 0 ? (
-              <p className="text-red-600">Dobropis nemá žádné položky!</p>
-            ) : (
-              <ItemsTable
-                items={cn.items.map(i => ({ ...i }) as ErpItem)}
+              <CustomerOrderDetail
+                order={detail}
                 isVatPayer={isVatPayer}
-                showNegative={true}
-                totalAmount={cn.totalAmount}
-                formatQty={(qty, unit) => formatQuantity(qty, unit || '')}
               />
-            )}
 
-            {cn.status !== 'storno' && (
-              <ActionToolbar
-                right={
-                  <button
-                    onClick={() => handleStorno(cn)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded-lg transition-colors"
-                  >
-                    <XCircle className="w-3.5 h-3.5" />
-                    Stornovat
-                  </button>
-                }
-              />
-            )}
-          </>
-        )}
+              {cn.status !== 'storno' && (
+                <ActionToolbar
+                  right={
+                    <button
+                      onClick={() => handleStorno(cn)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded-lg transition-colors"
+                    >
+                      <XCircle className="w-3.5 h-3.5" />
+                      Stornovat
+                    </button>
+                  }
+                />
+              )}
+            </>
+          )
+        }}
       />
 
       <EntityPage.Pagination page={ep.page} total={ep.totalPages} onChange={ep.setPage} />
