@@ -2,31 +2,20 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
-import { Users, Edit2, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
-import { PartySection, ActionToolbar } from '@/components/erp'
+import { Users, Edit2, Trash2 } from 'lucide-react'
 import {
   useEntityPage, useFilters, EntityPage, LoadingState, ErrorState,
+  PartySection, ActionToolbar,
 } from '@/components/erp'
 import type { ColumnDef } from '@/components/erp'
+import { CreateOrderPopup } from '@/components/warehouse/create/CreateOrderPopup'
 import { EntityOrdersButton, type EntityOrder } from '@/components/warehouse/entity/EntityOrdersButton'
 
 export const dynamic = 'force-dynamic'
 
-function CustomerOrdersFetcher({ customerId, onAction }: { customerId: string; onAction: (id: string) => void }) {
-  const [orders, setOrders] = useState<EntityOrder[]>([])
-  useEffect(() => {
-    fetch(`/api/customer-orders?customerId=${customerId}`)
-      .then(r => r.json())
-      .then((data: Array<{ id: string; orderNumber: string; orderDate: string; status: string; totalAmount?: number }>) =>
-        setOrders(data.map(o => ({ id: o.id, orderNumber: o.orderNumber, orderDate: o.orderDate, status: o.status, totalAmount: o.totalAmount })))
-      )
-      .catch(() => {})
-  }, [customerId])
-  return <EntityOrdersButton entityType="customer" entityId={customerId} orders={orders} onAction={onAction} />
-}
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Customer {
   id: string
@@ -48,9 +37,26 @@ const emptyForm = {
   ico: '', dic: '', bankAccount: '', website: '', address: '', note: '',
 }
 
+// ─── Lazy order fetcher ───────────────────────────────────────────────────────
+
+function CustomerOrdersFetcher({ customerId, onAction }: { customerId: string; onAction: (id: string) => void }) {
+  const [orders, setOrders] = useState<EntityOrder[]>([])
+  useEffect(() => {
+    fetch(`/api/customer-orders?customerId=${customerId}`)
+      .then(r => r.json())
+      .then((data: Array<{ id: string; orderNumber: string; orderDate: string; status: string; totalAmount?: number }>) =>
+        setOrders(data.map(o => ({ id: o.id, orderNumber: o.orderNumber, orderDate: o.orderDate, status: o.status, totalAmount: o.totalAmount })))
+      )
+      .catch(() => {})
+  }, [customerId])
+  return <EntityOrdersButton entityType="customer" entityId={customerId} orders={orders} onAction={onAction} />
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
 export default function CustomersPage() {
   const highlightId = useSearchParams().get('highlight')
-  const router = useRouter()
+  const router      = useRouter()
 
   const [showForm,        setShowForm]        = useState(false)
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null)
@@ -60,21 +66,23 @@ export default function CustomersPage() {
 
   const filters = useFilters<Customer>([
     { key: 'name',    type: 'text', placeholder: 'Název...',    match: (r, v) => r.name.toLowerCase().includes(v.toLowerCase()) },
-    { key: 'contact', type: 'text', placeholder: 'Kontakt...',  match: (r, v) => (r.contact || '').toLowerCase().includes(v.toLowerCase()) },
-    { key: 'email',   type: 'text', placeholder: 'Email...',    match: (r, v) => (r.email   || '').toLowerCase().includes(v.toLowerCase()) },
-    { key: 'phone',   type: 'text', placeholder: 'Telefon...',  match: (r, v) => (r.phone   || '').toLowerCase().includes(v.toLowerCase()) },
-    { key: 'web',     type: 'text', placeholder: 'Web...',      match: (r, v) => (r.website || '').toLowerCase().includes(v.toLowerCase()) },
+    { key: 'contact', type: 'text', placeholder: 'Kontakt...',  match: (r, v) => (r.contact  || '').toLowerCase().includes(v.toLowerCase()) },
+    { key: 'email',   type: 'text', placeholder: 'Email...',    match: (r, v) => (r.email    || '').toLowerCase().includes(v.toLowerCase()) },
+    { key: 'phone',   type: 'text', placeholder: 'Telefon...',  match: (r, v) => (r.phone    || '').toLowerCase().includes(v.toLowerCase()) },
+    { key: 'web',     type: 'text', placeholder: 'Web...',      match: (r, v) => (r.website  || '').toLowerCase().includes(v.toLowerCase()) },
   ], () => resetPage.current())
 
   const ep = useEntityPage<Customer>({
     fetchData: () => fetch('/api/customers').then(r => r.json()),
-    getRowId: r => r.id,
-    filterFn: filters.fn,
+    getRowId:  r => r.id,
+    filterFn:  filters.fn,
     highlightId,
   })
   resetPage.current = () => ep.setPage(1)
 
-  function handleAdd() {
+  // ─── Handlers ───────────────────────────────────────────────────────────────
+
+  function handleOpenNew() {
     setEditingCustomer(null)
     setFormData({ ...emptyForm })
     setShowForm(true)
@@ -91,10 +99,9 @@ export default function CustomersPage() {
       note: customer.note || '',
     })
     setShowForm(true)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  function handleCancel() {
+  function handleClose() {
     setShowForm(false)
     setEditingCustomer(null)
     setFormData({ ...emptyForm })
@@ -108,18 +115,16 @@ export default function CustomersPage() {
           method: 'PATCH', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(formData),
         })
-        if (res.ok) alert('Odběratel úspěšně upraven!')
-        else alert('Nepodařilo se upravit odběratele')
+        if (!res.ok) { alert('Nepodařilo se upravit odběratele'); return }
       } else {
         const res = await fetch('/api/customers', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(formData),
         })
-        if (res.ok) alert('Odběratel úspěšně přidán!')
-        else alert('Nepodařilo se přidat odběratele')
+        if (!res.ok) { alert('Nepodařilo se přidat odběratele'); return }
       }
       await ep.refresh()
-      handleCancel()
+      handleClose()
     } catch {
       alert('Nepodařilo se uložit odběratele')
     }
@@ -129,20 +134,24 @@ export default function CustomersPage() {
     if (!confirm(`Opravdu chceš smazat odběratele "${customer.name}"?`)) return
     try {
       const res = await fetch(`/api/customers/${customer.id}`, { method: 'DELETE' })
-      if (res.ok) { alert('Odběratel smazán!'); await ep.refresh() }
+      if (res.ok) await ep.refresh()
       else alert('Nepodařilo se smazat odběratele')
     } catch {
       alert('Nepodařilo se smazat odběratele')
     }
   }
 
+  // ─── Columns ────────────────────────────────────────────────────────────────
+
   const columns: ColumnDef<Customer>[] = [
-    { key: 'name',    header: 'Název',            render: r => <p className="text-sm font-semibold text-gray-900 truncate">{r.name}</p> },
-    { key: 'contact', header: 'Kontaktní osoba',  render: r => <p className="text-sm text-gray-700 truncate">{r.contact || '-'}</p> },
-    { key: 'email',   header: 'Email',             render: r => <p className="text-sm text-gray-700 truncate">{r.email || '-'}</p> },
-    { key: 'phone',   header: 'Telefon',           render: r => <p className="text-sm text-gray-700 truncate">{r.phone || '-'}</p> },
-    { key: 'website', header: 'Web',               render: r => <p className="text-sm text-gray-700 truncate">{r.website || '-'}</p> },
+    { key: 'name',    header: 'Název',           render: r => <p className="text-sm font-semibold text-gray-900 truncate">{r.name}</p> },
+    { key: 'contact', header: 'Kontaktní osoba', render: r => <p className="text-sm text-gray-600 truncate">{r.contact || '–'}</p> },
+    { key: 'email',   header: 'Email',           render: r => <p className="text-sm text-gray-600 truncate">{r.email   || '–'}</p> },
+    { key: 'phone',   header: 'Telefon',         render: r => <p className="text-sm text-gray-600 truncate">{r.phone   || '–'}</p> },
+    { key: 'website', header: 'Web',             render: r => <p className="text-sm text-gray-600 truncate">{r.website || '–'}</p> },
   ]
+
+  // ─── Render ─────────────────────────────────────────────────────────────────
 
   if (ep.loading) return <LoadingState />
   if (ep.error)   return <ErrorState message={ep.error} onRetry={ep.refresh} />
@@ -158,138 +167,6 @@ export default function CustomersPage() {
         onRefresh={ep.refresh}
       />
 
-      {/* Add/Edit form card */}
-      <Card className="border-2 border-blue-300 bg-blue-50 shadow-lg">
-        <CardHeader
-          className="cursor-pointer hover:bg-blue-100 transition-colors"
-          onClick={() => {
-            if (!showForm) handleAdd()
-            else if (!editingCustomer) setShowForm(false)
-          }}
-        >
-          <div className="flex items-center gap-2">
-            {showForm ? <ChevronDown className="h-6 w-6 text-blue-600" /> : <ChevronRight className="h-6 w-6 text-blue-600" />}
-            <CardTitle className="text-blue-900 flex items-center gap-2">
-              <Users className="w-5 h-5" />
-              {editingCustomer ? 'Upravit odběratele' : 'Nový odběratel'}
-            </CardTitle>
-          </div>
-        </CardHeader>
-
-        {showForm && (
-          <CardContent className="p-6 bg-white">
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-5 border-l-4 border-purple-500 shadow-sm">
-                <h3 className="text-lg font-semibold mb-4 text-gray-800 flex items-center gap-2">
-                  <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                  Základní údaje <span className="text-red-500 text-sm">*</span>
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Typ subjektu *</label>
-                    <div className="flex gap-4">
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="radio" name="entityType" value="company" checked={formData.entityType === 'company'} onChange={e => setFormData({ ...formData, entityType: e.target.value })} className="w-4 h-4" />
-                        <span className="text-sm">🏢 Firma</span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="radio" name="entityType" value="individual" checked={formData.entityType === 'individual'} onChange={e => setFormData({ ...formData, entityType: e.target.value })} className="w-4 h-4" />
-                        <span className="text-sm">👤 Fyzická osoba</span>
-                      </label>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {formData.entityType === 'individual' ? 'Jméno a příjmení *' : 'Název odběratele *'}
-                    </label>
-                    <Input value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder={formData.entityType === 'individual' ? 'Jan Novák' : 'Odběratel s.r.o.'} className="bg-white border-purple-200 focus:border-purple-400 focus:ring-purple-400" required />
-                  </div>
-                  {formData.entityType === 'company' && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Kontaktní osoba</label>
-                      <Input value={formData.contact} onChange={e => setFormData({ ...formData, contact: e.target.value })} placeholder="Jan Novák" className="bg-white border-purple-200 focus:border-purple-400 focus:ring-purple-400" />
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-5 border-l-4 border-blue-500 shadow-sm">
-                <h3 className="text-lg font-semibold mb-4 text-gray-800 flex items-center gap-2">
-                  <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                  </svg>
-                  Kontaktní údaje
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                    <Input type="email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} placeholder="info@odberatel.cz" className="bg-white border-blue-200 focus:border-blue-400 focus:ring-blue-400" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Telefon</label>
-                    <Input type="tel" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} placeholder="+420 123 456 789" className="bg-white border-blue-200 focus:border-blue-400 focus:ring-blue-400" />
-                  </div>
-                  {formData.entityType === 'company' && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Web</label>
-                      <Input value={formData.website} onChange={e => setFormData({ ...formData, website: e.target.value })} placeholder="https://www.odberatel.cz" className="bg-white border-blue-200 focus:border-blue-400 focus:ring-blue-400" />
-                    </div>
-                  )}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Adresa *</label>
-                    <Input value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} placeholder="Ulice 123, 110 00 Praha 1" className="bg-white border-blue-200 focus:border-blue-400 focus:ring-blue-400" required />
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-5 border-l-4 border-green-500 shadow-sm">
-                <h3 className="text-lg font-semibold mb-4 text-gray-800 flex items-center gap-2">
-                  <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Finanční údaje
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  {formData.entityType === 'company' && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">IČO</label>
-                      <Input value={formData.ico} onChange={e => setFormData({ ...formData, ico: e.target.value })} placeholder="12345678" className="bg-white border-green-200 focus:border-green-400 focus:ring-green-400" />
-                    </div>
-                  )}
-                  {formData.entityType === 'company' && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">DIČ</label>
-                      <Input value={formData.dic} onChange={e => setFormData({ ...formData, dic: e.target.value })} placeholder="CZ12345678" className="bg-white border-green-200 focus:border-green-400 focus:ring-green-400" />
-                    </div>
-                  )}
-                  <div className="col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Číslo účtu</label>
-                    <Input value={formData.bankAccount} onChange={e => setFormData({ ...formData, bankAccount: e.target.value })} placeholder="123456789/0100" className="bg-white border-green-200 focus:border-green-400 focus:ring-green-400" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-lg p-5 border-l-4 border-amber-500 shadow-sm">
-                <h3 className="text-lg font-semibold mb-3 text-gray-800 flex items-center gap-2">
-                  <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                  Poznámka
-                </h3>
-                <Input value={formData.note} onChange={e => setFormData({ ...formData, note: e.target.value })} placeholder="Volitelná poznámka k odběrateli..." className="bg-white border-amber-200 focus:border-amber-400 focus:ring-amber-400" />
-              </div>
-
-              <div className="flex gap-3 justify-end">
-                <Button type="button" variant="secondary" onClick={handleCancel}>Zrušit</Button>
-                <Button type="submit">{editingCustomer ? 'Uložit změny' : 'Přidat odběratele'}</Button>
-              </div>
-            </form>
-          </CardContent>
-        )}
-      </Card>
-
       {filters.bar('auto 1fr 1fr 1fr 1fr 1fr')}
 
       <EntityPage.Table
@@ -298,6 +175,123 @@ export default function CustomersPage() {
         getRowId={r => r.id}
         expanded={ep.expanded}
         onToggle={ep.toggleExpand}
+        firstHeader={
+          <CreateOrderPopup
+            title={editingCustomer ? 'Upravit odběratele' : 'Nový odběratel'}
+            open={showForm}
+            onOpen={handleOpenNew}
+            onClose={handleClose}
+          >
+            <form onSubmit={handleSubmit} className="space-y-5">
+
+              {/* Základní údaje */}
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <div className="bg-purple-50 px-4 py-2.5 border-b border-purple-200">
+                  <h3 className="text-xs font-semibold text-purple-700 uppercase tracking-wide">Základní údaje</h3>
+                </div>
+                <div className="p-4 grid grid-cols-2 gap-4">
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Typ subjektu *</label>
+                    <div className="flex gap-6">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="entityType" value="company"
+                          checked={formData.entityType === 'company'}
+                          onChange={e => setFormData({ ...formData, entityType: e.target.value })} className="w-4 h-4" />
+                        <span className="text-sm">🏢 Firma</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="entityType" value="individual"
+                          checked={formData.entityType === 'individual'}
+                          onChange={e => setFormData({ ...formData, entityType: e.target.value })} className="w-4 h-4" />
+                        <span className="text-sm">👤 Fyzická osoba</span>
+                      </label>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {formData.entityType === 'individual' ? 'Jméno a příjmení' : 'Název odběratele'} *
+                    </label>
+                    <Input value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })}
+                      placeholder={formData.entityType === 'individual' ? 'Jan Novák' : 'Odběratel s.r.o.'} required />
+                  </div>
+                  {formData.entityType === 'company' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Kontaktní osoba</label>
+                      <Input value={formData.contact} onChange={e => setFormData({ ...formData, contact: e.target.value })} placeholder="Jan Novák" />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Kontaktní údaje */}
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <div className="bg-blue-50 px-4 py-2.5 border-b border-blue-200">
+                  <h3 className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Kontaktní údaje</h3>
+                </div>
+                <div className="p-4 grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <Input type="email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} placeholder="info@odberatel.cz" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Telefon</label>
+                    <Input type="tel" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} placeholder="+420 123 456 789" />
+                  </div>
+                  {formData.entityType === 'company' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Web</label>
+                      <Input value={formData.website} onChange={e => setFormData({ ...formData, website: e.target.value })} placeholder="https://www.odberatel.cz" />
+                    </div>
+                  )}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Adresa *</label>
+                    <Input value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} placeholder="Ulice 123, 110 00 Praha 1" required />
+                  </div>
+                </div>
+              </div>
+
+              {/* Finanční údaje */}
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <div className="bg-green-50 px-4 py-2.5 border-b border-green-200">
+                  <h3 className="text-xs font-semibold text-green-700 uppercase tracking-wide">Finanční údaje</h3>
+                </div>
+                <div className="p-4 grid grid-cols-2 gap-4">
+                  {formData.entityType === 'company' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">IČO</label>
+                      <Input value={formData.ico} onChange={e => setFormData({ ...formData, ico: e.target.value })} placeholder="12345678" />
+                    </div>
+                  )}
+                  {formData.entityType === 'company' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">DIČ</label>
+                      <Input value={formData.dic} onChange={e => setFormData({ ...formData, dic: e.target.value })} placeholder="CZ12345678" />
+                    </div>
+                  )}
+                  <div className={formData.entityType === 'company' ? '' : 'col-span-2'}>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Číslo účtu</label>
+                    <Input value={formData.bankAccount} onChange={e => setFormData({ ...formData, bankAccount: e.target.value })} placeholder="123456789/0100" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Poznámka */}
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <div className="bg-amber-50 px-4 py-2.5 border-b border-amber-200">
+                  <h3 className="text-xs font-semibold text-amber-700 uppercase tracking-wide">Poznámka</h3>
+                </div>
+                <div className="p-4">
+                  <Input value={formData.note} onChange={e => setFormData({ ...formData, note: e.target.value })} placeholder="Volitelná poznámka..." />
+                </div>
+              </div>
+
+              <div className="flex gap-3 justify-end pt-2">
+                <Button type="button" variant="secondary" onClick={handleClose}>Zrušit</Button>
+                <Button type="submit">{editingCustomer ? 'Uložit změny' : 'Přidat odběratele'}</Button>
+              </div>
+            </form>
+          </CreateOrderPopup>
+        }
         renderDetail={customer => (
           <>
             <PartySection
