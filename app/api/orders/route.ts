@@ -351,8 +351,8 @@ export async function POST(request: NextRequest) {
   let invoice: any = null
   try {
     invoice = await createIssuedInvoiceFromCustomerOrder(createdOrder.id, {
-      paymentType:    'card',
-      variableSymbol: createdOrder.orderNumber,
+      paymentType: 'card',
+      // variableSymbol intentionally omitted — defaults to invoiceNumber (numeric) inside the helper
     })
     console.log(`[ERP /api/orders] Invoice created: invoiceId=${invoice.id}`)
   } catch (err: any) {

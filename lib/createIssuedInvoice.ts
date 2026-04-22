@@ -169,7 +169,9 @@ export async function createIssuedInvoiceFromCustomerOrder(
         totalAmountWithoutVat: order.totalAmountWithoutVat || order.totalAmount,
         totalVatAmount: order.totalVatAmount || 0,
         paymentType: paymentDetails?.paymentType || 'transfer',
-        variableSymbol: paymentDetails?.variableSymbol || null,
+        // Variable symbol = purely numeric part of invoice number (valid for Czech bank transfers).
+        // Callers may override, but must never pass the ESH order number — it is not the invoice.
+        variableSymbol: paymentDetails?.variableSymbol || invoiceNumber.replace(/^[A-Z]+/, ''),
         constantSymbol: paymentDetails?.constantSymbol || null,
         specificSymbol: paymentDetails?.specificSymbol || null,
         paymentStatus: (order.source === 'eshop' || ['paid', 'processing'].includes(order.status)) ? 'paid' : 'unpaid',

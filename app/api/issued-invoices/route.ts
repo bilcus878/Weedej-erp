@@ -102,6 +102,8 @@ export async function GET() {
         customerOrderId: invoice.customerOrderId,
         customerOrderNumber: invoice.customerOrder?.orderNumber,
         customerOrderSource: invoice.customerOrder?.source,
+        // Stripe / e-shop payment reference — used as REF in payment screens
+        paymentReference: invoice.customerOrder?.paymentReference ?? null,
         // ID transakce (SumUp) pro proklik
         transactionId: invoice.transaction?.id,
         transactionCode_sumup: invoice.transaction?.transactionCode,

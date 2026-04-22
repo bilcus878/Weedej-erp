@@ -201,7 +201,7 @@ export async function POST(request: NextRequest) {
     try {
       await createIssuedInvoiceFromCustomerOrder(order.id, {
         paymentType: 'card',
-        variableSymbol: order.orderNumber,
+        // variableSymbol intentionally omitted — defaults to invoiceNumber (numeric) inside the helper
       })
     } catch (invoiceErr) {
       console.error('[ERP External API] Chyba při auto-vytváření faktury:', invoiceErr)
