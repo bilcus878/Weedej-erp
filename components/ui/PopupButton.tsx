@@ -182,7 +182,9 @@ export function PopupButton({
 
 // ─── Internal sub-components ──────────────────────────────────────────────────
 
-function DropdownHeader({ label, badge, c, onClose }: { label: string; badge?: number; c: ReturnType<typeof colorMap[PopupColor]>; onClose: () => void }) {
+type ColorTheme = typeof colorMap[PopupColor]
+
+function DropdownHeader({ label, badge, c, onClose }: { label: string; badge?: number; c: ColorTheme; onClose: () => void }) {
   return (
     <div className={`flex items-center justify-between px-4 py-2.5 ${c.header} border-b shrink-0`}>
       <div className="flex items-center gap-2">
@@ -198,7 +200,7 @@ function DropdownHeader({ label, badge, c, onClose }: { label: string; badge?: n
   )
 }
 
-function ModalHeader({ label, badge, c, onClose }: { label: string; badge?: number; c: ReturnType<typeof colorMap[PopupColor]>; onClose: () => void }) {
+function ModalHeader({ label, badge, c, onClose }: { label: string; badge?: number; c: ColorTheme; onClose: () => void }) {
   return (
     <div className={`sticky top-0 z-10 flex items-center justify-between px-5 py-3 ${c.header} border-b`}>
       <div className="flex items-center gap-3">
