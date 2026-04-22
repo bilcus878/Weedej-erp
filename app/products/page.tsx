@@ -11,7 +11,7 @@ import {
   Package, Tag, ShoppingBag, Star, Zap, ShoppingCart,
 } from 'lucide-react'
 import {
-  useEntityPage, EntityPage, LoadingState, ErrorState,
+  useEntityPage, useFilters, EntityPage, LoadingState, ErrorState,
   DetailSection, DetailRow, ActionToolbar, EmptyState,
 } from '@/components/erp'
 
@@ -541,29 +541,32 @@ export default function ProductsPage() {
   const [isVatPayer,  setIsVatPayer]  = useState(true)
   const [popupOpen,   setPopupOpen]   = useState(false)
 
-  // Inline edit state (per existing row)
   const [inlineEditForms, setInlineEditForms] = useState<Record<string, { name: string; price: string; purchasePrice: string; vatRate: string; unit: string; categoryId: string }>>({})
-  const [expandedProducts, setExpandedProducts] = useState<Set<string>>(new Set())
-  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set())
+  const [eshopVariants,   setEshopVariants]   = useState<Record<string, EshopVariant[]>>({})
+  const [variantForms,    setVariantForms]    = useState<Record<string, EshopVariantForm>>({})
+  const [editingVariant,  setEditingVariant]  = useState<Record<string, EshopVariant | null>>({})
+  const [variantLoading,  setVariantLoading]  = useState<Record<string, boolean>>({})
+  const [sortField,       setSortField]       = useState<SortField>('name')
+  const [sortDir,         setSortDir]         = useState<SortDir>('asc')
 
-  // Existing variant state (per expanded existing row)
-  const [eshopVariants,  setEshopVariants]  = useState<Record<string, EshopVariant[]>>({})
-  const [variantForms,   setVariantForms]   = useState<Record<string, EshopVariantForm>>({})
-  const [editingVariant, setEditingVariant] = useState<Record<string, EshopVariant | null>>({})
-  const [variantLoading, setVariantLoading] = useState<Record<string, boolean>>({})
+  const resetPage = useRef<() => void>(() => {})
 
-  // Filters & sort
-  const [filterName,     setFilterName]     = useState('')
-  const [filterVat,      setFilterVat]      = useState('')
-  const [filterUnit,     setFilterUnit]     = useState('')
-  const [categoryFilter, setCategoryFilter] = useState('')
-  const [sortField,      setSortField]      = useState<SortField>('name')
-  const [sortDir,        setSortDir]        = useState<SortDir>('asc')
+  const catOptions = useMemo(() => [
+    { label: 'Všechny kategorie', value: '' },
+    ...categories.map(c => ({ label: c.name, value: c.id })),
+  ], [categories])
 
-  // Pagination
-  const [currentPage,  setCurrentPage]  = useState(1)
-  const [itemsPerPage, setItemsPerPage] = useState(20)
-  const sectionRef = useRef<HTMLDivElement>(null)
+  const vatOptions = useMemo(() => [
+    { label: 'Všechna DPH', value: '' },
+    ...CZECH_VAT_RATES.map(r => ({ label: VAT_RATE_LABELS[r], value: String(r) })),
+  ], [])
+
+  const filters = useFilters<Product>([
+    { key: 'name',     type: 'text',   placeholder: 'Název...',            match: (r, v) => r.name.toLowerCase().includes(v.toLowerCase()) },
+    { key: 'category', type: 'select', options: catOptions,                match: (r, v) => !v || r.categoryId === v },
+    ...(isVatPayer ? [{ key: 'vat', type: 'select' as const, options: vatOptions, match: (r: Product, v: string) => !v || String(Number(r.vatRate)) === v }] : []),
+    { key: 'unit',     type: 'text',   placeholder: 'Jednotka...',         match: (r, v) => r.unit.toLowerCase().includes(v.toLowerCase()) },
+  ], () => resetPage.current())
 
   const ep = useEntityPage<Product>({
     fetchData: async () => {
@@ -576,27 +579,20 @@ export default function ProductsPage() {
       return p
     },
     getRowId:    r => r.id,
-    filterFn:    () => true,
+    filterFn:    filters.fn,
     highlightId: null,
   })
+  resetPage.current = () => ep.setPage(1)
 
-  const filtered = useMemo(() => {
-    let rows = ep.rows
-    if (categoryFilter) rows = rows.filter(p => p.categoryId === categoryFilter)
-    if (filterName)     rows = rows.filter(p => p.name.toLowerCase().includes(filterName.toLowerCase()))
-    if (filterUnit)     rows = rows.filter(p => p.unit.toLowerCase().includes(filterUnit.toLowerCase()))
-    if (filterVat)      rows = rows.filter(p => String(Number(p.vatRate)) === filterVat)
-    return [...rows].sort((a, b) => {
-      let av: any, bv: any
-      if (sortField === 'category')      { av = a.category?.name || ''; bv = b.category?.name || '' }
-      else if (sortField === 'variants') { av = a.eshopVariants?.length ?? 0; bv = b.eshopVariants?.length ?? 0 }
-      else                               { av = a.name; bv = b.name }
-      return av < bv ? (sortDir === 'asc' ? -1 : 1) : av > bv ? (sortDir === 'asc' ? 1 : -1) : 0
-    })
-  }, [ep.rows, sortField, sortDir, categoryFilter, filterName, filterUnit, filterVat])
+  const sorted = useMemo(() => [...ep.filtered].sort((a, b) => {
+    const av = sortField === 'category' ? (a.category?.name || '') : sortField === 'variants' ? (a.eshopVariants?.length ?? 0) : a.name
+    const bv = sortField === 'category' ? (b.category?.name || '') : sortField === 'variants' ? (b.eshopVariants?.length ?? 0) : b.name
+    return av < bv ? (sortDir === 'asc' ? -1 : 1) : av > bv ? (sortDir === 'asc' ? 1 : -1) : 0
+  }), [ep.filtered, sortField, sortDir])
 
-  const paginated  = useMemo(() => filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [filtered, currentPage, itemsPerPage])
-  const totalPages = Math.max(1, Math.ceil(filtered.length / itemsPerPage))
+  const PAGE_SIZE  = 20
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE))
+  const paginated  = useMemo(() => sorted.slice((ep.page - 1) * PAGE_SIZE, ep.page * PAGE_SIZE), [sorted, ep.page])
 
   function toggleSort(field: SortField) {
     if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
@@ -611,19 +607,12 @@ export default function ProductsPage() {
   }
 
   function handleToggleExpand(id: string) {
-    setExpandedProducts(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
+    ep.toggleExpand(id)
     if (!eshopVariants[id]) fetchVariants(id)
   }
 
-  function toggleSelect(id: string) {
-    setSelectedProducts(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
-  }
-  function toggleSelectAll() {
-    setSelectedProducts(selectedProducts.size === filtered.length ? new Set() : new Set(filtered.map(p => p.id)))
-  }
-
   function handleInlineEdit(product: Product) {
-    setExpandedProducts(prev => new Set([...prev, product.id]))
+    ep.expandRow(product.id)
     if (!eshopVariants[product.id]) fetchVariants(product.id)
     setInlineEditForms(prev => ({
       ...prev,
@@ -663,17 +652,6 @@ export default function ProductsPage() {
     else alert('Nepodařilo se smazat produkt')
   }
 
-  async function handleBulkDelete() {
-    if (!selectedProducts.size) return
-    if (!confirm(`Smazat ${selectedProducts.size} vybraných produktů?`)) return
-    const res = await fetch('/api/products', {
-      method: 'DELETE', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ids: Array.from(selectedProducts) }),
-    })
-    if (res.ok) { setSelectedProducts(new Set()); await ep.refresh() }
-    else alert('Nepodařilo se smazat produkty')
-  }
-
   async function fetchVariants(productId: string) {
     try {
       const res = await fetch(`/api/products/${productId}/eshop-variants`)
@@ -704,10 +682,12 @@ export default function ProductsPage() {
     setEditingVariant(prev => ({ ...prev, [productId]: v }))
     setVariantForms(prev => ({ ...prev, [productId]: { name: v.name, price: String(v.price), variantValue: v.variantValue ? String(v.variantValue) : '', variantUnit: (v.variantUnit as 'g'|'ml'|'ks'|'') ?? '', isDefault: v.isDefault, isActive: v.isActive, isSumup: v.isSumup } }))
   }
+
   function handleCancelVariantEdit(productId: string) {
     setEditingVariant(prev => ({ ...prev, [productId]: null }))
     setVariantForms(prev => ({ ...prev, [productId]: emptyVariantForm() }))
   }
+
   async function handleDeleteVariant(productId: string, variantId: string, variantName: string) {
     if (!confirm(`Smazat variantu "${variantName}"?`)) return
     setVariantLoading(prev => ({ ...prev, [productId]: true }))
@@ -719,17 +699,14 @@ export default function ProductsPage() {
     finally { setVariantLoading(prev => ({ ...prev, [productId]: false })) }
   }
 
-  function handlePageChange(p: number) {
-    setCurrentPage(p)
-    setTimeout(() => sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
-  }
-
   const gridCols = isVatPayer
-    ? 'grid-cols-[32px_32px_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]'
-    : 'grid-cols-[32px_32px_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]'
+    ? 'grid-cols-[32px_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]'
+    : 'grid-cols-[32px_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]'
 
   if (ep.loading) return <LoadingState />
   if (ep.error)   return <ErrorState message={ep.error} onRetry={ep.refresh} />
+
+  const filterCols = isVatPayer ? 'auto 1fr 1fr 1fr 1fr' : 'auto 1fr 1fr 1fr'
 
   return (
     <EntityPage highlightId={null}>
@@ -738,347 +715,256 @@ export default function ProductsPage() {
         icon={Package}
         color="amber"
         total={ep.rows.length}
-        filtered={filtered.length}
+        filtered={sorted.length}
         onRefresh={ep.refresh}
-        actions={
-          selectedProducts.size > 0 ? (
-            <button
-              onClick={handleBulkDelete}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700 transition-colors"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              Smazat vybrané ({selectedProducts.size})
-            </button>
-          ) : undefined
-        }
       />
 
-      <div ref={sectionRef} className="space-y-1.5">
-        {ep.rows.length === 0 ? (
-          <>
-            {/* Even on empty, show the table header with the + button */}
-            <div className={`grid items-center gap-3 px-4 py-3 bg-gray-100 border rounded-lg ${gridCols}`}>
-              <div className="flex items-center justify-center">
-                <PopupButton
-                  color="orange"
-                  variant="modal"
-                  headerLabel="Nový produkt"
-                  triggerTitle="Přidat nový produkt"
-                  open={popupOpen}
-                  onOpenChange={setPopupOpen}
-                >
-                  <ProductFormModal
-                    categories={categories}
-                    isVatPayer={isVatPayer}
-                    onSaved={ep.refresh}
-                    onClose={() => setPopupOpen(false)}
-                    onRefresh={ep.refresh}
-                  />
-                </PopupButton>
-              </div>
-              <div />
-              <div className="text-xs font-semibold text-gray-600 text-center">Název</div>
-              <div className="text-xs font-semibold text-gray-600 text-center">Kategorie</div>
-              <div className="text-xs font-semibold text-gray-600 text-center">Varianty</div>
-              {isVatPayer && <div className="text-xs font-semibold text-gray-600 text-center">DPH</div>}
-              <div className="text-xs font-semibold text-gray-600 text-center">Jednotka</div>
-            </div>
-            <EmptyState
-              icon={Package}
-              message="Žádné produkty v katalogu."
-              subMessage="Klikni na tlačítko + vlevo nahoře pro přidání prvního produktu."
-            />
-          </>
-        ) : (
-          <>
-            {/* Filter row */}
-            <div className={`grid items-center gap-3 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg ${gridCols}`}>
-              <button
-                onClick={() => { setFilterName(''); setCategoryFilter(''); setFilterVat(''); setFilterUnit('') }}
-                title="Vymazat filtry"
-                className="w-7 h-7 bg-gray-200 hover:bg-gray-300 text-gray-600 rounded transition-colors flex items-center justify-center"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-              <div className="flex items-center justify-center">
-                <input type="checkbox" checked={selectedProducts.size === filtered.length && filtered.length > 0} onChange={toggleSelectAll} className="rounded w-3.5 h-3.5" />
-              </div>
-              <input type="text" value={filterName} onChange={e => setFilterName(e.target.value)} placeholder="Název..." className="px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-orange-400 focus:border-orange-400" />
-              <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} className="px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-orange-400 bg-white">
-                <option value="">Všechny</option>
-                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-              <div />
-              {isVatPayer && (
-                <select value={filterVat} onChange={e => setFilterVat(e.target.value)} className="px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-orange-400 bg-white">
-                  <option value="">Všechna DPH</option>
-                  {CZECH_VAT_RATES.map(r => <option key={r} value={String(r)}>{VAT_RATE_LABELS[r]}</option>)}
-                </select>
-              )}
-              <input type="text" value={filterUnit} onChange={e => setFilterUnit(e.target.value)} placeholder="Jedn...." className="px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-orange-400 focus:border-orange-400" />
-            </div>
+      {filters.bar(filterCols)}
 
-            {/* Table header — + button lives here in first column */}
-            <div className={`grid items-center gap-3 px-4 py-3 bg-gray-100 border rounded-lg text-xs font-semibold text-gray-600 ${gridCols}`}>
-              {/* FIRST COLUMN — the "+" popup button */}
-              <div className="flex items-center justify-center">
-                <PopupButton
-                  color="orange"
-                  variant="modal"
-                  headerLabel="Nový produkt"
-                  triggerTitle="Přidat nový produkt"
-                  open={popupOpen}
-                  onOpenChange={setPopupOpen}
-                >
-                  <ProductFormModal
-                    categories={categories}
-                    isVatPayer={isVatPayer}
-                    onSaved={ep.refresh}
-                    onClose={() => setPopupOpen(false)}
-                    onRefresh={ep.refresh}
-                  />
-                </PopupButton>
-              </div>
-              <div />
-              <button onClick={() => toggleSort('name')} className="text-center hover:text-orange-700 transition-colors select-none">Název <SortIcon field="name" /></button>
-              <button onClick={() => toggleSort('category')} className="text-center hover:text-orange-700 transition-colors select-none">Kategorie <SortIcon field="category" /></button>
-              <button onClick={() => toggleSort('variants')} className="text-center hover:text-orange-700 transition-colors select-none">Varianty <SortIcon field="variants" /></button>
-              {isVatPayer && <div className="text-center">DPH</div>}
-              <div className="text-center">Jednotka</div>
-            </div>
+      <div className="space-y-1">
+        {/* Table header — + button in first column */}
+        <div className={`grid items-center gap-3 px-4 py-3 bg-gray-100 border rounded-lg text-xs font-semibold text-gray-600 ${gridCols}`}>
+          <div className="flex items-center justify-center">
+            <PopupButton
+              color="orange"
+              variant="modal"
+              headerLabel="Nový produkt"
+              triggerTitle="Přidat nový produkt"
+              open={popupOpen}
+              onOpenChange={setPopupOpen}
+            >
+              <ProductFormModal
+                categories={categories}
+                isVatPayer={isVatPayer}
+                onSaved={ep.refresh}
+                onClose={() => setPopupOpen(false)}
+                onRefresh={ep.refresh}
+              />
+            </PopupButton>
+          </div>
+          <button onClick={() => toggleSort('name')}     className="text-center hover:text-orange-700 transition-colors select-none">Název <SortIcon field="name" /></button>
+          <button onClick={() => toggleSort('category')} className="text-center hover:text-orange-700 transition-colors select-none">Kategorie <SortIcon field="category" /></button>
+          <button onClick={() => toggleSort('variants')} className="text-center hover:text-orange-700 transition-colors select-none">Varianty <SortIcon field="variants" /></button>
+          {isVatPayer && <div className="text-center">DPH</div>}
+          <div className="text-center">Jednotka</div>
+        </div>
 
-            {/* Product rows */}
-            {paginated.map(product => {
-              const isExpanded = expandedProducts.has(product.id)
-              const editForm   = inlineEditForms[product.id]
-              const variants   = eshopVariants[product.id] || []
-              const vForm      = variantForms[product.id]
-              const evEditing  = editingVariant[product.id]
-              const vLoading   = variantLoading[product.id]
-
-              return (
-                <div key={product.id} className={`border rounded-lg transition-all ${isExpanded ? 'ring-2 ring-orange-400 shadow-sm' : 'hover:shadow-sm'}`}>
-
-                  {/* Summary row */}
-                  <div
-                    className={`grid items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors ${gridCols}`}
-                    onClick={() => handleToggleExpand(product.id)}
-                  >
-                    <button onClick={e => { e.stopPropagation(); handleToggleExpand(product.id) }} className="flex items-center justify-center">
-                      {isExpanded ? <ChevronDown className="h-5 w-5 text-gray-400" /> : <ChevronRight className="h-5 w-5 text-gray-400" />}
-                    </button>
-                    <div onClick={e => e.stopPropagation()} className="flex items-center justify-center">
-                      <input type="checkbox" checked={selectedProducts.has(product.id)} onChange={() => toggleSelect(product.id)} className="rounded w-3.5 h-3.5" />
-                    </div>
-                    <div className="text-center min-w-0">
-                      <p className="text-sm font-semibold text-gray-900 truncate">{product.name}</p>
-                    </div>
-                    <div className="text-center min-w-0">
-                      {product.category?.name
-                        ? <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 truncate inline-block max-w-full">{product.category.name}</span>
-                        : <span className="text-xs text-gray-400">—</span>}
-                    </div>
-                    <div className="text-center min-w-0">
-                      {(() => {
-                        const vs = product.eshopVariants ?? []
-                        if (vs.length === 0) return <span className="text-xs text-gray-400">—</span>
-                        const prices = vs.map(v => Number(v.price))
-                        const min = Math.min(...prices), max = Math.max(...prices)
-                        return (
-                          <div className="flex flex-col items-center gap-0.5">
-                            <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">{vs.length} var.</span>
-                            <span className="text-[10px] text-gray-500">{min === max ? formatPrice(min) : `${formatPrice(min)} – ${formatPrice(max)}`}</span>
-                          </div>
-                        )
-                      })()}
-                    </div>
-                    {isVatPayer && (
-                      <div className="text-center min-w-0">
-                        <p className="text-xs text-gray-500">{isNonVatPayer(Number(product.vatRate)) ? '—' : (VAT_RATE_LABELS[Number(product.vatRate)] || `${Number(product.vatRate)}%`)}</p>
-                      </div>
-                    )}
-                    <div className="text-center min-w-0">
-                      <p className="text-xs text-gray-500">{product.unit}</p>
-                    </div>
-                  </div>
-
-                  {/* Expanded detail */}
-                  {isExpanded && (
-                    <div className="border-t border-gray-100 p-4 bg-gray-50/50 space-y-4">
-
-                      {/* Product detail / inline edit */}
-                      {editForm ? (
-                        <DetailSection title="Upravit produkt" icon={Edit2}>
-                          <div className="grid grid-cols-2 gap-3 py-2">
-                            <div>
-                              <label className="block text-xs font-medium text-gray-600 mb-1">Název *</label>
-                              <input type="text" value={editForm.name}
-                                onChange={e => setInlineEditForms(prev => ({ ...prev, [product.id]: { ...prev[product.id], name: e.target.value } }))}
-                                className="w-full h-9 px-3 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-400 outline-none" autoFocus />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-medium text-gray-600 mb-1">Kategorie</label>
-                              <select value={editForm.categoryId}
-                                onChange={e => setInlineEditForms(prev => ({ ...prev, [product.id]: { ...prev[product.id], categoryId: e.target.value } }))}
-                                className="w-full h-9 px-3 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-400 bg-white outline-none">
-                                <option value="">Bez kategorie</option>
-                                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                              </select>
-                            </div>
-                            <div>
-                              <label className="block text-xs font-medium text-gray-600 mb-1">Jednotka *</label>
-                              <select value={editForm.unit}
-                                onChange={e => setInlineEditForms(prev => ({ ...prev, [product.id]: { ...prev[product.id], unit: e.target.value } }))}
-                                className="w-full h-9 px-3 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-400 bg-white outline-none">
-                                <option value="ks">ks (kusy)</option>
-                                <option value="g">g (gramy)</option>
-                                <option value="ml">ml (mililitry)</option>
-                              </select>
-                            </div>
-                            <div>
-                              <label className="block text-xs font-medium text-gray-600 mb-1">Sazba DPH</label>
-                              {isVatPayer ? (
-                                <select value={editForm.vatRate}
-                                  onChange={e => setInlineEditForms(prev => ({ ...prev, [product.id]: { ...prev[product.id], vatRate: e.target.value } }))}
-                                  className="w-full h-9 px-3 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-400 bg-white outline-none">
-                                  {CZECH_VAT_RATES.map(r => <option key={r} value={r}>{VAT_RATE_LABELS[r]}</option>)}
-                                </select>
-                              ) : (
-                                <div className="w-full h-9 px-3 text-sm border border-gray-200 bg-gray-100 rounded-md flex items-center text-gray-500">Neplátce DPH</div>
-                              )}
-                            </div>
-                            <div>
-                              <label className="block text-xs font-medium text-gray-600 mb-1">Prodejní cena (Kč)</label>
-                              <input type="number" step="0.01" value={editForm.price}
-                                onChange={e => setInlineEditForms(prev => ({ ...prev, [product.id]: { ...prev[product.id], price: e.target.value } }))}
-                                className="w-full h-9 px-3 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-400 outline-none" />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-medium text-gray-600 mb-1">Nákupní cena (Kč)</label>
-                              <input type="number" step="0.01" value={editForm.purchasePrice}
-                                onChange={e => setInlineEditForms(prev => ({ ...prev, [product.id]: { ...prev[product.id], purchasePrice: e.target.value } }))}
-                                className="w-full h-9 px-3 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-400 outline-none" />
-                            </div>
-                          </div>
-                        </DetailSection>
-                      ) : (
-                        <DetailSection title="Detail produktu" icon={Package}>
-                          <div className="grid grid-cols-2 gap-x-8 gap-y-1.5 py-1.5">
-                            <DetailRow label="Název"     value={product.name} />
-                            <DetailRow label="Kategorie" value={product.category?.name} muted />
-                            <DetailRow label="Jednotka"  value={product.unit} muted />
-                            <DetailRow label="DPH"       value={isVatPayer ? (isNonVatPayer(Number(product.vatRate)) ? '—' : (VAT_RATE_LABELS[Number(product.vatRate)] || `${Number(product.vatRate)}%`)) : 'Neplátce'} muted />
-                            {Number(product.price) > 0 && <DetailRow label="Prodejní cena" value={formatPrice(Number(product.price))} muted />}
-                            {product.purchasePrice && Number(product.purchasePrice) > 0 && <DetailRow label="Nákupní cena" value={formatPrice(Number(product.purchasePrice))} muted />}
-                          </div>
-                        </DetailSection>
-                      )}
-
-                      {/* Variants */}
-                      <DetailSection
-                        title="Varianty produktu"
-                        icon={ShoppingBag}
-                        headerRight={<span className="text-xs text-gray-400 font-normal">{variants.length} variant</span>}
-                      >
-                        {variants.length === 0 ? (
-                          <p className="text-xs text-gray-400 text-center py-3">Žádné varianty.</p>
-                        ) : (
-                          <table className="w-full text-xs mt-1">
-                            <thead>
-                              <tr className="text-gray-500 border-b border-gray-100">
-                                <th className="py-1.5 text-left font-medium">Název</th>
-                                <th className="py-1.5 text-right font-medium">Cena</th>
-                                <th className="py-1.5 text-right font-medium">Množství</th>
-                                <th className="py-1.5 text-center font-medium">Výchozí</th>
-                                <th className="py-1.5 text-center font-medium">SumUp</th>
-                                <th className="py-1.5 text-center font-medium">E-shop</th>
-                                <th className="py-1.5 text-center font-medium">Akce</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {variants.map(v => (
-                                <tr key={v.id} className="border-t border-gray-100 hover:bg-gray-50">
-                                  <td className="py-1.5 font-medium">{v.name}</td>
-                                  <td className="py-1.5 text-right">{formatPrice(Number(v.price))}</td>
-                                  <td className="py-1.5 text-right">{v.variantValue ? `${v.variantValue} ${v.variantUnit ?? ''}`.trim() : '—'}</td>
-                                  <td className="py-1.5 text-center">{v.isDefault ? <span className="text-emerald-600 font-bold">★</span> : <span className="text-gray-300">—</span>}</td>
-                                  <td className="py-1.5 text-center">{v.isSumup ? <span className="text-orange-500 font-bold">⚡</span> : <span className="text-gray-300">—</span>}</td>
-                                  <td className="py-1.5 text-center">{v.isActive ? <span className="text-emerald-600">✓</span> : <span className="text-red-400">✗</span>}</td>
-                                  <td className="py-1.5 text-center">
-                                    <div className="flex items-center justify-center gap-1">
-                                      <button onClick={() => handleEditVariant(product.id, v)} className="p-1 text-blue-600 hover:bg-blue-50 rounded"><Edit2 className="h-3.5 w-3.5" /></button>
-                                      <button onClick={() => handleDeleteVariant(product.id, v.id, v.name)} className="p-1 text-red-500 hover:bg-red-50 rounded"><Trash2 className="h-3.5 w-3.5" /></button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        )}
-
-                        {/* Inline variant form for existing product */}
-                        <div className="mt-3 pt-3 border-t border-gray-100" onClick={e => e.stopPropagation()}>
-                          <p className="text-xs font-semibold text-gray-500 mb-2 flex items-center gap-1">
-                            {evEditing ? <><Edit2 className="h-3 w-3" />Upravit variantu</> : <><Plus className="h-3 w-3" />Nová varianta</>}
-                          </p>
-                          <VariantRow
-                            v={vForm || emptyVariantForm()}
-                            onChange={patch => setVariantForms(prev => ({ ...prev, [product.id]: { ...(prev[product.id] || emptyVariantForm()), ...patch } }))}
-                          />
-                          <div className="flex gap-2 mt-2 justify-end">
-                            {evEditing && (
-                              <button onClick={() => handleCancelVariantEdit(product.id)} className="h-8 px-3 text-xs bg-gray-100 text-gray-600 rounded-md hover:bg-gray-200">Zrušit</button>
-                            )}
-                            <button
-                              onClick={() => handleVariantSubmit(product.id)}
-                              disabled={vLoading}
-                              className="h-8 px-4 text-xs bg-emerald-600 text-white rounded-md hover:bg-emerald-700 disabled:opacity-50 font-medium flex items-center gap-1"
-                            >
-                              {vLoading ? <span className="animate-pulse">…</span> : evEditing ? 'Uložit změny' : <><Plus className="h-3 w-3" />Přidat</>}
-                            </button>
-                          </div>
-                        </div>
-                      </DetailSection>
-
-                      <ActionToolbar
-                        right={
-                          editForm ? (
-                            <>
-                              <button onClick={() => handleInlineSave(product.id)} className="flex items-center gap-1 px-3 py-1.5 bg-emerald-600 text-white text-xs font-medium rounded-lg hover:bg-emerald-700 transition-colors">✓ Uložit</button>
-                              <button onClick={() => handleInlineCancel(product.id)} className="flex items-center gap-1 px-3 py-1.5 bg-gray-200 text-gray-700 text-xs font-medium rounded-lg hover:bg-gray-300 transition-colors"><X className="h-3.5 w-3.5" /> Zrušit</button>
-                              <button onClick={() => handleDelete(product)} className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-red-200 text-red-600 text-xs font-medium rounded-lg hover:bg-red-50 transition-colors"><Trash2 className="h-3.5 w-3.5" /> Smazat</button>
-                            </>
-                          ) : (
-                            <>
-                              <button onClick={e => { e.stopPropagation(); handleInlineEdit(product) }} className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-500 text-white text-xs font-medium rounded-lg hover:bg-orange-600 transition-colors"><Edit2 className="h-3.5 w-3.5" /> Upravit</button>
-                              <button onClick={e => { e.stopPropagation(); handleDelete(product) }} className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-red-200 text-red-600 text-xs font-medium rounded-lg hover:bg-red-50 transition-colors"><Trash2 className="h-3.5 w-3.5" /> Smazat</button>
-                            </>
-                          )
-                        }
-                      />
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-
-            {/* Pagination + per-page selector */}
-            <div className="mt-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-500">Zobrazit:</span>
-                {[10, 20, 50, 100].map(n => (
-                  <button key={n} onClick={() => { setItemsPerPage(n); setCurrentPage(1) }}
-                    className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${itemsPerPage === n ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
-                    {n}
-                  </button>
-                ))}
-                <span className="text-xs text-gray-400 ml-1">({filtered.length} celkem)</span>
-              </div>
-              <EntityPage.Pagination page={currentPage} total={totalPages} onChange={handlePageChange} />
-            </div>
-          </>
+        {paginated.length === 0 && (
+          <EmptyState
+            icon={Package}
+            message="Žádné produkty v katalogu."
+            subMessage="Klikni na tlačítko + vlevo nahoře pro přidání prvního produktu."
+          />
         )}
+
+        {paginated.map(product => {
+          const isExpanded = ep.expanded.has(product.id)
+          const editForm   = inlineEditForms[product.id]
+          const variants   = eshopVariants[product.id] || []
+          const vForm      = variantForms[product.id]
+          const evEditing  = editingVariant[product.id]
+          const vLoading   = variantLoading[product.id]
+
+          return (
+            <div key={product.id} className={`border rounded-lg transition-all ${isExpanded ? 'ring-2 ring-orange-400 shadow-sm' : 'hover:shadow-sm'}`}>
+
+              <div
+                className={`grid items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors ${gridCols}`}
+                onClick={() => handleToggleExpand(product.id)}
+              >
+                <div className="flex items-center justify-center">
+                  {isExpanded ? <ChevronDown className="h-5 w-5 text-gray-400" /> : <ChevronRight className="h-5 w-5 text-gray-400" />}
+                </div>
+                <div className="text-center min-w-0">
+                  <p className="text-sm font-semibold text-gray-900 truncate">{product.name}</p>
+                </div>
+                <div className="text-center min-w-0">
+                  {product.category?.name
+                    ? <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 truncate inline-block max-w-full">{product.category.name}</span>
+                    : <span className="text-xs text-gray-400">—</span>}
+                </div>
+                <div className="text-center min-w-0">
+                  {(() => {
+                    const vs = product.eshopVariants ?? []
+                    if (vs.length === 0) return <span className="text-xs text-gray-400">—</span>
+                    const prices = vs.map(v => Number(v.price))
+                    const min = Math.min(...prices), max = Math.max(...prices)
+                    return (
+                      <div className="flex flex-col items-center gap-0.5">
+                        <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">{vs.length} var.</span>
+                        <span className="text-[10px] text-gray-500">{min === max ? formatPrice(min) : `${formatPrice(min)} – ${formatPrice(max)}`}</span>
+                      </div>
+                    )
+                  })()}
+                </div>
+                {isVatPayer && (
+                  <div className="text-center min-w-0">
+                    <p className="text-xs text-gray-500">{isNonVatPayer(Number(product.vatRate)) ? '—' : (VAT_RATE_LABELS[Number(product.vatRate)] || `${Number(product.vatRate)}%`)}</p>
+                  </div>
+                )}
+                <div className="text-center min-w-0">
+                  <p className="text-xs text-gray-500">{product.unit}</p>
+                </div>
+              </div>
+
+              {isExpanded && (
+                <div className="border-t border-gray-100 p-4 bg-gray-50/50 space-y-4">
+
+                  {editForm ? (
+                    <DetailSection title="Upravit produkt" icon={Edit2}>
+                      <div className="grid grid-cols-2 gap-3 py-2">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Název *</label>
+                          <input type="text" value={editForm.name}
+                            onChange={e => setInlineEditForms(prev => ({ ...prev, [product.id]: { ...prev[product.id], name: e.target.value } }))}
+                            className="w-full h-9 px-3 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-400 outline-none" autoFocus />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Kategorie</label>
+                          <select value={editForm.categoryId}
+                            onChange={e => setInlineEditForms(prev => ({ ...prev, [product.id]: { ...prev[product.id], categoryId: e.target.value } }))}
+                            className="w-full h-9 px-3 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-400 bg-white outline-none">
+                            <option value="">Bez kategorie</option>
+                            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Jednotka *</label>
+                          <select value={editForm.unit}
+                            onChange={e => setInlineEditForms(prev => ({ ...prev, [product.id]: { ...prev[product.id], unit: e.target.value } }))}
+                            className="w-full h-9 px-3 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-400 bg-white outline-none">
+                            <option value="ks">ks (kusy)</option>
+                            <option value="g">g (gramy)</option>
+                            <option value="ml">ml (mililitry)</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Sazba DPH</label>
+                          {isVatPayer ? (
+                            <select value={editForm.vatRate}
+                              onChange={e => setInlineEditForms(prev => ({ ...prev, [product.id]: { ...prev[product.id], vatRate: e.target.value } }))}
+                              className="w-full h-9 px-3 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-400 bg-white outline-none">
+                              {CZECH_VAT_RATES.map(r => <option key={r} value={r}>{VAT_RATE_LABELS[r]}</option>)}
+                            </select>
+                          ) : (
+                            <div className="w-full h-9 px-3 text-sm border border-gray-200 bg-gray-100 rounded-md flex items-center text-gray-500">Neplátce DPH</div>
+                          )}
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Prodejní cena (Kč)</label>
+                          <input type="number" step="0.01" value={editForm.price}
+                            onChange={e => setInlineEditForms(prev => ({ ...prev, [product.id]: { ...prev[product.id], price: e.target.value } }))}
+                            className="w-full h-9 px-3 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-400 outline-none" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Nákupní cena (Kč)</label>
+                          <input type="number" step="0.01" value={editForm.purchasePrice}
+                            onChange={e => setInlineEditForms(prev => ({ ...prev, [product.id]: { ...prev[product.id], purchasePrice: e.target.value } }))}
+                            className="w-full h-9 px-3 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-400 outline-none" />
+                        </div>
+                      </div>
+                    </DetailSection>
+                  ) : (
+                    <DetailSection title="Detail produktu" icon={Package}>
+                      <div className="grid grid-cols-2 gap-x-8 gap-y-1.5 py-1.5">
+                        <DetailRow label="Název"     value={product.name} />
+                        <DetailRow label="Kategorie" value={product.category?.name} muted />
+                        <DetailRow label="Jednotka"  value={product.unit} muted />
+                        <DetailRow label="DPH"       value={isVatPayer ? (isNonVatPayer(Number(product.vatRate)) ? '—' : (VAT_RATE_LABELS[Number(product.vatRate)] || `${Number(product.vatRate)}%`)) : 'Neplátce'} muted />
+                        {Number(product.price) > 0 && <DetailRow label="Prodejní cena" value={formatPrice(Number(product.price))} muted />}
+                        {product.purchasePrice && Number(product.purchasePrice) > 0 && <DetailRow label="Nákupní cena" value={formatPrice(Number(product.purchasePrice))} muted />}
+                      </div>
+                    </DetailSection>
+                  )}
+
+                  <DetailSection
+                    title="Varianty produktu"
+                    icon={ShoppingBag}
+                    headerRight={<span className="text-xs text-gray-400 font-normal">{variants.length} variant</span>}
+                  >
+                    {variants.length === 0 ? (
+                      <p className="text-xs text-gray-400 text-center py-3">Žádné varianty.</p>
+                    ) : (
+                      <table className="w-full text-xs mt-1">
+                        <thead>
+                          <tr className="text-gray-500 border-b border-gray-100">
+                            <th className="py-1.5 text-left font-medium">Název</th>
+                            <th className="py-1.5 text-right font-medium">Cena</th>
+                            <th className="py-1.5 text-right font-medium">Množství</th>
+                            <th className="py-1.5 text-center font-medium">Výchozí</th>
+                            <th className="py-1.5 text-center font-medium">SumUp</th>
+                            <th className="py-1.5 text-center font-medium">E-shop</th>
+                            <th className="py-1.5 text-center font-medium">Akce</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {variants.map(v => (
+                            <tr key={v.id} className="border-t border-gray-100 hover:bg-gray-50">
+                              <td className="py-1.5 font-medium">{v.name}</td>
+                              <td className="py-1.5 text-right">{formatPrice(Number(v.price))}</td>
+                              <td className="py-1.5 text-right">{v.variantValue ? `${v.variantValue} ${v.variantUnit ?? ''}`.trim() : '—'}</td>
+                              <td className="py-1.5 text-center">{v.isDefault ? <span className="text-emerald-600 font-bold">★</span> : <span className="text-gray-300">—</span>}</td>
+                              <td className="py-1.5 text-center">{v.isSumup ? <span className="text-orange-500 font-bold">⚡</span> : <span className="text-gray-300">—</span>}</td>
+                              <td className="py-1.5 text-center">{v.isActive ? <span className="text-emerald-600">✓</span> : <span className="text-red-400">✗</span>}</td>
+                              <td className="py-1.5 text-center">
+                                <div className="flex items-center justify-center gap-1">
+                                  <button onClick={() => handleEditVariant(product.id, v)} className="p-1 text-blue-600 hover:bg-blue-50 rounded"><Edit2 className="h-3.5 w-3.5" /></button>
+                                  <button onClick={() => handleDeleteVariant(product.id, v.id, v.name)} className="p-1 text-red-500 hover:bg-red-50 rounded"><Trash2 className="h-3.5 w-3.5" /></button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+
+                    <div className="mt-3 pt-3 border-t border-gray-100" onClick={e => e.stopPropagation()}>
+                      <p className="text-xs font-semibold text-gray-500 mb-2 flex items-center gap-1">
+                        {evEditing ? <><Edit2 className="h-3 w-3" />Upravit variantu</> : <><Plus className="h-3 w-3" />Nová varianta</>}
+                      </p>
+                      <VariantRow
+                        v={vForm || emptyVariantForm()}
+                        onChange={patch => setVariantForms(prev => ({ ...prev, [product.id]: { ...(prev[product.id] || emptyVariantForm()), ...patch } }))}
+                      />
+                      <div className="flex gap-2 mt-2 justify-end">
+                        {evEditing && (
+                          <button onClick={() => handleCancelVariantEdit(product.id)} className="h-8 px-3 text-xs bg-gray-100 text-gray-600 rounded-md hover:bg-gray-200">Zrušit</button>
+                        )}
+                        <button
+                          onClick={() => handleVariantSubmit(product.id)}
+                          disabled={vLoading}
+                          className="h-8 px-4 text-xs bg-emerald-600 text-white rounded-md hover:bg-emerald-700 disabled:opacity-50 font-medium flex items-center gap-1"
+                        >
+                          {vLoading ? <span className="animate-pulse">…</span> : evEditing ? 'Uložit změny' : <><Plus className="h-3 w-3" />Přidat</>}
+                        </button>
+                      </div>
+                    </div>
+                  </DetailSection>
+
+                  <ActionToolbar
+                    right={
+                      editForm ? (
+                        <>
+                          <button onClick={() => handleInlineSave(product.id)} className="flex items-center gap-1 px-3 py-1.5 bg-emerald-600 text-white text-xs font-medium rounded-lg hover:bg-emerald-700 transition-colors">✓ Uložit</button>
+                          <button onClick={() => handleInlineCancel(product.id)} className="flex items-center gap-1 px-3 py-1.5 bg-gray-200 text-gray-700 text-xs font-medium rounded-lg hover:bg-gray-300 transition-colors"><X className="h-3.5 w-3.5" /> Zrušit</button>
+                          <button onClick={() => handleDelete(product)} className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-red-200 text-red-600 text-xs font-medium rounded-lg hover:bg-red-50 transition-colors"><Trash2 className="h-3.5 w-3.5" /> Smazat</button>
+                        </>
+                      ) : (
+                        <>
+                          <button onClick={e => { e.stopPropagation(); handleInlineEdit(product) }} className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-500 text-white text-xs font-medium rounded-lg hover:bg-orange-600 transition-colors"><Edit2 className="h-3.5 w-3.5" /> Upravit</button>
+                          <button onClick={e => { e.stopPropagation(); handleDelete(product) }} className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-red-200 text-red-600 text-xs font-medium rounded-lg hover:bg-red-50 transition-colors"><Trash2 className="h-3.5 w-3.5" /> Smazat</button>
+                        </>
+                      )
+                    }
+                  />
+                </div>
+              )}
+            </div>
+          )
+        })}
       </div>
+
+      <EntityPage.Pagination page={ep.page} total={totalPages} onChange={ep.setPage} />
     </EntityPage>
   )
 }
