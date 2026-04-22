@@ -10,10 +10,15 @@ import { applyDiscountAndCalculateVat, calculateVatFromGross, round2 } from '@/l
 export const dynamic = 'force-dynamic'
 
 // GET /api/customer-orders - Získat všechny objednávky
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url)
+    const customerId = searchParams.get('customerId')
     const orders = await prisma.customerOrder.findMany({
-      where: { source: { not: 'eshop' } }, // Eshop objednávky jsou na /eshop-orders
+      where: {
+        source: { not: 'eshop' },
+        ...(customerId ? { customerId } : {}),
+      },
       include: {
         customer: true,
         items: {

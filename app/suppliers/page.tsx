@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useRef } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useState, useRef, useEffect } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { Building2, ChevronDown, ChevronRight, Edit2, Trash2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
@@ -11,8 +11,22 @@ import {
   PartySection, ActionToolbar,
 } from '@/components/erp'
 import type { ColumnDef } from '@/components/erp'
+import { EntityOrdersButton, type EntityOrder } from '@/components/warehouse/entity/EntityOrdersButton'
 
 export const dynamic = 'force-dynamic'
+
+function SupplierOrdersFetcher({ supplierId, onAction }: { supplierId: string; onAction: (id: string) => void }) {
+  const [orders, setOrders] = useState<EntityOrder[]>([])
+  useEffect(() => {
+    fetch(`/api/purchase-orders?supplierId=${supplierId}`)
+      .then(r => r.json())
+      .then((data: Array<{ id: string; orderNumber: string; orderDate: string; status: string; totalAmount?: number }>) =>
+        setOrders(data.map(o => ({ id: o.id, orderNumber: o.orderNumber, orderDate: o.orderDate, status: o.status, totalAmount: o.totalAmount })))
+      )
+      .catch(() => {})
+  }, [supplierId])
+  return <EntityOrdersButton entityType="supplier" entityId={supplierId} orders={orders} onAction={onAction} />
+}
 
 interface Supplier {
   id: string
@@ -36,6 +50,7 @@ const emptyForm = {
 
 export default function SuppliersPage() {
   const highlightId = useSearchParams().get('highlight')
+  const router = useRouter()
 
   const [showForm, setShowForm] = useState(false)
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null)
@@ -309,7 +324,11 @@ export default function SuppliersPage() {
             />
             <ActionToolbar
               right={
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center">
+                  <SupplierOrdersFetcher
+                    supplierId={supplier.id}
+                    onAction={id => router.push(`/purchase-orders?highlight=${id}`)}
+                  />
                   <button
                     onClick={() => handleEdit(supplier)}
                     className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors"

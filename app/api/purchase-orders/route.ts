@@ -9,9 +9,12 @@ import { calculateVatFromNet, calculateVatFromGross, calculateLineVat, calculate
 export const dynamic = 'force-dynamic'
 
 // GET /api/purchase-orders - Získat všechny objednávky
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url)
+    const supplierId = searchParams.get('supplierId')
     const orders = await prisma.purchaseOrder.findMany({
+      where: supplierId ? { supplierId } : undefined,
       include: {
         supplier: true,
         items: {

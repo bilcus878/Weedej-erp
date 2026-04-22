@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useRef } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useState, useRef, useEffect } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
@@ -11,8 +11,22 @@ import {
   useEntityPage, useFilters, EntityPage, LoadingState, ErrorState,
 } from '@/components/erp'
 import type { ColumnDef } from '@/components/erp'
+import { EntityOrdersButton, type EntityOrder } from '@/components/warehouse/entity/EntityOrdersButton'
 
 export const dynamic = 'force-dynamic'
+
+function CustomerOrdersFetcher({ customerId, onAction }: { customerId: string; onAction: (id: string) => void }) {
+  const [orders, setOrders] = useState<EntityOrder[]>([])
+  useEffect(() => {
+    fetch(`/api/customer-orders?customerId=${customerId}`)
+      .then(r => r.json())
+      .then((data: Array<{ id: string; orderNumber: string; orderDate: string; status: string; totalAmount?: number }>) =>
+        setOrders(data.map(o => ({ id: o.id, orderNumber: o.orderNumber, orderDate: o.orderDate, status: o.status, totalAmount: o.totalAmount })))
+      )
+      .catch(() => {})
+  }, [customerId])
+  return <EntityOrdersButton entityType="customer" entityId={customerId} orders={orders} onAction={onAction} />
+}
 
 interface Customer {
   id: string
@@ -36,6 +50,7 @@ const emptyForm = {
 
 export default function CustomersPage() {
   const highlightId = useSearchParams().get('highlight')
+  const router = useRouter()
 
   const [showForm,        setShowForm]        = useState(false)
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null)
@@ -305,6 +320,10 @@ export default function CustomersPage() {
             <ActionToolbar
               right={
                 <>
+                  <CustomerOrdersFetcher
+                    customerId={customer.id}
+                    onAction={id => router.push(`/customer-orders?highlight=${id}`)}
+                  />
                   <button
                     onClick={e => { e.stopPropagation(); handleEdit(customer) }}
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors"
