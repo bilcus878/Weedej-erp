@@ -172,7 +172,7 @@ function mapDeliveryNoteToOrderDetail(note: DeliveryNote, isVatPayer: boolean): 
     // Show related order number so the link in the summary panel points to the source order.
     // Falls back to the delivery note number if there is no linked order.
     orderNumber: co?.orderNumber || note.deliveryNumber,
-    orderDate:   note.deliveryDate,
+    orderDate:   co?.orderDate   || note.deliveryDate,
     // Translate DN status to a value CustomerOrderDetail's getStatusBadge knows.
     // 'active' / 'delivered' / 'draft' all mean "issued" in DN context → 'delivered'.
     status:      note.status === 'storno' ? 'storno' : 'delivered',
