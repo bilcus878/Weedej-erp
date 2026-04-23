@@ -10,7 +10,7 @@ import { generateReceiptPDF, openPDFInNewTab } from '@/lib/pdfGenerator'
 import { isNonVatPayer, DEFAULT_VAT_RATE } from '@/lib/vatCalculation'
 import {
   useEntityPage, useFilters, EntityPage, LoadingState, ErrorState,
-  ActionToolbar, LinkedDocumentBanner, SupplierOrderDetail,
+  ActionToolbar, SupplierOrderDetail,
 } from '@/components/erp'
 import type {
   ColumnDef, SelectOption,
@@ -171,7 +171,6 @@ export default function ReceiptsPage() {
   const [pendingOrdersError, setPendingOrdersError] = useState<string | null>(null)
   // ── Process modal state ───────────────────────────────────────────────────
   const [showProcessModal, setShowProcessModal] = useState(false)
-  const [processingReceiptId, setProcessingReceiptId]   = useState<string | null>(null)
   const [processingOrderId,   setProcessingOrderId]     = useState<string | null>(null)
   const [processingReceiptItems, setProcessingReceiptItems] = useState<ReceiptItem[]>([])
   const [receivedQuantities, setReceivedQuantities]     = useState<Record<string, number>>({})
@@ -262,7 +261,6 @@ export default function ReceiptsPage() {
     const order: any = pendingOrders.find(o => o.id === orderId)
     if (!order) return
     setProcessingOrderId(orderId)
-    setProcessingReceiptId(null)
     const itemsWithRemaining = order.items
       .filter((item: any) => item.remainingQuantity > 0)
       .map((item: any) => ({
@@ -293,53 +291,20 @@ export default function ReceiptsPage() {
     setShowProcessModal(true)
   }
 
-  function handleProcessReceipt(receipt: Receipt) {
-    setProcessingReceiptId(receipt.id)
-    setProcessingOrderId(null)
-    setProcessingReceiptItems(receipt.items || [])
-    const initialQuantities: Record<string, number> = {}
-    receipt.items.forEach(item => { if (item.id) initialQuantities[item.id] = item.receivedQuantity ?? Number(item.quantity) })
-    setReceivedQuantities(initialQuantities)
-    const invoice = (receipt as any).receivedInvoice
-    const hasInvoice = !!(invoice && invoice.isTemporary === false)
-    setHasExistingInvoice(hasInvoice)
-    if (hasInvoice) {
-      setInvoiceData({
-        invoiceNumber: invoice?.invoiceNumber || '',
-        invoiceDate:   invoice?.invoiceDate ? new Date(invoice.invoiceDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-        dueDate:       invoice?.dueDate ? new Date(invoice.dueDate).toISOString().split('T')[0] : '',
-        note:          invoice?.note || '',
-      })
-    } else {
-      setInvoiceData({ invoiceNumber: '', invoiceDate: new Date().toISOString().split('T')[0], dueDate: '', note: '' })
-    }
-    setShowProcessModal(true)
-  }
-
   async function handleConfirmProcess(createInvoice: boolean = true) {
-    const isDirectReceive = processingOrderId !== null
-    if ((!processingOrderId && !processingReceiptId) || isProcessing) return
+    if (!processingOrderId || isProcessing) return
     setIsProcessing(true)
     try {
-      let url: string, body: object
-      if (isDirectReceive) {
-        const items = processingReceiptItems.map((item: any) => ({
-          productId: item.productId!, receivedQuantity: receivedQuantities[item.id!] || 0,
-        }))
-        url = `/api/purchase-orders/${processingOrderId}/receive`
-        body = { items, invoiceData, receiptDate: processReceiptDate }
-      } else {
-        const items = processingReceiptItems.map(item => ({
-          id: item.id!, receivedQuantity: receivedQuantities[item.id!] || 0,
-        }))
-        url = `/api/receipts/${processingReceiptId}/process`
-        body = { items, createInvoice, invoiceData: createInvoice ? invoiceData : undefined, receiptDate: processReceiptDate }
-      }
-      const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      const items = processingReceiptItems.map((item: any) => ({
+        productId: item.productId!, receivedQuantity: receivedQuantities[item.id!] || 0,
+      }))
+      const url  = `/api/purchase-orders/${processingOrderId}/receive`
+      const body = { items, invoiceData, receiptDate: processReceiptDate }
+      const res  = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Chyba při zpracování') }
       closeProcessModal()
       await Promise.all([ep.refresh(), fetchPendingOrders()])
-      showToast('success', isDirectReceive ? '✅ Příjem zpracován a naskladněn!' : '✅ Příjemka zpracována a naskladněna!')
+      showToast('success', '✅ Příjem zpracován a naskladněn!')
     } catch (error: any) {
       showToast('error', error.message || 'Nepodařilo se zpracovat příjem')
     } finally {
@@ -349,7 +314,6 @@ export default function ReceiptsPage() {
 
   function closeProcessModal() {
     setShowProcessModal(false)
-    setProcessingReceiptId(null)
     setProcessingOrderId(null)
     setProcessingReceiptItems([])
     setReceivedQuantities({})
@@ -474,12 +438,6 @@ export default function ReceiptsPage() {
         rowClassName={r => r.status === 'storno' || r.status === 'cancelled' ? 'bg-red-50 opacity-70' : ''}
         renderDetail={receipt => (
           <>
-            {receipt.purchaseOrder && (
-              <LinkedDocumentBanner
-                links={[{ label: 'Objednávka', value: receipt.purchaseOrder.orderNumber, href: `/purchase-orders?highlight=${receipt.purchaseOrder.id}` }]}
-                color="blue"
-              />
-            )}
             <SupplierOrderDetail
               order={mapReceiptToSupplierOrderDetail(receipt, isVatPayer)}
               isVatPayer={isVatPayer}
@@ -495,11 +453,6 @@ export default function ReceiptsPage() {
                   {receipt.status === 'active' && (
                     <Button size="sm" variant="danger" onClick={() => handleStorno(receipt)}>
                       <XCircle className="w-4 h-4 mr-1" />Stornovat
-                    </Button>
-                  )}
-                  {receipt.status !== 'storno' && receipt.status !== 'cancelled' && (
-                    <Button size="sm" className="bg-orange-600 hover:bg-orange-700 text-white" onClick={() => handleProcessReceipt(receipt)}>
-                      <Package className="w-4 h-4 mr-1" />Zpracovat
                     </Button>
                   )}
                 </div>
