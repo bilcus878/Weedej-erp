@@ -96,6 +96,7 @@ interface Props {
   onUpdateStatus?: (status: string) => void
   onRefresh?: () => Promise<void>
   processingStatus?: boolean
+  showReceiptsSection?: boolean
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -161,6 +162,7 @@ export function SupplierOrderDetail({
   onUpdateStatus,
   onRefresh: _onRefresh,
   processingStatus,
+  showReceiptsSection = true,
 }: Props) {
   const isCancelled = ['storno', 'cancelled'].includes(order.status)
   const supplierName = order.supplierName || 'Dodavatel'
@@ -555,7 +557,7 @@ export function SupplierOrderDetail({
       )}
 
       {/* ── Příjemky ────────────────────────────────────────────────────────── */}
-      {(() => {
+      {showReceiptsSection && (() => {
         const active = order.receipts?.filter(r => r.status !== 'storno') ?? []
         if (active.length === 0) return null
         return (

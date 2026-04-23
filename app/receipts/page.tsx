@@ -2,19 +2,20 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
-import Link from 'next/link'
 import { Package, CheckCircle, FileDown, XCircle, ChevronDown, ChevronRight } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import { formatDate, formatPrice } from '@/lib/utils'
-import { formatVariantQty } from '@/lib/formatVariantQty'
 import { generateReceiptPDF, openPDFInNewTab } from '@/lib/pdfGenerator'
 import { isNonVatPayer, DEFAULT_VAT_RATE } from '@/lib/vatCalculation'
 import {
   useEntityPage, useFilters, EntityPage, LoadingState, ErrorState,
-  DetailSection, DetailRow, ActionToolbar, LinkedDocumentBanner,
+  ActionToolbar, LinkedDocumentBanner, SupplierOrderDetail,
 } from '@/components/erp'
-import type { ColumnDef, SelectOption } from '@/components/erp'
+import type {
+  ColumnDef, SelectOption,
+  SupplierOrderDetailData, SupplierOrderDetailItem,
+} from '@/components/erp'
 import { ExpectedOrdersButton } from '@/components/warehouse/expected/ExpectedOrdersButton'
 import { useToast } from '@/components/warehouse/shared/useToast'
 import { Toast } from '@/components/warehouse/shared/Toast'
@@ -77,6 +78,88 @@ const statusOptions: SelectOption[] = [
   { value: 'received', label: 'Přijato', className: 'text-green-600' },
   { value: 'storno',   label: 'Storno',  className: 'text-red-600'   },
 ]
+
+function mapReceiptToSupplierOrderDetail(
+  receipt: Receipt,
+  isVatPayer: boolean,
+): SupplierOrderDetailData {
+  const supplier = (receipt.purchaseOrder as any)?.supplier || receipt.supplier
+
+  const items: SupplierOrderDetailItem[] = receipt.items.map((item, idx) => {
+    const unitPrice    = Number(item.purchasePrice) || 0
+    const itemVatRate  = Number(item.vatRate ?? item.product?.vatRate ?? DEFAULT_VAT_RATE)
+    const isItemNonVat = isNonVatPayer(itemVatRate)
+    const vatPerUnit   = item.vatAmount != null ? Number(item.vatAmount) : (isItemNonVat ? 0 : unitPrice * itemVatRate / 100)
+    const priceWithVat = item.priceWithVat != null ? Number(item.priceWithVat) : (unitPrice + vatPerUnit)
+    return {
+      id: item.id || String(idx),
+      productId: item.productId ?? null,
+      productName: item.productName ?? null,
+      quantity: Number(item.quantity),
+      alreadyReceivedQuantity: Number(item.receivedQuantity ?? item.quantity),
+      unit: item.unit,
+      price: unitPrice,
+      vatRate: itemVatRate,
+      vatAmount: vatPerUnit,
+      priceWithVat,
+      product: item.product
+        ? { id: item.product.id, name: item.product.name, price: Number(item.product.purchasePrice || 0), unit: item.product.unit }
+        : null,
+    }
+  })
+
+  const isStorno = receipt.status === 'storno' || receipt.status === 'cancelled'
+
+  const totalAmount = items.reduce((sum, item) => {
+    const qty = Number(item.alreadyReceivedQuantity ?? item.quantity)
+    return sum + qty * (isVatPayer ? item.priceWithVat : item.price)
+  }, 0)
+
+  return {
+    id: receipt.id,
+    orderNumber: receipt.receiptNumber,
+    orderDate: receipt.receiptDate,
+    status: isStorno ? 'storno' : 'received',
+    totalAmount,
+    supplierName: supplier?.name || receipt.supplierName || null,
+    supplierEmail: (supplier as any)?.email || null,
+    supplierPhone: (supplier as any)?.phone || null,
+    supplierAddress: (supplier as any)?.address || null,
+    supplierICO: (supplier as any)?.ico || null,
+    supplierDIC: (supplier as any)?.dic || null,
+    stornoAt: receipt.stornoAt || null,
+    stornoBy: null,
+    stornoReason: receipt.stornoReason || null,
+    note: receipt.note || null,
+    items,
+    receivedInvoice: receipt.receivedInvoice
+      ? {
+          id: receipt.receivedInvoice.id,
+          invoiceNumber: receipt.receivedInvoice.invoiceNumber,
+          paymentStatus: 'unknown',
+          status: 'active',
+          invoiceDate: receipt.receiptDate,
+        }
+      : null,
+    receipts: [{
+      id: receipt.id,
+      receiptNumber: receipt.receiptNumber,
+      receiptDate: receipt.receiptDate,
+      status: isStorno ? 'storno' : 'active',
+      items: receipt.items.map(item => ({
+        id: item.id || '',
+        quantity: Number(item.quantity),
+        receivedQuantity: Number(item.receivedQuantity ?? item.quantity),
+        unit: item.unit,
+        productName: item.productName || item.product?.name || null,
+        purchasePrice: Number(item.purchasePrice),
+        productId: item.productId || null,
+        inventoryItemId: item.inventoryItemId || null,
+        product: item.product ? { name: item.product.name } : null,
+      })),
+    }],
+  }
+}
 
 export default function ReceiptsPage() {
   const highlightId = useSearchParams().get('highlight')
@@ -391,119 +474,18 @@ export default function ReceiptsPage() {
         rowClassName={r => r.status === 'storno' || r.status === 'cancelled' ? 'bg-red-50 opacity-70' : ''}
         renderDetail={receipt => (
           <>
-            <LinkedDocumentBanner
-              links={[
-                ...(receipt.purchaseOrder ? [{ label: 'Objednávka', value: receipt.purchaseOrder.orderNumber, href: `/purchase-orders?highlight=${receipt.purchaseOrder.id}` }] : []),
-                ...(receipt.receivedInvoice ? [{ label: 'Faktura', value: receipt.receivedInvoice.invoiceNumber, href: `/invoices/received?highlight=${receipt.receivedInvoice.id}` }] : []),
-              ]}
-              color="blue"
+            {receipt.purchaseOrder && (
+              <LinkedDocumentBanner
+                links={[{ label: 'Objednávka', value: receipt.purchaseOrder.orderNumber, href: `/purchase-orders?highlight=${receipt.purchaseOrder.id}` }]}
+                color="blue"
+              />
+            )}
+            <SupplierOrderDetail
+              order={mapReceiptToSupplierOrderDetail(receipt, isVatPayer)}
+              isVatPayer={isVatPayer}
+              orderHref={receipt.purchaseOrder ? `/purchase-orders?highlight=${receipt.purchaseOrder.id}` : undefined}
+              showReceiptsSection={false}
             />
-
-            {receipt.items.length === 0 ? (
-              <div className="border border-gray-200 rounded-lg overflow-hidden">
-                <h4 className="font-bold text-base text-gray-900 px-4 py-3 bg-gray-100 border-b">Položky příjemky (0)</h4>
-                <div className="px-4 py-4 text-sm text-gray-500 italic">Žádné položky</div>
-              </div>
-            ) : (
-              <div className="border border-gray-200 rounded-lg overflow-hidden">
-                <h4 className="font-bold text-base text-gray-900 px-4 py-3 bg-gray-100 border-b">Položky příjemky ({receipt.items.length})</h4>
-                {isVatPayer ? (
-                  <div className="text-sm">
-                    <div className="grid grid-cols-[3fr_1fr_1fr_0.5fr_1fr_0.5fr_1fr_1fr] gap-2 px-4 py-2 bg-gray-50 font-semibold text-gray-700 border-b text-xs">
-                      <div>Produkt</div><div className="text-center">Pohyb</div><div className="text-center">Množství</div>
-                      <div className="text-center">DPH</div><div className="text-center">Cena/ks</div>
-                      <div className="text-center">DPH/ks</div><div className="text-center">S DPH/ks</div><div className="text-center">Celkem</div>
-                    </div>
-                    {receipt.items.map((item: any, i: number) => {
-                      const actualQty   = item.receivedQuantity || item.quantity
-                      const unitPrice   = Number(item.purchasePrice) || 0
-                      const itemVatRate = Number(item.vatRate || item.product?.vatRate || 21)
-                      const isItemNonVat = isNonVatPayer(itemVatRate)
-                      const vatPerUnit  = isItemNonVat ? 0 : unitPrice * itemVatRate / 100
-                      const priceWithVat = unitPrice + vatPerUnit
-                      const lineTotal   = actualQty * priceWithVat
-                      return (
-                        <div key={i} className={`grid grid-cols-[3fr_1fr_1fr_0.5fr_1fr_0.5fr_1fr_1fr] gap-2 px-4 py-2 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'} text-xs`}>
-                          <div className="font-medium text-gray-900">{item.product?.name || item.productName || '(Neznámé)'}</div>
-                          <div className="text-center">
-                            {item.productId && item.inventoryItemId
-                              ? <Link href={`/inventory?selectedProduct=${item.productId}&highlightMovement=${item.inventoryItemId}`} className="inline-flex items-center px-2 py-0.5 bg-green-600 hover:bg-green-700 text-white text-xs rounded font-medium" onClick={e => e.stopPropagation()}>Zobrazit</Link>
-                              : <span className="text-gray-400">-</span>}
-                          </div>
-                          <div className="text-center text-gray-600">
-                            {formatVariantQty(Number(actualQty), item.product?.name || item.productName, item.unit)}
-                            {item.receivedQuantity && item.receivedQuantity !== item.quantity && (
-                              <span className="text-orange-600 text-xs block mt-1">(z {formatVariantQty(Number(item.quantity), item.product?.name || item.productName, item.unit)})</span>
-                            )}
-                          </div>
-                          <div className="text-center text-gray-500">{isItemNonVat ? '-' : `${itemVatRate}%`}</div>
-                          <div className="text-center text-gray-600">{formatPrice(unitPrice)}</div>
-                          <div className="text-center text-gray-500">{isItemNonVat ? '-' : formatPrice(vatPerUnit)}</div>
-                          <div className="text-center text-gray-700">{formatPrice(priceWithVat)}</div>
-                          <div className="text-center font-semibold text-gray-900">{formatPrice(lineTotal)}</div>
-                        </div>
-                      )
-                    })}
-                    <div className="grid grid-cols-[3fr_1fr_1fr_0.5fr_1fr_0.5fr_1fr_1fr] gap-2 px-4 py-2 bg-gray-100 border-t font-bold text-sm">
-                      <div className="col-span-7">Celková částka s DPH</div>
-                      <div className="text-center">{formatPrice(receipt.items.reduce((sum, item) => {
-                        const qty = item.receivedQuantity || item.quantity
-                        const up  = Number(item.purchasePrice) || 0
-                        const vr  = Number((item as any).vatRate || item.product?.vatRate || 21)
-                        const inv = isNonVatPayer(vr)
-                        return sum + qty * (up + (inv ? 0 : up * vr / 100))
-                      }, 0))}</div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-sm">
-                    <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-4 px-4 py-3 bg-gray-50 font-semibold text-gray-700 border-b">
-                      <div>Produkt</div><div className="text-center">Skladový pohyb</div>
-                      <div className="text-right">Množství</div><div className="text-right">Nákupní cena</div><div className="text-right">Celkem</div>
-                    </div>
-                    {receipt.items.map((item: any, i: number) => {
-                      const actualQty = item.receivedQuantity || item.quantity
-                      const lineTotal = actualQty * item.purchasePrice
-                      return (
-                        <div key={i} className={`grid grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-4 px-4 py-3 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                          <div className="font-medium text-gray-900">{item.product?.name || item.productName || '(Neznámé)'}</div>
-                          <div className="text-center">
-                            {item.productId && item.inventoryItemId
-                              ? <Link href={`/inventory?selectedProduct=${item.productId}&highlightMovement=${item.inventoryItemId}`} className="inline-flex items-center px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-xs rounded font-medium" onClick={e => e.stopPropagation()}>Zobrazit</Link>
-                              : <span className="text-gray-400 text-xs">-</span>}
-                          </div>
-                          <div className="text-right text-gray-600">
-                            {formatVariantQty(Number(actualQty), item.product?.name || item.productName, item.unit)}
-                            {item.receivedQuantity && item.receivedQuantity !== item.quantity && (
-                              <span className="text-orange-600 text-xs block mt-1">(z {formatVariantQty(Number(item.quantity), item.product?.name || item.productName, item.unit)} obj.)</span>
-                            )}
-                          </div>
-                          <div className="text-right text-gray-600">{Number(item.purchasePrice).toLocaleString('cs-CZ')} Kč</div>
-                          <div className="text-right font-semibold text-gray-900">{Number(lineTotal).toLocaleString('cs-CZ')} Kč</div>
-                        </div>
-                      )
-                    })}
-                    <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-4 px-4 py-3 bg-gray-100 border-t-2 font-bold">
-                      <div className="col-span-4">Celková částka</div>
-                      <div className="text-right">{receipt.items.reduce((sum, item) => sum + (item.receivedQuantity || item.quantity) * item.purchasePrice, 0).toLocaleString('cs-CZ')} Kč</div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {receipt.note && (
-              <p className="text-sm text-gray-700"><span className="font-semibold text-gray-900">Poznámka:</span> {receipt.note}</p>
-            )}
-
-            {(receipt.status === 'storno' || receipt.status === 'cancelled') && receipt.stornoReason && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded">
-                <p className="text-sm font-medium text-red-900">Stornováno</p>
-                <p className="text-sm text-red-700 mt-1">Důvod: {receipt.stornoReason}</p>
-                {receipt.stornoAt && <p className="text-xs text-red-600 mt-1">Datum storna: {formatDate(receipt.stornoAt)}</p>}
-              </div>
-            )}
-
             <ActionToolbar
               right={
                 <div className="flex items-center gap-2">
