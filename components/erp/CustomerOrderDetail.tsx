@@ -111,8 +111,9 @@ interface Props {
   onUpdateStatus?: (status: string) => void
   onRefresh?: () => Promise<void>
   processingStatus?: boolean
-  showShipping?: boolean       // hide Doručení column; default true
-  showDeliveryNotes?: boolean  // hide výdejky list;   default true
+  showShipping?: boolean        // hide Doručení column; default true
+  showDeliveryNotes?: boolean   // hide výdejky list;   default true
+  disableTrackingEdit?: boolean // hide tracking edit controls; default false
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -219,6 +220,7 @@ export function CustomerOrderDetail({
   processingStatus,
   showShipping = true,
   showDeliveryNotes = true,
+  disableTrackingEdit = false,
 }: Props) {
   const isCancelled = ['cancelled', 'storno'].includes(order.status)
 
@@ -500,7 +502,7 @@ export function CustomerOrderDetail({
               {/* Tracking inline */}
               <div>
                 <p className="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">Zásilka</p>
-                {isEditingTracking ? (
+                {!disableTrackingEdit && isEditingTracking ? (
                   <div onClick={e => e.stopPropagation()}>
                     <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-400 transition-all">
                       <input
@@ -535,13 +537,15 @@ export function CustomerOrderDetail({
                     {order.trackingNumber && (
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-mono text-xs font-bold text-gray-800 truncate">{order.trackingNumber}</span>
-                        <button
-                          onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(order.trackingNumber!) }}
-                          className="text-gray-400 hover:text-gray-700 transition-colors shrink-0"
-                          title="Kopírovat"
-                        >
-                          <RefreshCw className="w-3.5 h-3.5" />
-                        </button>
+                        {!disableTrackingEdit && (
+                          <button
+                            onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(order.trackingNumber!) }}
+                            className="text-gray-400 hover:text-gray-700 transition-colors shrink-0"
+                            title="Kopírovat"
+                          >
+                            <RefreshCw className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     )}
                     {order.carrier && <p className="text-xs text-gray-500">{order.carrier}</p>}
@@ -558,24 +562,30 @@ export function CustomerOrderDetail({
                           Sledovat
                         </a>
                       )}
-                      <button
-                        onClick={e => { e.stopPropagation(); setTrackingForm({ trackingNumber: order.trackingNumber || '', carrier: order.carrier || '' }); setIsEditingTracking(true) }}
-                        className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
-                      >
-                        Upravit
-                      </button>
+                      {!disableTrackingEdit && (
+                        <button
+                          onClick={e => { e.stopPropagation(); setTrackingForm({ trackingNumber: order.trackingNumber || '', carrier: order.carrier || '' }); setIsEditingTracking(true) }}
+                          className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+                        >
+                          Upravit
+                        </button>
+                      )}
                     </div>
                   </div>
                 ) : (
                   <div className="space-y-1.5">
-                    <p className="text-xs text-gray-400">Zásilka nebyla předána dopravci.</p>
-                    <button
-                      onClick={e => { e.stopPropagation(); setTrackingForm({ trackingNumber: '', carrier: order.pickupPointCarrier || '' }); setIsEditingTracking(true) }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
-                    >
-                      <Package className="w-3.5 h-3.5" />
-                      Přidat tracking
-                    </button>
+                    <p className="text-xs text-gray-400">
+                      {disableTrackingEdit ? '—' : 'Zásilka nebyla předána dopravci.'}
+                    </p>
+                    {!disableTrackingEdit && (
+                      <button
+                        onClick={e => { e.stopPropagation(); setTrackingForm({ trackingNumber: '', carrier: order.pickupPointCarrier || '' }); setIsEditingTracking(true) }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+                      >
+                        <Package className="w-3.5 h-3.5" />
+                        Přidat tracking
+                      </button>
+                    )}
                   </div>
                 )}
               </div>

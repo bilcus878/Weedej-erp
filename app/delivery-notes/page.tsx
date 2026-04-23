@@ -128,6 +128,8 @@ function formatDNItemQty(quantity: number, productName: string | null | undefine
 
 function mapDeliveryNoteToOrderDetail(note: DeliveryNote, isVatPayer: boolean): OrderDetailData {
   const productItems = note.items.filter(item => item.productId != null)
+  // customerOrder carries all CustomerOrder model fields at runtime via [key: string]: any
+  const co = note.customerOrder as any
 
   const mappedItems: OrderDetailItem[] = productItems.map(item => {
     const hasSaved        = item.price != null && item.priceWithVat != null
@@ -158,30 +160,64 @@ function mapDeliveryNoteToOrderDetail(note: DeliveryNote, isVatPayer: boolean): 
     }
   })
 
+  // Total from product items only — shipping is never included here
   const totalAmount = mappedItems.reduce(
     (sum, item) => sum + item.quantity * (isVatPayer ? item.priceWithVat : item.price),
     0,
   )
 
-  const invoice = note.customerOrder?.issuedInvoice || note.issuedInvoice
+  const invoice = co?.issuedInvoice || note.issuedInvoice
 
   return {
-    id:           note.id,
-    orderNumber:  note.customerOrder?.orderNumber || note.deliveryNumber,
-    orderDate:    note.deliveryDate,
-    status:       note.status,
+    id:          note.id,
+    // Show related order number so the link in the summary panel points to the source order.
+    // Falls back to the delivery note number if there is no linked order.
+    orderNumber: co?.orderNumber || note.deliveryNumber,
+    orderDate:   note.deliveryDate,
+    status:      note.status,
     totalAmount,
-    customerName: note.customer?.name || note.customerName || null,
-    items:        mappedItems,
+
+    // ── Customer contact — sourced from the linked customer order ──────────
+    customerName:    note.customer?.name || co?.customerName || note.customerName || null,
+    customerEmail:   co?.customerEmail   || null,
+    customerPhone:   co?.customerPhone   || null,
+    customerAddress: co?.customerAddress || null,
+
+    // ── Billing address snapshot from the linked customer order ───────────
+    billingName:    co?.billingName    || null,
+    billingCompany: co?.billingCompany || null,
+    billingIco:     co?.billingIco     || (note.customer as any)?.ico || null,
+    billingStreet:  co?.billingStreet  || null,
+    billingCity:    co?.billingCity    || null,
+    billingZip:     co?.billingZip     || null,
+    billingCountry: co?.billingCountry || null,
+
+    // ── Shipping / delivery info — displayed as informational, not billed ─
+    // These fields are shown in the Doručení panel but are NOT part of items
+    // and therefore never affect subtotal or total calculations.
+    shippingMethod:     co?.shippingMethod     || null,
+    pickupPointId:      co?.pickupPointId      || null,
+    pickupPointName:    co?.pickupPointName    || null,
+    pickupPointAddress: co?.pickupPointAddress || null,
+    pickupPointCarrier: co?.pickupPointCarrier || null,
+    trackingNumber:     co?.trackingNumber     || null,
+    carrier:            co?.carrier            || null,
+
+    items: mappedItems,
+
     issuedInvoice: invoice ? {
       id:            invoice.id,
       invoiceNumber: invoice.invoiceNumber,
-      paymentStatus: 'paid',
-      status:        'active',
-      invoiceDate:   note.deliveryDate,
+      // paymentStatus reflects the actual invoice state if available
+      paymentStatus: (invoice as any).paymentStatus || 'unknown',
+      status:        (invoice as any).status        || 'active',
+      invoiceDate:   (invoice as any).invoiceDate   || note.deliveryDate,
+      dueDate:       (invoice as any).dueDate       || null,
+      variableSymbol: (invoice as any).variableSymbol || null,
     } : null,
-    // Pass the delivery note itself as a deliveryNotes entry so that
-    // CustomerOrderDetail can build the inventoryItemId lookup for movement links.
+
+    // Pass the delivery note itself so CustomerOrderDetail can build
+    // the inventoryItemId lookup for inventory movement links in the items table.
     deliveryNotes: [{
       id:             note.id,
       deliveryNumber: note.deliveryNumber,
@@ -201,12 +237,6 @@ function mapDeliveryNoteToOrderDetail(note: DeliveryNote, isVatPayer: boolean): 
         product:         item.product,
       })),
     }],
-    // All shipping fields null — the Doručení column is hidden via showShipping={false}
-    shippingMethod:      null,
-    pickupPointId:       null,
-    pickupPointName:     null,
-    pickupPointAddress:  null,
-    pickupPointCarrier:  null,
   }
 }
 
@@ -580,13 +610,14 @@ export default function DeliveryNotesPage() {
                 })()}
               </div>
 
-              {/* Detail — shipping excluded via showShipping={false} */}
+              {/* Shipping is visible for warehouse context (delivery address / carrier).
+                  Shipping cost is never part of items, so it never affects calculations. */}
               <CustomerOrderDetail
                 order={mapDeliveryNoteToOrderDetail(note, isVatPayer)}
                 isVatPayer={isVatPayer}
                 orderHref={orderHref}
-                showShipping={false}
                 showDeliveryNotes={false}
+                disableTrackingEdit={true}
               />
 
               {note.note && (
