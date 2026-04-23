@@ -5,15 +5,8 @@ import { useSearchParams } from 'next/navigation'
 import { useEntityPage, useFilters } from '@/components/erp'
 import type { SelectOption } from '@/components/erp'
 import { fetchIssuedInvoices } from '../services/issuedInvoiceService'
+import { PAYMENT_OPTIONS } from '@/lib/constants/paymentOptions'
 import type { IssuedInvoice } from '../types'
-
-const PAYMENT_OPTIONS: SelectOption[] = [
-  { value: 'all',      label: 'Vše'       },
-  { value: 'none',     label: '-'         },
-  { value: 'cash',     label: 'Hotovost'  },
-  { value: 'card',     label: 'Karta'     },
-  { value: 'transfer', label: 'Převod'    },
-]
 
 const STATUS_OPTIONS: SelectOption[] = [
   { value: 'all',        label: 'Vše'                                       },
