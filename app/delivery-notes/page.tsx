@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
-import Link from 'next/link'
 import Button from '@/components/ui/Button'
 import { Package, FileDown, XCircle } from 'lucide-react'
 import { formatDate, formatPrice } from '@/lib/utils'
@@ -174,8 +173,15 @@ function mapDeliveryNoteToOrderDetail(note: DeliveryNote, isVatPayer: boolean): 
     // Falls back to the delivery note number if there is no linked order.
     orderNumber: co?.orderNumber || note.deliveryNumber,
     orderDate:   note.deliveryDate,
-    status:      note.status,
+    // Translate DN status to a value CustomerOrderDetail's getStatusBadge knows.
+    // 'active' / 'delivered' / 'draft' all mean "issued" in DN context → 'delivered'.
+    status:      note.status === 'storno' ? 'storno' : 'delivered',
     totalAmount,
+
+    // ── Order-level dates and payment info from the linked customer order ──
+    paidAt:           co?.paidAt    ? new Date(co.paidAt).toISOString()    : null,
+    shippedAt:        co?.shippedAt ? new Date(co.shippedAt).toISOString() : null,
+    paymentReference: co?.paymentReference || null,
 
     // ── Customer contact — sourced from the linked customer order ──────────
     customerName:    note.customer?.name || co?.customerName || note.customerName || null,
@@ -206,14 +212,16 @@ function mapDeliveryNoteToOrderDetail(note: DeliveryNote, isVatPayer: boolean): 
     items: mappedItems,
 
     issuedInvoice: invoice ? {
-      id:            invoice.id,
-      invoiceNumber: invoice.invoiceNumber,
-      // paymentStatus reflects the actual invoice state if available
-      paymentStatus: (invoice as any).paymentStatus || 'unknown',
-      status:        (invoice as any).status        || 'active',
-      invoiceDate:   (invoice as any).invoiceDate   || note.deliveryDate,
-      dueDate:       (invoice as any).dueDate       || null,
+      id:             invoice.id,
+      invoiceNumber:  invoice.invoiceNumber,
+      paymentStatus:  (invoice as any).paymentStatus  || 'unknown',
+      paymentType:    (invoice as any).paymentType    || null,
+      status:         (invoice as any).status         || 'active',
+      invoiceDate:    (invoice as any).invoiceDate    || note.deliveryDate,
+      dueDate:        (invoice as any).dueDate        || null,
       variableSymbol: (invoice as any).variableSymbol || null,
+      constantSymbol: (invoice as any).constantSymbol || null,
+      specificSymbol: (invoice as any).specificSymbol || null,
     } : null,
 
     // Pass the delivery note itself so CustomerOrderDetail can build
@@ -573,43 +581,6 @@ export default function DeliveryNotesPage() {
 
           return (
             <>
-              {/* Linked documents banner */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 flex items-center justify-center flex-wrap gap-6">
-                {note.transaction ? (
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-blue-900">Transakce:</span>
-                    <Link href={`/transactions?highlight=${note.transaction.id}`} className="text-blue-600 hover:underline text-sm font-medium">{note.transaction.transactionCode}</Link>
-                  </div>
-                ) : note.customerOrder ? (
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-blue-900">Objednávka:</span>
-                    <Link href={orderHref!} className="text-blue-600 hover:underline text-sm font-medium">{note.customerOrder.orderNumber}</Link>
-                  </div>
-                ) : null}
-
-                {(() => {
-                  const invoice = note.customerOrder?.issuedInvoice || note.issuedInvoice
-                  return invoice ? (
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-blue-900">Faktura:</span>
-                      <Link href={`/invoices/issued?highlight=${invoice.id}`} className="text-blue-600 hover:underline text-sm font-medium">{invoice.invoiceNumber}</Link>
-                    </div>
-                  ) : null
-                })()}
-
-                {note.transaction?.receiptId && (() => {
-                  const match = note.transaction!.receiptId!.match(/urn:sumup:pos:sale:([^:]+):([a-f0-9-]{36})[:;]/)
-                  if (!match) return null
-                  const receiptUrl = `https://sales-receipt.sumup.com/pos/public/v1/${match[1]}/receipt/${match[2]}?format=html`
-                  return (
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-blue-900">Účtenka:</span>
-                      <a href={receiptUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-sm font-medium">Zobrazit</a>
-                    </div>
-                  )
-                })()}
-              </div>
-
               {/* Shipping is visible for warehouse context (delivery address / carrier).
                   Shipping cost is never part of items, so it never affects calculations. */}
               <CustomerOrderDetail
