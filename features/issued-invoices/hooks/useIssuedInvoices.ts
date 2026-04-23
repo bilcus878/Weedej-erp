@@ -1,0 +1,74 @@
+'use client'
+
+import { useRef } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { useEntityPage, useFilters } from '@/components/erp'
+import type { SelectOption } from '@/components/erp'
+import { fetchIssuedInvoices } from '../services/issuedInvoiceService'
+import type { IssuedInvoice } from '../types'
+
+const PAYMENT_OPTIONS: SelectOption[] = [
+  { value: 'all',      label: 'Vše'       },
+  { value: 'none',     label: '-'         },
+  { value: 'cash',     label: 'Hotovost'  },
+  { value: 'card',     label: 'Karta'     },
+  { value: 'transfer', label: 'Převod'    },
+]
+
+const STATUS_OPTIONS: SelectOption[] = [
+  { value: 'all',        label: 'Vše'                                       },
+  { value: 'new',        label: 'Nová',          className: 'text-yellow-600' },
+  { value: 'paid',       label: 'Zaplacená',     className: 'text-green-600'  },
+  { value: 'processing', label: 'Připravuje se', className: 'text-blue-600'   },
+  { value: 'shipped',    label: 'Odesláno',      className: 'text-purple-600' },
+  { value: 'delivered',  label: 'Předáno',       className: 'text-teal-600'   },
+  { value: 'cancelled',  label: 'Zrušená',       className: 'text-red-600'    },
+  { value: 'storno',     label: 'STORNO',        className: 'text-red-600'    },
+]
+
+export function useIssuedInvoices() {
+  const highlightId = useSearchParams().get('highlight')
+  const resetPage   = useRef<() => void>(() => {})
+
+  const filters = useFilters<IssuedInvoice>([
+    {
+      key: 'number',   type: 'text',   placeholder: 'Číslo...',
+      match: (r, v) => r.transactionCode.toLowerCase().includes(v.toLowerCase()),
+    },
+    {
+      key: 'date',     type: 'date',
+      match: (r, v) => new Date(r.transactionDate).toISOString().split('T')[0] === v,
+    },
+    {
+      key: 'customer', type: 'text',   placeholder: 'Odběratel...',
+      match: (r, v) => (r.customerName || r.customer?.name || '').toLowerCase().includes(v.toLowerCase()),
+    },
+    {
+      key: 'payment',  type: 'select', options: PAYMENT_OPTIONS,
+      match: (r, v) => v === 'all' ? true : v === 'none' ? !r.paymentType : r.paymentType === v,
+    },
+    {
+      key: 'minItems', type: 'number', placeholder: '≥',
+      match: (r, v) => (r.items?.length || 0) >= v,
+    },
+    {
+      key: 'minValue', type: 'number', placeholder: '≥',
+      match: (r, v) => r.totalAmount >= v,
+    },
+    {
+      key: 'status',   type: 'select', options: STATUS_OPTIONS,
+      match: (r, v) => v === 'all' || r.status === v,
+    },
+  ], () => resetPage.current())
+
+  const ep = useEntityPage<IssuedInvoice>({
+    fetchData:  fetchIssuedInvoices,
+    getRowId:   r => r.id,
+    filterFn:   filters.fn,
+    highlightId,
+  })
+
+  resetPage.current = () => ep.setPage(1)
+
+  return { ep, filters }
+}

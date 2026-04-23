@@ -6,6 +6,7 @@ import Button from '@/components/ui/Button'
 import { Package, FileDown, XCircle } from 'lucide-react'
 import { formatDate, formatPrice } from '@/lib/utils'
 import { formatVariantQty } from '@/lib/formatVariantQty'
+import { calcPackCount } from '@/lib/packQuantity'
 import { resolveItemQuantities } from '@/lib/variantConversion'
 import { generateDeliveryNotePDF, openPDFInNewTab } from '@/lib/pdfGenerator'
 import { isNonVatPayer, DEFAULT_VAT_RATE } from '@/lib/vatCalculation'
@@ -98,17 +99,6 @@ interface CustomerOrder {
   }>
 }
 
-function getDNItemPackCount(quantity: number, productName: string | null | undefined, unit: string): number {
-  if (productName?.includes(' — ') && unit !== 'ks') {
-    const variantLabel = productName.split(' — ').slice(-1)[0]
-    const match = variantLabel.match(/^([\d.]+)/)
-    if (match) {
-      const packSize = parseFloat(match[1])
-      if (packSize > 0) return Math.round((quantity / packSize) * 1000) / 1000
-    }
-  }
-  return quantity
-}
 
 function formatDNItemQty(quantity: number, productName: string | null | undefined, unit: string): string {
   if (productName?.includes(' — ') && unit !== 'ks') {
@@ -141,7 +131,7 @@ function mapDeliveryNoteToOrderDetail(note: DeliveryNote, isVatPayer: boolean): 
       ? Number(item.vatAmount ?? 0)
       : (isItemNonVat ? 0 : unitPrice * itemVatRate / 100)
     const priceWithVat    = hasSaved ? Number(item.priceWithVat) : (unitPrice + vatPerUnit)
-    const packCount       = getDNItemPackCount(Number(item.quantity), item.productName, item.unit)
+    const packCount       = calcPackCount(Number(item.quantity), item.productName, item.unit)
     const displayUnit     = item.unit !== 'ks' && item.productName?.includes(' — ') ? 'ks' : item.unit
     return {
       id:           item.id,
@@ -293,7 +283,7 @@ export default function DeliveryNotesPage() {
         const isNonVat  = isNonVatPayer(itemVatRate)
         const vatPer    = hasSaved ? Number(item.vatAmount ?? 0) : (isNonVat ? 0 : unitPrice * itemVatRate / 100)
         const withVat   = hasSaved ? Number(item.priceWithVat) : (unitPrice + vatPer)
-        const packs     = getDNItemPackCount(Number(item.quantity), item.productName, item.unit)
+        const packs     = calcPackCount(Number(item.quantity), item.productName, item.unit)
         return sum + packs * withVat
       }, 0)
       return total >= v
@@ -452,7 +442,7 @@ export default function DeliveryNotesPage() {
           const isItemNonVat = isNonVatPayer(itemVatRate)
           const vatPerUnit = hasSaved ? Number(item.vatAmount ?? 0) : (isItemNonVat ? 0 : unitPrice * itemVatRate / 100)
           const priceWithVatPerUnit = hasSaved ? Number(item.priceWithVat) : (unitPrice + vatPerUnit)
-          const packs = getDNItemPackCount(Number(item.quantity), item.productName, item.unit)
+          const packs = calcPackCount(Number(item.quantity), item.productName, item.unit)
           return {
             productName: item.productName || item.product?.name || 'Neznámý produkt',
             quantity:    packs,
@@ -467,7 +457,7 @@ export default function DeliveryNotesPage() {
           const isItemNonVat = isNonVatPayer(itemVatRate)
           const vatPerUnit = hasSaved ? Number(item.vatAmount ?? 0) : (isItemNonVat ? 0 : unitPrice * itemVatRate / 100)
           const priceWithVatPerUnit = hasSaved ? Number(item.priceWithVat) : (unitPrice + vatPerUnit)
-          const packs = getDNItemPackCount(Number(item.quantity), item.productName, item.unit)
+          const packs = calcPackCount(Number(item.quantity), item.productName, item.unit)
           return sum + packs * (isVatPayer ? priceWithVatPerUnit : unitPrice)
         }, 0),
         note:   note.note,
@@ -526,7 +516,7 @@ export default function DeliveryNotesPage() {
             const isItemNonVat = isNonVatPayer(itemVatRate)
             const vatPer    = hasSaved ? Number(item.vatAmount ?? 0) : (isItemNonVat ? 0 : unitPrice * itemVatRate / 100)
             const withVat   = hasSaved ? Number(item.priceWithVat) : (unitPrice + vatPer)
-            const packs     = getDNItemPackCount(Number(item.quantity), item.productName, item.unit)
+            const packs     = calcPackCount(Number(item.quantity), item.productName, item.unit)
             return sum + packs * (isVatPayer ? withVat : unitPrice)
           }, 0)) : '-'}
         </p>

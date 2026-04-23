@@ -1,8 +1,7 @@
-// API Endpoint pro vystavené faktury (Issued Invoices)
-// URL: /api/issued-invoices
-
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { resolveInvoiceStatus } from '@/features/issued-invoices/domain/invoiceStatus'
+import { calcPackCount } from '@/lib/packQuantity'
 
 export const dynamic = 'force-dynamic'
 
@@ -58,22 +57,12 @@ export async function GET() {
       }
     })
 
-    // Mapuj data tak, aby frontend měl správnou strukturu (kompatibilní s Transaction)
     const mappedInvoices = invoices.map(invoice => {
-      // Zjisti správný status:
-      // PRIORITA 1: Pokud je faktura storno → status = storno (VŽDY!)
-      // PRIORITA 2: Pokud má customerOrder, použij status z něj
-      // PRIORITA 3: Pokud je to SumUp transakce (má transactionId), status = delivered (Předáno)
-      // PRIORITA 4: Jinak použij status z faktury
-      let finalStatus = invoice.status
-
-      if (invoice.status === 'storno') {
-        finalStatus = 'storno' // STORNO má nejvyšší prioritu!
-      } else if (invoice.customerOrder) {
-        finalStatus = invoice.customerOrder.status
-      } else if (invoice.transactionId) {
-        finalStatus = 'delivered' // SumUp transakce = Předáno (na pobočce)
-      }
+      const finalStatus = resolveInvoiceStatus({
+        status:        invoice.status,
+        customerOrder: invoice.customerOrder,
+        transactionId: invoice.transactionId,
+      })
 
       return {
         id: invoice.id,
@@ -120,17 +109,11 @@ export async function GET() {
             const priceWithVat = hasSaved
               ? Number((item as any).priceWithVat)
               : (unitPrice * (1 + vatRate / 100))
-            let packs = Number(item.quantity)
-            const productName: string | null = (item as any).productName ?? null
-            const unit: string = (item as any).unit ?? 'ks'
-            if (productName?.includes(' — ') && unit !== 'ks') {
-              const variantLabel = productName.split(' — ').slice(-1)[0]
-              const match = variantLabel.match(/^([\d.]+)/)
-              if (match) {
-                const packSize = parseFloat(match[1])
-                if (packSize > 0) packs = Math.round((packs / packSize) * 1000) / 1000
-              }
-            }
+            const packs = calcPackCount(
+              Number(item.quantity),
+              (item as any).productName ?? null,
+              (item as any).unit ?? 'ks',
+            )
             return sum + (packs * priceWithVat)
           }, 0) || 0
         })),
