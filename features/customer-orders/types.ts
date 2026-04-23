@@ -1,9 +1,9 @@
 export interface Customer {
   id: string
   name: string
-  email?: string | null
-  phone?: string | null
-  ico?: string | null
+  email?: string
+  phone?: string
+  ico?: string
 }
 
 export interface Product {
