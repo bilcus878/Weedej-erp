@@ -111,6 +111,8 @@ interface Props {
   onUpdateStatus?: (status: string) => void
   onRefresh?: () => Promise<void>
   processingStatus?: boolean
+  showShipping?: boolean       // hide Doručení column; default true
+  showDeliveryNotes?: boolean  // hide výdejky list;   default true
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -215,6 +217,8 @@ export function CustomerOrderDetail({
   onUpdateStatus,
   onRefresh,
   processingStatus,
+  showShipping = true,
+  showDeliveryNotes = true,
 }: Props) {
   const isCancelled = ['cancelled', 'storno'].includes(order.status)
 
@@ -268,7 +272,7 @@ export function CustomerOrderDetail({
     <div className="space-y-4">
 
       {/* ══ DETAIL ══════════════════════════════════════════════════════════════ */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className={`grid grid-cols-1 ${showShipping ? 'md:grid-cols-3' : 'md:grid-cols-2'} gap-4`}>
 
         {/* ── A) Zákazník + Fakturační adresa ─────────────────────────────── */}
         <div className="border border-gray-200 rounded-lg overflow-hidden flex flex-col">
@@ -459,7 +463,7 @@ export function CustomerOrderDetail({
         </div>
 
         {/* ── C) Doručení ─────────────────────────────────────────────────── */}
-        <div className="border border-gray-200 rounded-lg overflow-hidden flex flex-col">
+        {showShipping && <div className="border border-gray-200 rounded-lg overflow-hidden flex flex-col">
 
           <div className="px-4 py-2 bg-gray-100 border-b border-gray-200 flex items-center justify-between gap-2 shrink-0">
             <div className="flex items-center gap-2">
@@ -625,7 +629,7 @@ export function CustomerOrderDetail({
             </div>
           )}
 
-        </div>
+        </div>}
 
       </div>
 
@@ -777,7 +781,7 @@ export function CustomerOrderDetail({
       )}
 
       {/* ── Výdejky ─────────────────────────────────────────────────────────── */}
-      {(() => {
+      {showDeliveryNotes && (() => {
         const active = order.deliveryNotes?.filter(dn => dn.status === 'active') ?? []
         if (active.length === 0) return null
         return (
