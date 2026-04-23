@@ -8,7 +8,7 @@ import CustomerSupplierSelector from '@/components/CustomerSupplierSelector'
 import PaymentDetailsSelector from '@/components/PaymentDetailsSelector'
 import { CreateOrderPopup } from '@/components/warehouse/create/CreateOrderPopup'
 import { useCreateOrderForm } from '../hooks/useCreateOrderForm'
-import { CascadingProductDropdown } from './CascadingProductDropdown'
+import { CascadingProductDropdown } from '@/components/CascadingProductDropdown'
 import { OrderTotalsPreview } from './OrderTotalsPreview'
 import type { Customer, CustomerOrderItem, Product } from '../types'
 

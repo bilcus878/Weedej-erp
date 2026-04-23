@@ -2,10 +2,16 @@
 
 import { useRef, useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
-import type { Product } from '../types'
+
+export interface ProductOption {
+  id: string
+  name: string
+  unit: string
+  category?: { id: string; name: string } | null
+}
 
 interface Props {
-  products: Product[]
+  products: ProductOption[]
   value:    string
   onChange: (productId: string) => void
 }
@@ -96,13 +102,7 @@ export function CascadingProductDropdown({ products, value, onChange }: Props) {
                 {filtered.map(p => (
                   <div
                     key={p.id}
-                    onMouseDown={e => {
-                      e.preventDefault()
-                      onChange(p.id)
-                      setOpen(false)
-                      setHoveredCat(null)
-                      setCatRect(null)
-                    }}
+                    onMouseDown={e => { e.preventDefault(); onChange(p.id); setOpen(false); setHoveredCat(null); setCatRect(null) }}
                     className="px-4 py-2.5 hover:bg-blue-100 cursor-pointer text-sm flex items-center gap-2"
                   >
                     <span>{p.name}</span>
