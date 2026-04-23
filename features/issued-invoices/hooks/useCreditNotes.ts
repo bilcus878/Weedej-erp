@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { fetchCreditNotes, createCreditNote } from '../services/issuedInvoiceService'
 import type { CreditNoteData, CreditNoteFormItem, IssuedInvoice } from '../types'
 
-export function useCreditNotes(expandedIds: Set<string>, autoLoadId: string | null) {
+export function useCreditNotes(expandedIds: Set<string>, autoLoadId: string | null | undefined) {
   const [creditNotesMap, setCreditNotesMap] = useState<Record<string, CreditNoteData[]>>({})
 
   // Auto-load credit notes when a row is highlighted and auto-expanded
