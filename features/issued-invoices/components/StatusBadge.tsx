@@ -16,7 +16,7 @@ export function StatusBadge({ status }: Props) {
   const cfg = STATUS_MAP[status]
   return (
     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${cfg?.cls ?? 'bg-gray-100 text-gray-800'}`}>
-      {cfg?.label ?? status || 'Aktivní'}
+      {cfg?.label ?? (status || 'Aktivní')}
     </span>
   )
 }
