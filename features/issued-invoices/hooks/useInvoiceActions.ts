@@ -22,7 +22,7 @@ export function useInvoiceActions(onRefresh: () => Promise<void>) {
   async function handlePrintPDF(invoice: IssuedInvoice) {
     try {
       const sRes = await fetch('/api/settings')
-      await generateInvoicePDF(invoice, await sRes.json())
+      await generateInvoicePDF({ ...invoice, dueDate: invoice.dueDate ?? undefined }, await sRes.json())
     } catch (e) {
       alert(
         e instanceof Error
