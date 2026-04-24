@@ -104,10 +104,10 @@ function Table<T>({
 
   const header = (
     <div
-      className={`grid gap-4 px-4 py-3 bg-gray-100 border rounded-lg text-xs font-semibold text-gray-700 ${hasFilters ? 'items-start' : 'items-center'}`}
+      className="grid items-center gap-4 px-4 py-3 bg-gray-100 border rounded-lg text-xs font-semibold text-gray-700"
       style={{ gridTemplateColumns: gridTemplate }}
     >
-      <div className={`w-8 flex items-center justify-center ${hasFilters ? 'pt-1.5' : ''}`}>
+      <div className="w-8 flex items-center justify-center">
         {hasFilters && onClearFilters
           ? (
             <button
@@ -122,11 +122,10 @@ function Table<T>({
         }
       </div>
       {columns.map(col => (
-        <div key={col.key} className={`${col.className ?? ''}`}>
-          <div className={`text-xs font-semibold text-gray-700 ${hasFilters ? 'mb-1.5' : ''} text-${col.align ?? 'center'}`}>
-            {col.header}
-          </div>
-          {col.filterNode}
+        <div key={col.key} className={`flex items-center justify-center ${col.className ?? ''}`}>
+          {col.filterNode ?? (
+            <span className={`text-${col.align ?? 'center'}`}>{col.header}</span>
+          )}
         </div>
       ))}
     </div>
