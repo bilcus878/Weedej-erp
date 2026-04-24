@@ -42,6 +42,7 @@ export type { FilterConfig, FiltersResult } from './hooks/useFilters'
 // ── Filters ──────────────────────────────────────────────────────────────────
 export { FilterInput }          from './filters/FilterInput'
 export { FilterSelect }         from './filters/FilterSelect'
+export { FilterCombobox }       from './filters/FilterCombobox'
 
 // ── States ───────────────────────────────────────────────────────────────────
 export { LoadingState }         from './states/LoadingState'

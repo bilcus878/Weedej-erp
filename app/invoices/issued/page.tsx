@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { FileText, RefreshCw } from 'lucide-react'
 import { EntityPage, LoadingState, ErrorState, CustomerOrderDetail, ActionsDropdown } from '@/components/erp'
 import { useCompanySettings } from '@/components/erp/hooks/useCompanySettings'
@@ -21,7 +21,12 @@ export default function IssuedInvoicesPage() {
 
   const [creditNoteInvoice, setCreditNoteInvoice] = useState<IssuedInvoice | null>(null)
 
-  const columns = createInvoiceColumns(filters)
+  const customerSuggestions = useMemo(() => {
+    const names = ep.rows.map(r => r.customer?.name || r.customerName || '').filter(Boolean)
+    return [...new Set(names)].sort() as string[]
+  }, [ep.rows])
+
+  const columns = createInvoiceColumns(filters, customerSuggestions)
 
   async function handleSubmitCreditNote(items: CreditNoteFormItem[], reason: string, note: string) {
     if (!creditNoteInvoice) return

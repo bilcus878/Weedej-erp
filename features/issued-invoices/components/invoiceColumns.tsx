@@ -2,7 +2,7 @@
 
 import { formatPrice } from '@/lib/utils'
 import type { ColumnDef, SelectOption, FiltersResult } from '@/components/erp'
-import { FilterInput, FilterSelect } from '@/components/erp'
+import { FilterInput, FilterSelect, FilterCombobox } from '@/components/erp'
 import { PAYMENT_OPTIONS } from '@/lib/constants/paymentOptions'
 import type { IssuedInvoice } from '../types'
 import { StatusBadge } from './StatusBadge'
@@ -18,7 +18,10 @@ const STATUS_OPTIONS: SelectOption[] = [
   { value: 'storno',     label: 'STORNO',        className: 'text-red-600'    },
 ]
 
-export function createInvoiceColumns(filters: FiltersResult<IssuedInvoice>): ColumnDef<IssuedInvoice>[] {
+export function createInvoiceColumns(
+  filters: FiltersResult<IssuedInvoice>,
+  customerSuggestions: string[] = [],
+): ColumnDef<IssuedInvoice>[] {
   const v = filters.values
   const s = filters.set
 
@@ -54,11 +57,12 @@ export function createInvoiceColumns(filters: FiltersResult<IssuedInvoice>): Col
     {
       key: 'customer', header: 'Odběratel',
       filterNode: (
-        <FilterInput
+        <FilterCombobox
           className="w-full"
           value={v['customer'] ?? ''}
           onChange={val => s('customer', val)}
           placeholder="Odběratel..."
+          options={customerSuggestions}
         />
       ),
       render: r => {
