@@ -1,0 +1,8 @@
+export { useInventory }         from './hooks/useInventory'
+export { useProductMovements }  from './hooks/useProductMovements'
+export { InventoryFiltersBar }  from './components/InventoryFiltersBar'
+export { InventoryTable }       from './components/InventoryTable'
+export { MovementFiltersBar }   from './components/MovementFiltersBar'
+export { MovementTable }        from './components/MovementTable'
+export { ManualAdjustmentModal } from './components/ManualAdjustmentModal'
+export type { InventorySummary, StockMovement, Product, Category, SortField, SortDirection } from './types'
