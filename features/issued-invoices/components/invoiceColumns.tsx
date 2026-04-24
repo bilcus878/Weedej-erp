@@ -30,7 +30,7 @@ export function createInvoiceColumns(
       key: 'number', header: 'Číslo',
       filterNode: (
         <FilterInput
-          className="w-full"
+          className="w-full text-center"
           value={v['number'] ?? ''}
           onChange={val => s('number', val)}
           placeholder="Číslo..."
@@ -59,6 +59,7 @@ export function createInvoiceColumns(
       filterNode: (
         <FilterCombobox
           className="w-full"
+          inputClassName="text-center"
           value={v['customer'] ?? ''}
           onChange={val => s('customer', val)}
           placeholder="Odběratel..."

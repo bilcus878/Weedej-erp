@@ -3,14 +3,15 @@
 import { useState, useRef, useEffect } from 'react'
 
 interface Props {
-  value:        string
-  onChange:     (v: string) => void
-  options:      string[]
-  placeholder?: string
-  className?:   string
+  value:         string
+  onChange:      (v: string) => void
+  options:       string[]
+  placeholder?:  string
+  className?:    string
+  inputClassName?: string
 }
 
-export function FilterCombobox({ value, onChange, options, placeholder, className = '' }: Props) {
+export function FilterCombobox({ value, onChange, options, placeholder, className = '', inputClassName = '' }: Props) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -34,7 +35,7 @@ export function FilterCombobox({ value, onChange, options, placeholder, classNam
         placeholder={placeholder}
         onChange={e => { onChange(e.target.value); setOpen(true) }}
         onFocus={() => setOpen(true)}
-        className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+        className={`w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${inputClassName}`}
       />
 
       {open && suggestions.length > 0 && (
