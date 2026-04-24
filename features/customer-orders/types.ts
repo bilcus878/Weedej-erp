@@ -70,6 +70,21 @@ export interface CustomerOrder {
   customerPhone?: string | null
   customerAddress?: string | null
   customerEntityType?: string | null
+  // Shipping snapshot — mirrors the eshop checkout delivery fields
+  shippingMethod?: string | null
+  pickupPointId?: string | null
+  pickupPointName?: string | null
+  pickupPointAddress?: string | null
+  pickupPointCarrier?: string | null
+  // Billing address snapshot — null means same as delivery address
+  billingName?: string | null
+  billingCompany?: string | null
+  billingIco?: string | null
+  billingDic?: string | null
+  billingStreet?: string | null
+  billingCity?: string | null
+  billingZip?: string | null
+  billingCountry?: string | null
   items: CustomerOrderItem[]
   reservations?: unknown[]
   deliveryNotes?: DeliveryNote[]
@@ -93,6 +108,17 @@ export interface ManualCustomerData {
   note: string
 }
 
+export interface BillingAddress {
+  billingName: string
+  billingCompany: string
+  billingIco: string
+  billingDic: string
+  billingStreet: string
+  billingCity: string
+  billingZip: string
+  billingCountry: string
+}
+
 export interface CreateOrderPayload {
   orderDate: string
   customerId: string | null
@@ -112,6 +138,14 @@ export interface CreateOrderPayload {
   manualCustomerData: ManualCustomerData | null
   discountType: string | null
   discountValue: number | null
+  // Shipping — same enum values as eshop deliveryType
+  shippingMethod: string | null
+  pickupPointId: string | null
+  pickupPointName: string | null
+  pickupPointAddress: string | null
+  pickupPointCarrier: string | null
+  // Billing address — null means same as customer/delivery address
+  billingAddress: BillingAddress | null
   items: {
     productId: string | null
     productName: string | null

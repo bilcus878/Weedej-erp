@@ -4,4 +4,4 @@ export { customerOrderColumns }          from './components/customerOrderColumns
 export { CustomerOrderStatusBadge }      from './components/CustomerOrderStatusBadge'
 export { CreateCustomerOrderForm }       from './components/CreateCustomerOrderForm'
 export { mapCustomerOrderToOrderDetail } from './domain/customerOrderMapper'
-export type { CustomerOrder, Customer, Product, ManualCustomerData } from './types'
+export type { CustomerOrder, Customer, Product, ManualCustomerData, BillingAddress } from './types'

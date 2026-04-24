@@ -10,7 +10,7 @@ import { CreateOrderPopup } from '@/components/warehouse/create/CreateOrderPopup
 import { useCreateOrderForm } from '../hooks/useCreateOrderForm'
 import { CascadingProductDropdown } from '@/components/CascadingProductDropdown'
 import { OrderTotalsPreview } from './OrderTotalsPreview'
-import type { Customer, CustomerOrderItem, Product } from '../types'
+import type { BillingAddress, Customer, CustomerOrderItem, Product } from '../types'
 
 interface Props {
   customers:  Customer[]
@@ -19,8 +19,28 @@ interface Props {
   onSuccess:  () => Promise<void>
 }
 
+const SHIPPING_OPTIONS = [
+  { value: 'DPD_HOME',          label: 'DPD — Doručení na adresu' },
+  { value: 'DPD_PICKUP',        label: 'DPD — Výdejní místo' },
+  { value: 'ZASILKOVNA_HOME',   label: 'Zásilkovna — Doručení na adresu' },
+  { value: 'ZASILKOVNA_PICKUP', label: 'Zásilkovna — Výdejní místo / Z-BOX' },
+  { value: 'COURIER',           label: 'Kurýr' },
+  { value: 'PICKUP_IN_STORE',   label: 'Osobní odběr' },
+]
+
+const COUNTRY_OPTIONS = [
+  { value: 'CZ', label: 'Česká republika' },
+  { value: 'SK', label: 'Slovensko' },
+  { value: 'DE', label: 'Německo' },
+  { value: 'AT', label: 'Rakousko' },
+  { value: 'PL', label: 'Polsko' },
+]
+
+const selectClass = 'w-full h-9 rounded border border-gray-300 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
+
 export function CreateCustomerOrderForm({ customers, products, isVatPayer, onSuccess }: Props) {
   const form = useCreateOrderForm(products, isVatPayer, onSuccess)
+  const isPickup = form.shippingMethod === 'DPD_PICKUP' || form.shippingMethod === 'ZASILKOVNA_PICKUP'
 
   return (
     <CreateOrderPopup
@@ -32,6 +52,8 @@ export function CreateCustomerOrderForm({ customers, products, isVatPayer, onSuc
     >
       <form onSubmit={form.handleSubmit} className="space-y-3">
         <div className="grid grid-cols-2 gap-3 items-stretch">
+
+          {/* ── Zákazník ──────────────────────────────────────────────── */}
           <Section title={<>Zákazník <span className="text-red-400">*</span></>}>
             <CustomerSupplierSelector
               type="customer" entities={customers}
@@ -44,11 +66,86 @@ export function CreateCustomerOrderForm({ customers, products, isVatPayer, onSuc
             />
           </Section>
 
+          {/* ── Termíny ───────────────────────────────────────────────── */}
           <Section title="Termíny">
             <label className="text-xs text-gray-500 mb-1 block">Datum objednávky</label>
             <Input type="date" value={form.orderDate} onChange={e => form.setOrderDate(e.target.value)} />
           </Section>
 
+          {/* ── Způsob doručení ───────────────────────────────────────── */}
+          <div className="col-span-2">
+            <Section title="Způsob doručení" grow>
+              <div className="space-y-3">
+                <select
+                  value={form.shippingMethod}
+                  onChange={e => { form.setShippingMethod(e.target.value); form.setPickupPointId(''); form.setPickupPointName(''); form.setPickupPointAddress('') }}
+                  className={selectClass}
+                >
+                  <option value="">— Nevybráno —</option>
+                  {SHIPPING_OPTIONS.map(o => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+
+                {/* Pickup point details — shown for pickup delivery types */}
+                {isPickup && (
+                  <div className="grid grid-cols-3 gap-2 pt-2 border-t border-gray-100">
+                    <div>
+                      <label className="text-xs text-gray-600 mb-1 block">ID výdejního místa</label>
+                      <Input
+                        value={form.pickupPointId}
+                        onChange={e => form.setPickupPointId(e.target.value)}
+                        placeholder="např. 12345"
+                        className="bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-600 mb-1 block">Název výdejního místa <span className="text-red-400">*</span></label>
+                      <Input
+                        value={form.pickupPointName}
+                        onChange={e => form.setPickupPointName(e.target.value)}
+                        placeholder="Název pobočky"
+                        className="bg-white"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-600 mb-1 block">Adresa výdejního místa</label>
+                      <Input
+                        value={form.pickupPointAddress}
+                        onChange={e => form.setPickupPointAddress(e.target.value)}
+                        placeholder="Ulice, Město, PSČ"
+                        className="bg-white"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </Section>
+          </div>
+
+          {/* ── Fakturační adresa ─────────────────────────────────────── */}
+          <div className="col-span-2">
+            <Section title="Fakturační adresa" grow>
+              <div className="space-y-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form.hasSeparateBilling}
+                    onChange={e => form.setHasSeparateBilling(e.target.checked)}
+                    className="w-4 h-4"
+                  />
+                  <span className="text-sm text-gray-700">Fakturační adresa se liší od doručovací adresy</span>
+                </label>
+
+                {form.hasSeparateBilling && (
+                  <BillingAddressFields value={form.billingAddress} onChange={form.setBillingAddress} />
+                )}
+              </div>
+            </Section>
+          </div>
+
+          {/* ── Platební údaje ────────────────────────────────────────── */}
           <Section title="Platební údaje">
             <PaymentDetailsSelector
               dueDate={form.dueDate} onDueDateChange={form.setDueDate}
@@ -60,6 +157,7 @@ export function CreateCustomerOrderForm({ customers, products, isVatPayer, onSuc
             />
           </Section>
 
+          {/* ── Poznámka ──────────────────────────────────────────────── */}
           <Section title="Poznámka" grow>
             <textarea
               value={form.note} onChange={e => form.setNote(e.target.value)}
@@ -69,6 +167,7 @@ export function CreateCustomerOrderForm({ customers, products, isVatPayer, onSuc
           </Section>
         </div>
 
+        {/* ── Položky objednávky ──────────────────────────────────────── */}
         <div className="border border-gray-200 rounded-lg">
           <div className="bg-gray-50 px-4 py-2 border-b border-gray-200 rounded-t-lg flex items-center justify-between">
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1">
@@ -136,6 +235,8 @@ export function CreateCustomerOrderForm({ customers, products, isVatPayer, onSuc
   )
 }
 
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
 function Section({ title, children, grow }: { title: React.ReactNode; children: React.ReactNode; grow?: boolean }) {
   return (
     <div className="border border-gray-200 rounded-lg flex flex-col">
@@ -144,6 +245,56 @@ function Section({ title, children, grow }: { title: React.ReactNode; children: 
       </div>
       <div className={`flex-1 ${grow ? 'p-3' : 'flex items-center p-3'}`}>
         {grow ? children : <div className="w-full">{children}</div>}
+      </div>
+    </div>
+  )
+}
+
+function BillingAddressFields({
+  value,
+  onChange,
+}: {
+  value: BillingAddress
+  onChange: React.Dispatch<React.SetStateAction<BillingAddress>>
+}) {
+  const set = (field: keyof BillingAddress) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+    onChange(prev => ({ ...prev, [field]: e.target.value }))
+
+  return (
+    <div className="grid grid-cols-4 gap-2 pt-2 border-t border-gray-100">
+      <div className="col-span-2">
+        <label className="text-xs text-gray-600 mb-1 block">Jméno / Příjemce *</label>
+        <Input value={value.billingName} onChange={set('billingName')} placeholder="Jan Novák" required className="bg-white" />
+      </div>
+      <div className="col-span-2">
+        <label className="text-xs text-gray-600 mb-1 block">Firma</label>
+        <Input value={value.billingCompany} onChange={set('billingCompany')} placeholder="Název firmy" className="bg-white" />
+      </div>
+      <div>
+        <label className="text-xs text-gray-600 mb-1 block">IČO</label>
+        <Input value={value.billingIco} onChange={set('billingIco')} placeholder="12345678" maxLength={12} className="bg-white" />
+      </div>
+      <div>
+        <label className="text-xs text-gray-600 mb-1 block">DIČ</label>
+        <Input value={value.billingDic} onChange={set('billingDic')} placeholder="CZ12345678" className="bg-white" />
+      </div>
+      <div className="col-span-2">
+        <label className="text-xs text-gray-600 mb-1 block">Ulice a č.p. *</label>
+        <Input value={value.billingStreet} onChange={set('billingStreet')} placeholder="Ulice a číslo domu" required className="bg-white" />
+      </div>
+      <div>
+        <label className="text-xs text-gray-600 mb-1 block">Město *</label>
+        <Input value={value.billingCity} onChange={set('billingCity')} placeholder="Praha" required className="bg-white" />
+      </div>
+      <div>
+        <label className="text-xs text-gray-600 mb-1 block">PSČ *</label>
+        <Input value={value.billingZip} onChange={set('billingZip')} placeholder="110 00" maxLength={10} required className="bg-white" />
+      </div>
+      <div className="col-span-2">
+        <label className="text-xs text-gray-600 mb-1 block">Země *</label>
+        <select value={value.billingCountry} onChange={set('billingCountry')} className={selectClass} required>
+          {COUNTRY_OPTIONS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+        </select>
       </div>
     </div>
   )

@@ -16,7 +16,20 @@ export function mapCustomerOrderToOrderDetail(order: CustomerOrder): OrderDetail
     customerEmail: order.customerEmail || (order.customer as any)?.email || null,
     customerPhone: order.customerPhone || (order.customer as any)?.phone || null,
     customerAddress: order.customerAddress || null,
-    billingIco:    (order.customer as any)?.ico || null,
+    // Shipping
+    shippingMethod:     order.shippingMethod ?? null,
+    pickupPointId:      order.pickupPointId ?? null,
+    pickupPointName:    order.pickupPointName ?? null,
+    pickupPointAddress: order.pickupPointAddress ?? null,
+    pickupPointCarrier: order.pickupPointCarrier ?? null,
+    // Billing address — prefer explicit snapshot; fall back to customer entity ICO
+    billingName:    order.billingName ?? null,
+    billingCompany: order.billingCompany ?? null,
+    billingIco:     order.billingIco ?? (order.customer as any)?.ico ?? null,
+    billingStreet:  order.billingStreet ?? null,
+    billingCity:    order.billingCity ?? null,
+    billingZip:     order.billingZip ?? null,
+    billingCountry: order.billingCountry ?? null,
     note:          order.note ?? null,
     discountAmount: order.discountAmount ?? null,
     issuedInvoice: order.issuedInvoice ? {

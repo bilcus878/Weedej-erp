@@ -3,11 +3,16 @@
 import { useRef, useState } from 'react'
 import { DEFAULT_VAT_RATE, NON_VAT_PAYER_RATE } from '@/lib/vatCalculation'
 import { fetchNextOrderNumber, createCustomerOrder } from '../services/customerOrderService'
-import type { CustomerOrderItem, ManualCustomerData, Product } from '../types'
+import type { BillingAddress, CustomerOrderItem, ManualCustomerData, Product } from '../types'
 
 const EMPTY_MANUAL_CUSTOMER: ManualCustomerData = {
   name: '', entityType: 'company', contactPerson: '', email: '', phone: '',
   ico: '', dic: '', bankAccount: '', website: '', address: '', note: '',
+}
+
+const EMPTY_BILLING_ADDRESS: BillingAddress = {
+  billingName: '', billingCompany: '', billingIco: '', billingDic: '',
+  billingStreet: '', billingCity: '', billingZip: '', billingCountry: 'CZ',
 }
 
 export function useCreateOrderForm(
@@ -36,9 +41,24 @@ export function useCreateOrderForm(
   const [manualCustomerData,     setManualCustomerData]     = useState<ManualCustomerData>({ ...EMPTY_MANUAL_CUSTOMER })
   const [discountType,           setDiscountType]           = useState<'percentage' | 'fixed' | 'none'>('none')
   const [discountValue,          setDiscountValue]          = useState('')
+  // Shipping
+  const [shippingMethod,    setShippingMethod]    = useState('')
+  const [pickupPointId,     setPickupPointId]     = useState('')
+  const [pickupPointName,   setPickupPointName]   = useState('')
+  const [pickupPointAddress,setPickupPointAddress]= useState('')
+  // Billing address
+  const [hasSeparateBilling,setHasSeparateBilling]= useState(false)
+  const [billingAddress,    setBillingAddress]    = useState<BillingAddress>({ ...EMPTY_BILLING_ADDRESS })
 
   const categoryMenuRef       = useRef<HTMLDivElement>(null)
   const hideSubmenuTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Derive the pickup carrier from the selected shipping method
+  const pickupPointCarrier = shippingMethod === 'DPD_PICKUP'
+    ? 'dpd'
+    : shippingMethod === 'ZASILKOVNA_PICKUP'
+      ? 'zasilkovna'
+      : ''
 
   function reset() {
     setOrderDate(new Date().toISOString().split('T')[0])
@@ -50,6 +70,10 @@ export function useCreateOrderForm(
     setIsManualCustomer(false); setIsAnonymousCustomer(false); setSaveCustomerToDatabase(false)
     setManualCustomerData({ ...EMPTY_MANUAL_CUSTOMER })
     setDiscountType('none'); setDiscountValue('')
+    setShippingMethod('')
+    setPickupPointId(''); setPickupPointName(''); setPickupPointAddress('')
+    setHasSeparateBilling(false)
+    setBillingAddress({ ...EMPTY_BILLING_ADDRESS })
   }
 
   async function handleOpen() {
@@ -99,6 +123,10 @@ export function useCreateOrderForm(
     if (!dueDate)       { alert('Zadejte datum splatnosti'); return }
     if (!paymentType)   { alert('Vyberte formu úhrady'); return }
     if (items.length === 0) { alert('Přidejte alespoň jednu položku'); return }
+    const isPickup = shippingMethod === 'DPD_PICKUP' || shippingMethod === 'ZASILKOVNA_PICKUP'
+    if (isPickup && !pickupPointName.trim()) {
+      alert('Zadejte název výdejního místa'); return
+    }
     try {
       await createCustomerOrder({
         orderDate,
@@ -112,6 +140,12 @@ export function useCreateOrderForm(
         manualCustomerData: isManualCustomer ? manualCustomerData : null,
         discountType:  discountType !== 'none' ? discountType : null,
         discountValue: discountType !== 'none' && discountValue ? parseFloat(discountValue) : null,
+        shippingMethod:     shippingMethod || null,
+        pickupPointId:      isPickup ? (pickupPointId || null) : null,
+        pickupPointName:    isPickup ? (pickupPointName || null) : null,
+        pickupPointAddress: isPickup ? (pickupPointAddress || null) : null,
+        pickupPointCarrier: isPickup ? (pickupPointCarrier || null) : null,
+        billingAddress: hasSeparateBilling ? billingAddress : null,
         items: items.map(item => ({
           productId:   item.productId   || null,
           productName: item.productName || null,
@@ -151,6 +185,13 @@ export function useCreateOrderForm(
     manualCustomerData, setManualCustomerData,
     discountType, setDiscountType,
     discountValue, setDiscountValue,
+    shippingMethod, setShippingMethod,
+    pickupPointId, setPickupPointId,
+    pickupPointName, setPickupPointName,
+    pickupPointAddress, setPickupPointAddress,
+    pickupPointCarrier,
+    hasSeparateBilling, setHasSeparateBilling,
+    billingAddress, setBillingAddress,
     categoryMenuRef, hideSubmenuTimeoutRef,
     handleOpen, handleClose, handleAddItem, handleRemoveItem, handleItemChange, handleSubmit,
   }

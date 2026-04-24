@@ -79,7 +79,15 @@ export async function POST(request: Request) {
       discountType, // 'percentage' nebo 'fixed' nebo null
       discountValue, // hodnota slevy (10 pro 10% nebo 100 pro 100 Kč)
       // DPH
-      pricesIncludeVat // boolean - zda zadané ceny jsou S DPH
+      pricesIncludeVat, // boolean - zda zadané ceny jsou S DPH
+      // Doprava — stejné hodnoty jako eshop deliveryType
+      shippingMethod,     // DPD_HOME | DPD_PICKUP | ZASILKOVNA_HOME | ZASILKOVNA_PICKUP | COURIER | PICKUP_IN_STORE
+      pickupPointId,
+      pickupPointName,
+      pickupPointAddress,
+      pickupPointCarrier,
+      // Fakturační adresa — null = shodná s doručovací
+      billingAddress,
     } = body
 
     // Validace
@@ -154,6 +162,20 @@ export async function POST(request: Request) {
     const totalAmountWithoutVat = vatSummary.totalWithoutVat
     const totalVatAmount = vatSummary.totalVat
 
+    // Flatten billing address fields (null = same as delivery address)
+    const billingFields = billingAddress
+      ? {
+          billingName:    billingAddress.billingName    || null,
+          billingCompany: billingAddress.billingCompany || null,
+          billingIco:     billingAddress.billingIco     || null,
+          billingDic:     billingAddress.billingDic     || null,
+          billingStreet:  billingAddress.billingStreet  || null,
+          billingCity:    billingAddress.billingCity    || null,
+          billingZip:     billingAddress.billingZip     || null,
+          billingCountry: billingAddress.billingCountry || null,
+        }
+      : {}
+
     // Vytvoř objednávku s položkami v transakci
     const order = await prisma.$transaction(async (tx) => {
       // 1. Vygeneruj číslo objednávky (ON-COMMIT)
@@ -169,13 +191,12 @@ export async function POST(request: Request) {
           data: {
             name: manualCustomerData.name,
             entityType: manualCustomerData.entityType || 'company',
-            contact: manualCustomerData.contactPerson || null, // Customer má pole "contact", ne "contactPerson"
+            contact: manualCustomerData.contactPerson || null,
             email: manualCustomerData.email || null,
             phone: manualCustomerData.phone || null,
             ico: manualCustomerData.ico || null,
             dic: manualCustomerData.dic || null,
             bankAccount: manualCustomerData.bankAccount || null,
-            // website není v Customer modelu
             address: manualCustomerData.address || null,
             note: manualCustomerData.note || null
           }
@@ -195,7 +216,7 @@ export async function POST(request: Request) {
       } else if (isManualCustomer && manualCustomerData) {
         // Ruční zadání zákazníka
         customerData = {
-          customerId: createdCustomerId, // použij ID pokud byl vytvořen
+          customerId: createdCustomerId,
           customerName: createdCustomerId ? null : (manualCustomerData.name || null),
           customerEntityType: createdCustomerId ? null : (manualCustomerData.entityType || 'company'),
           customerEmail: createdCustomerId ? null : (manualCustomerData.email || null),
@@ -222,12 +243,20 @@ export async function POST(request: Request) {
           totalAmount,
           note,
           sumupTransactionId,
-          status: sumupTransactionId ? 'paid' : 'new', // Pokud je SumUp, rovnou "paid"
+          status: sumupTransactionId ? 'paid' : 'new',
           paidAt: sumupTransactionId ? new Date() : null,
           // Sleva
           discountType: discountType || null,
           discountValue: discountValue || null,
           discountAmount: discountAmount || null,
+          // Doprava
+          shippingMethod:     shippingMethod     || null,
+          pickupPointId:      pickupPointId      || null,
+          pickupPointName:    pickupPointName    || null,
+          pickupPointAddress: pickupPointAddress || null,
+          pickupPointCarrier: pickupPointCarrier || null,
+          // Fakturační adresa
+          ...billingFields,
           items: {
             create: items.map((item: any) => ({
               productId: item.productId || null,
@@ -264,9 +293,6 @@ export async function POST(request: Request) {
     })
 
     console.log(`✓ Vytvořena objednávka ${order.orderNumber}, vytvořeny rezervace`)
-
-    // POZNÁMKA: Výdejka se NEVYTVÁŘÍ automaticky!
-    // Vytvoří se až když zaměstnanec klikne "Připravit k expedici" (stejně jako u příjemek)
 
     // Automaticky vytvoř vystavenou fakturu (nezaplacenou) pro tuto objednávku
     try {
