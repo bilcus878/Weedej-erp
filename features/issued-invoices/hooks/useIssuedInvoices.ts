@@ -3,20 +3,19 @@
 import { useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useEntityPage, useFilters } from '@/components/erp'
-import type { SelectOption } from '@/components/erp'
 import { fetchIssuedInvoices } from '../services/issuedInvoiceService'
 import { PAYMENT_OPTIONS } from '@/lib/constants/paymentOptions'
 import type { IssuedInvoice } from '../types'
 
-const STATUS_OPTIONS: SelectOption[] = [
-  { value: 'all',        label: 'Vše'                                       },
-  { value: 'new',        label: 'Nová',          className: 'text-yellow-600' },
-  { value: 'paid',       label: 'Zaplacená',     className: 'text-green-600'  },
-  { value: 'processing', label: 'Připravuje se', className: 'text-blue-600'   },
-  { value: 'shipped',    label: 'Odesláno',      className: 'text-purple-600' },
-  { value: 'delivered',  label: 'Předáno',       className: 'text-teal-600'   },
-  { value: 'cancelled',  label: 'Zrušená',       className: 'text-red-600'    },
-  { value: 'storno',     label: 'STORNO',        className: 'text-red-600'    },
+const STATUS_OPTIONS = [
+  { value: 'all',        label: 'Vše'         },
+  { value: 'new',        label: 'Nová'        },
+  { value: 'paid',       label: 'Zaplacená'   },
+  { value: 'processing', label: 'Připravuje se' },
+  { value: 'shipped',    label: 'Odesláno'    },
+  { value: 'delivered',  label: 'Předáno'     },
+  { value: 'cancelled',  label: 'Zrušená'     },
+  { value: 'storno',     label: 'STORNO'      },
 ]
 
 export function useIssuedInvoices() {

@@ -1,12 +1,13 @@
 import type { ReactNode } from 'react'
 
 export interface ColumnDef<T> {
-  key:       string
-  header:    string
-  width?:    string                    // '1fr' | '2fr' | 'auto' | '120px'
-  align?:    'left' | 'center' | 'right'
+  key:        string
+  header:     string
+  width?:     string                    // '1fr' | '2fr' | 'auto' | '120px'
+  align?:     'left' | 'center' | 'right'
   className?: string
-  render:    (row: T) => ReactNode
+  filterNode?: ReactNode               // inline filter rendered below column header
+  render:     (row: T) => ReactNode
 }
 
 export type AccentColor = 'emerald' | 'blue' | 'purple' | 'rose' | 'amber' | 'gray'

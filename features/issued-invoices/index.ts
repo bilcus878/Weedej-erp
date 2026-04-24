@@ -14,7 +14,7 @@ export { useCreditNotes }    from './hooks/useCreditNotes'
 export { useInvoiceActions } from './hooks/useInvoiceActions'
 
 // Components (client-only)
-export { invoiceColumns }   from './components/invoiceColumns'
+export { createInvoiceColumns } from './components/invoiceColumns'
 export { StatusBadge }      from './components/StatusBadge'
 export { CreditNotesList }  from './components/CreditNotesList'
 export { CreditNoteModal }  from './components/CreditNoteModal'

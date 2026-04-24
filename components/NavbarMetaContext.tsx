@@ -1,16 +1,17 @@
 'use client'
 
-import { createContext, useContext, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useState, type ReactNode } from 'react'
 
 interface NavbarMeta {
   count: string
   subTitle?: string
   pageTitleOnClick?: (() => void) | null
+  actions?: ReactNode
 }
 
 interface NavbarMetaCtx {
   meta: NavbarMeta
-  setMeta: (m: NavbarMeta) => void
+  setMeta: (m: Partial<NavbarMeta>) => void
 }
 
 const Ctx = createContext<NavbarMetaCtx>({
@@ -19,7 +20,12 @@ const Ctx = createContext<NavbarMetaCtx>({
 })
 
 export function NavbarMetaProvider({ children }: { children: ReactNode }) {
-  const [meta, setMeta] = useState<NavbarMeta>({ count: '' })
+  const [meta, setMetaState] = useState<NavbarMeta>({ count: '' })
+  // Stable reference — safe to use as useEffect dependency in consumers
+  const setMeta = useCallback(
+    (m: Partial<NavbarMeta>) => setMetaState(prev => ({ ...prev, ...m })),
+    []
+  )
   return <Ctx.Provider value={{ meta, setMeta }}>{children}</Ctx.Provider>
 }
 

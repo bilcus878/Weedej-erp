@@ -11,17 +11,6 @@ import { useNavbarMeta } from '@/components/NavbarMetaContext'
 interface Ctx { highlightId: string | null | undefined }
 const PageCtx = createContext<Ctx>({ highlightId: null })
 
-// ─── Color map ───────────────────────────────────────────────────────────────
-
-const colorMap: Record<AccentColor, { gradient: string; border: string; title: string; count: string }> = {
-  emerald: { gradient: 'from-slate-50 to-emerald-50', border: 'border-emerald-500', title: 'text-emerald-600', count: 'text-emerald-600' },
-  blue:    { gradient: 'from-slate-50 to-blue-50',    border: 'border-blue-500',    title: 'text-blue-600',    count: 'text-blue-600'    },
-  purple:  { gradient: 'from-slate-50 to-purple-50',  border: 'border-purple-500',  title: 'text-purple-600',  count: 'text-purple-600'  },
-  rose:    { gradient: 'from-slate-50 to-rose-50',    border: 'border-rose-500',    title: 'text-rose-600',    count: 'text-rose-600'    },
-  amber:   { gradient: 'from-slate-50 to-amber-50',   border: 'border-amber-500',   title: 'text-amber-600',   count: 'text-amber-600'   },
-  gray:    { gradient: 'from-slate-50 to-gray-50',    border: 'border-gray-400',    title: 'text-gray-700',    count: 'text-gray-700'    },
-}
-
 // ─── Root ────────────────────────────────────────────────────────────────────
 
 interface RootProps {
@@ -49,17 +38,17 @@ interface HeaderProps {
   actions?:   ReactNode
 }
 
-function Header({ color, total, filtered, actions }: HeaderProps) {
-  const c = colorMap[color]
+function Header({ total, filtered, actions }: HeaderProps) {
   const { setMeta } = useNavbarMeta()
 
   useEffect(() => {
-    setMeta({ count: `Zobrazeno ${filtered} z ${total}` })
-    return () => setMeta({ count: '' })
-  }, [filtered, total, setMeta])
+    // actions intentionally excluded from deps — JSX identity changes every render;
+    // actions are effectively static per page mount so omitting is safe here.
+    setMeta({ count: `Zobrazeno ${filtered} z ${total}`, actions: actions ?? undefined })
+    return () => setMeta({ count: '', actions: undefined })
+  }, [filtered, total, setMeta]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!actions) return null
-  return <div className="flex justify-end">{actions}</div>
+  return null
 }
 
 // ─── Filters ─────────────────────────────────────────────────────────────────
@@ -92,36 +81,52 @@ function Filters({ children, onClear, columns }: FiltersProps) {
 // ─── Table ───────────────────────────────────────────────────────────────────
 
 interface TableProps<T> {
-  columns:       ColumnDef<T>[]
-  rows:          T[]
-  getRowId:      (row: T) => string
-  expanded:      Set<string>
-  onToggle:      (id: string) => void
-  renderDetail?: (row: T) => ReactNode
-  rowClassName?: (row: T) => string
-  empty?:        ReactNode
-  emptyMessage?: string
-  firstHeader?:  ReactNode
+  columns:         ColumnDef<T>[]
+  rows:            T[]
+  getRowId:        (row: T) => string
+  expanded:        Set<string>
+  onToggle:        (id: string) => void
+  renderDetail?:   (row: T) => ReactNode
+  rowClassName?:   (row: T) => string
+  empty?:          ReactNode
+  emptyMessage?:   string
+  firstHeader?:    ReactNode
+  onClearFilters?: () => void
 }
 
 function Table<T>({
   columns, rows, getRowId, expanded, onToggle,
-  renderDetail, rowClassName, empty, emptyMessage, firstHeader,
+  renderDetail, rowClassName, empty, emptyMessage, firstHeader, onClearFilters,
 }: TableProps<T>) {
   const { highlightId } = useContext(PageCtx)
   const gridTemplate = `auto ${columns.map(c => c.width ?? '1fr').join(' ')}`
+  const hasFilters   = columns.some(c => c.filterNode)
 
   const header = (
     <div
-      className="grid items-center gap-4 px-4 py-3 bg-gray-100 border rounded-lg text-xs font-semibold text-gray-700"
+      className={`grid gap-4 px-4 py-3 bg-gray-100 border rounded-lg text-xs font-semibold text-gray-700 ${hasFilters ? 'items-start' : 'items-center'}`}
       style={{ gridTemplateColumns: gridTemplate }}
     >
-      <div className="w-8 flex items-center justify-center">
-        {firstHeader ?? null}
+      <div className={`w-8 flex items-center justify-center ${hasFilters ? 'pt-1.5' : ''}`}>
+        {hasFilters && onClearFilters
+          ? (
+            <button
+              onClick={onClearFilters}
+              title="Vymazat filtry"
+              className="w-6 h-6 bg-gray-200 hover:bg-gray-300 text-gray-500 text-[10px] rounded transition-colors flex items-center justify-center shrink-0"
+            >
+              ✕
+            </button>
+          )
+          : firstHeader ?? null
+        }
       </div>
       {columns.map(col => (
-        <div key={col.key} className={`text-${col.align ?? 'center'} ${col.className ?? ''}`}>
-          {col.header}
+        <div key={col.key} className={`${col.className ?? ''}`}>
+          <div className={`text-xs font-semibold text-gray-700 ${hasFilters ? 'mb-1.5' : ''} text-${col.align ?? 'center'}`}>
+            {col.header}
+          </div>
+          {col.filterNode}
         </div>
       ))}
     </div>

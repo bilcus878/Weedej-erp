@@ -31,6 +31,8 @@ export type {
 
 // ── Page architecture ────────────────────────────────────────────────────────
 export { EntityPage }           from './layout/EntityPage'
+export { ActionsDropdown }      from './ActionsDropdown'
+export type { PageAction }      from './ActionsDropdown'
 // ── Hooks ────────────────────────────────────────────────────────────────────
 export { useEntityPage }        from './hooks/useEntityPage'
 export type { EntityPageConfig, EntityPageState } from './hooks/useEntityPage'

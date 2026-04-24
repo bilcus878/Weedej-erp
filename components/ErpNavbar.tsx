@@ -253,8 +253,13 @@ export function ErpNavbar() {
           ))}
         </div>
 
-        {/* Right: user + hamburger */}
+        {/* Right: page actions + user + hamburger */}
         <div className="flex-1 flex items-center justify-end gap-2">
+          {meta.actions && (
+            <div className="hidden md:flex items-center">
+              {meta.actions}
+            </div>
+          )}
           <UserMenu />
 
           {/* Hamburger — mobile only */}
