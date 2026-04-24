@@ -1,8 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import { Warehouse } from 'lucide-react'
-import { EntityPage, LoadingState, ErrorState } from '@/components/erp'
+import { LoadingState, ErrorState } from '@/components/erp'
 import { useNavbarMeta } from '@/components/NavbarMetaContext'
 import {
   useInventory, useProductMovements,
@@ -16,6 +15,13 @@ export default function InventoryPage() {
   const { setMeta } = useNavbarMeta()
   const inv = useInventory()
   const mov = useProductMovements(inv.ep.rows, inv.products, inv.ep.refresh)
+
+  useEffect(() => {
+    if (mov.selectedProductId) return
+    setMeta({ count: `Zobrazeno ${inv.filteredAndSorted.length} z ${inv.ep.rows.length}` })
+    return () => setMeta({ count: '' })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inv.filteredAndSorted.length, inv.ep.rows.length, mov.selectedProductId])
 
   useEffect(() => {
     if (!mov.selectedProductId) return
@@ -81,15 +87,7 @@ export default function InventoryPage() {
   }
 
   return (
-    <EntityPage highlightId={inv.ep.highlightId}>
-      <EntityPage.Header
-        title="Skladová evidence"
-        icon={Warehouse}
-        color="purple"
-        total={inv.ep.rows.length}
-        filtered={inv.filteredAndSorted.length}
-        onRefresh={inv.ep.refresh}
-      />
+    <div className="space-y-4">
       <InventoryFiltersBar
         categories={inv.categories}
         filterName={inv.filterName}              setFilterName={inv.setFilterName}
@@ -115,6 +113,6 @@ export default function InventoryPage() {
         onSelectProduct={mov.setSelectedProductId}
         sectionRef={inv.sectionRef}
       />
-    </EntityPage>
+    </div>
   )
 }
