@@ -5,8 +5,7 @@ import { LoadingState, ErrorState } from '@/components/erp'
 import { useNavbarMeta } from '@/components/NavbarMetaContext'
 import {
   useInventory, useProductMovements,
-  InventoryFiltersBar, InventoryTable,
-  MovementFiltersBar, MovementTable, ManualAdjustmentModal,
+  InventoryTable, MovementTable, ManualAdjustmentModal,
 } from '@/features/inventory'
 
 export const dynamic = 'force-dynamic'
@@ -57,15 +56,7 @@ export default function InventoryPage() {
             onClose={mov.closeManualAdjustment}
           />
         )}
-        <MovementFiltersBar
-          filterDate={mov.filterDate}              setFilterDate={mov.setFilterDate}
-          filterType={mov.filterType}              setFilterType={mov.setFilterType}
-          filterTypeDropdownOpen={mov.filterTypeDropdownOpen} setFilterTypeDropdownOpen={mov.setFilterTypeDropdownOpen}
-          filterTypeRef={mov.filterTypeRef}
-          filterMinQuantity={mov.filterMinQuantity} setFilterMinQuantity={mov.setFilterMinQuantity}
-          filterNote={mov.filterNote}              setFilterNote={mov.setFilterNote}
-          onClear={mov.clearMovementFilters}
-        />
+        {mov.filters.bar('auto 1fr 1fr 1fr 1fr')}
         <MovementTable
           filteredMovements={mov.filteredMovements}
           stockMovements={mov.stockMovements}
@@ -88,27 +79,13 @@ export default function InventoryPage() {
 
   return (
     <div className="space-y-4">
-      <InventoryFiltersBar
-        categories={inv.categories}
-        filterName={inv.filterName}              setFilterName={inv.setFilterName}
-        filterCategory={inv.filterCategory}      setFilterCategory={inv.setFilterCategory}
-        filterCategoryDropdownOpen={inv.filterCategoryDropdownOpen} setFilterCategoryDropdownOpen={inv.setFilterCategoryDropdownOpen}
-        filterCategoryRef={inv.filterCategoryRef}
-        filterMinStock={inv.filterMinStock}      setFilterMinStock={inv.setFilterMinStock}
-        filterMinReserved={inv.filterMinReserved} setFilterMinReserved={inv.setFilterMinReserved}
-        filterMinAvailable={inv.filterMinAvailable} setFilterMinAvailable={inv.setFilterMinAvailable}
-        filterMinExpected={inv.filterMinExpected} setFilterMinExpected={inv.setFilterMinExpected}
-        filterStatus={inv.filterStatus}          setFilterStatus={inv.setFilterStatus}
-        filterStatusDropdownOpen={inv.filterStatusDropdownOpen} setFilterStatusDropdownOpen={inv.setFilterStatusDropdownOpen}
-        filterStatusRef={inv.filterStatusRef}
-        onClear={inv.clearFilters}
-      />
+      {inv.filters.bar('auto 1fr 1fr 1fr 1fr 1fr 1fr 1fr')}
       <InventoryTable
         filteredAndSorted={inv.filteredAndSorted}
-        highlightId={inv.ep.highlightId}
+        highlightId={inv.highlightId}
         sortField={inv.sortField}       sortDirection={inv.sortDirection} onSort={inv.handleSort}
-        currentPage={inv.currentPage}   itemsPerPage={inv.itemsPerPage}
-        setItemsPerPage={inv.setItemsPerPage} setCurrentPage={inv.setCurrentPage}
+        currentPage={inv.ep.page}       itemsPerPage={inv.itemsPerPage}
+        setItemsPerPage={inv.setItemsPerPage} setCurrentPage={inv.ep.setPage}
         onPageChange={inv.handlePageChange}
         onSelectProduct={mov.setSelectedProductId}
         sectionRef={inv.sectionRef}

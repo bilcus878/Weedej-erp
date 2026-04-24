@@ -2,15 +2,23 @@
 
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { useFilters } from '@/components/erp'
+import type { SelectOption } from '@/components/erp'
 import { fetchProductDetails, increaseInventory, decreaseInventory, mapInventoryItemsToMovements } from '../services/inventoryService'
 import type { InventorySummary, Product, StockMovement } from '../types'
+
+const MOVEMENT_TYPE_OPTIONS: SelectOption[] = [
+  { value: '',    label: 'Typ'                                   },
+  { value: 'in',  label: 'Příjem (+)', className: 'text-green-600' },
+  { value: 'out', label: 'Výdej (-)',  className: 'text-red-600'   },
+]
 
 export function useProductMovements(
   summaryRows: InventorySummary[],
   products:    Product[],
   onRefresh:   () => Promise<void>,
 ) {
-  const searchParams = useSearchParams()
+  const searchParams        = useSearchParams()
   const highlightMovementId = searchParams.get('highlightMovement')
 
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null)
@@ -18,12 +26,6 @@ export function useProductMovements(
   const [expandedMovements, setExpandedMovements]  = useState<Set<string>>(new Set())
   const [loadingMovements,  setLoadingMovements]   = useState(false)
   const movementsSectionRef = useRef<HTMLDivElement>(null)
-
-  const [filterDate,        setFilterDate]        = useState('')
-  const [filterType,        setFilterType]        = useState('all')
-  const [filterTypeDropdownOpen, setFilterTypeDropdownOpen] = useState(false)
-  const [filterMinQuantity, setFilterMinQuantity] = useState('')
-  const [filterNote,        setFilterNote]        = useState('')
 
   const [movementsPage,    setMovementsPage]    = useState(1)
   const [movementsPerPage, setMovementsPerPage] = useState(20)
@@ -34,7 +36,18 @@ export function useProductMovements(
   const [adjustmentDate,     setAdjustmentDate]     = useState(new Date().toISOString().split('T')[0])
   const [adjustmentNote,     setAdjustmentNote]     = useState('')
 
-  const filterTypeRef = useRef<HTMLDivElement>(null)
+  const filters = useFilters<StockMovement>([
+    { key: 'date',        type: 'date',                                     match: (r, v) => new Date(r.date).toISOString().split('T')[0] === v },
+    { key: 'type',        type: 'select', options: MOVEMENT_TYPE_OPTIONS,   match: (r, v) => !v || (v === 'in' ? r.quantity > 0 : r.quantity < 0) },
+    { key: 'minQuantity', type: 'number', placeholder: 'Min. mn.',          match: (r, v) => Math.abs(r.quantity) >= v },
+    { key: 'note',        type: 'text',   placeholder: 'Poznámka...',       match: (r, v) => (r.note || '').toLowerCase().includes(v.toLowerCase()) },
+  ], () => setMovementsPage(1))
+
+  const filteredMovements = useMemo(
+    () => stockMovements.filter(m => filters.fn(m, {})),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [stockMovements, filters.values],
+  )
 
   useEffect(() => {
     const productId = searchParams.get('selectedProduct')
@@ -47,18 +60,6 @@ export function useProductMovements(
   }, [selectedProductId])
 
   const hasScrolledToMovement = useRef(false)
-
-  const filteredMovements = useMemo(() => {
-    let filtered = [...stockMovements]
-    if (filterDate)           filtered = filtered.filter(item => new Date(item.date).toISOString().split('T')[0] === filterDate)
-    if (filterType !== 'all') {
-      if (filterType === 'in')  filtered = filtered.filter(item => item.quantity > 0)
-      if (filterType === 'out') filtered = filtered.filter(item => item.quantity < 0)
-    }
-    if (filterMinQuantity) filtered = filtered.filter(item => Math.abs(item.quantity) >= parseFloat(filterMinQuantity))
-    if (filterNote)        filtered = filtered.filter(item => item.note?.toLowerCase().includes(filterNote.toLowerCase()))
-    return filtered
-  }, [stockMovements, filterDate, filterType, filterMinQuantity, filterNote])
 
   useEffect(() => {
     if (!highlightMovementId || filteredMovements.length === 0) return
@@ -79,18 +80,10 @@ export function useProductMovements(
     }
   }, [highlightMovementId, movementsPage, stockMovements])
 
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (filterTypeRef.current && !filterTypeRef.current.contains(event.target as Node)) setFilterTypeDropdownOpen(false)
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
-
   async function loadProductMovements(productId: string) {
     setLoadingMovements(true)
     try {
-      const data = await fetchProductDetails(productId)
+      const data      = await fetchProductDetails(productId)
       const movements = data.inventoryItems ? mapInventoryItemsToMovements(data.inventoryItems) : []
       setStockMovements(movements)
     } catch (error) {
@@ -118,8 +111,10 @@ export function useProductMovements(
     setTimeout(() => movementsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
   }
 
-  function clearMovementFilters() {
-    setFilterDate(''); setFilterType('all'); setFilterMinQuantity(''); setFilterNote('')
+  // Reset to page 1 when per-page size changes
+  function handleMovementsPerPageChange(n: number) {
+    setMovementsPerPage(n)
+    setMovementsPage(1)
   }
 
   async function handleManualAdjustment(e: React.FormEvent) {
@@ -159,19 +154,16 @@ export function useProductMovements(
     selectedProductId, setSelectedProductId,
     stockMovements, filteredMovements, expandedMovements, loadingMovements,
     movementsSectionRef, highlightMovementId,
-    filterDate, setFilterDate,
-    filterType, setFilterType,
-    filterTypeDropdownOpen, setFilterTypeDropdownOpen, filterTypeRef,
-    filterMinQuantity, setFilterMinQuantity,
-    filterNote, setFilterNote,
-    movementsPage, movementsPerPage, setMovementsPerPage,
+    filters,
+    movementsPage, movementsPerPage,
+    setMovementsPerPage: handleMovementsPerPageChange,
     showManualAdjustmentForm, setShowManualAdjustmentForm,
     adjustmentType, setAdjustmentType,
     adjustmentQuantity, setAdjustmentQuantity,
     adjustmentDate, setAdjustmentDate,
     adjustmentNote, setAdjustmentNote,
     toggleMovement, handleBackToInventory,
-    handleMovementsPageChange, clearMovementFilters,
+    handleMovementsPageChange,
     handleManualAdjustment, closeManualAdjustment,
   }
 }
