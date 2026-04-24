@@ -1,5 +1,6 @@
 'use client'
 
+import { useMemo } from 'react'
 import { FileText, XCircle } from 'lucide-react'
 import {
   EntityPage, LoadingState, ErrorState,
@@ -7,7 +8,7 @@ import {
 } from '@/components/erp'
 import { useCompanySettings } from '@/components/erp/hooks/useCompanySettings'
 import {
-  useCreditNotes, useCreditNoteActions, creditNoteColumns, mapCreditNoteToOrderDetail,
+  useCreditNotes, useCreditNoteActions, createCreditNoteColumns, mapCreditNoteToOrderDetail,
 } from '@/features/credit-notes'
 
 export const dynamic = 'force-dynamic'
@@ -16,6 +17,11 @@ export default function CreditNotesPage() {
   const { isVatPayer }   = useCompanySettings()
   const { ep, filters }  = useCreditNotes()
   const { handleStorno } = useCreditNoteActions(ep.refresh)
+
+  const customerSuggestions = useMemo(() => {
+    const names = ep.rows.map(r => r.customerName || r.customer?.name || '').filter(Boolean)
+    return [...new Set(names)].sort() as string[]
+  }, [ep.rows])
 
   if (ep.loading) return <LoadingState />
   if (ep.error)   return <ErrorState message={ep.error} onRetry={ep.refresh} />
@@ -31,14 +37,13 @@ export default function CreditNotesPage() {
         onRefresh={ep.refresh}
       />
 
-      {filters.bar('auto 1fr 1fr 1fr 1fr 1fr 1fr 1fr')}
-
       <EntityPage.Table
-        columns={creditNoteColumns}
+        columns={createCreditNoteColumns(filters, customerSuggestions)}
         rows={ep.paginated}
         getRowId={r => r.id}
         expanded={ep.expanded}
         onToggle={ep.toggleExpand}
+        onClearFilters={filters.clear}
         rowClassName={r => r.status === 'storno' ? 'bg-red-50 opacity-70' : ''}
         renderDetail={cn => {
           const links = [

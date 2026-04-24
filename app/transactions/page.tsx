@@ -5,7 +5,7 @@ import { EntityPage, LoadingState, ErrorState, CustomerOrderDetail } from '@/com
 import { useCompanySettings } from '@/components/erp/hooks/useCompanySettings'
 import {
   useTransactions, useTransactionActions,
-  transactionColumns, SyncDropdown, SumUpReceiptLink,
+  createTransactionColumns, SyncDropdown, SumUpReceiptLink,
   mapTransactionToOrderDetail,
 } from '@/features/transactions'
 
@@ -30,14 +30,13 @@ export default function TransactionsPage() {
         actions={<SyncDropdown syncing={syncing} onSync={handleSync} />}
       />
 
-      {filters.bar('auto 1fr 1fr 1fr 1fr 1fr 1fr 1fr')}
-
       <EntityPage.Table
-        columns={transactionColumns}
+        columns={createTransactionColumns(filters)}
         rows={ep.paginated}
         getRowId={r => r.id}
         expanded={ep.expanded}
         onToggle={ep.toggleExpand}
+        onClearFilters={filters.clear}
         rowClassName={r => {
           if (r.items.length === 0) return 'bg-red-100 border-red-500'
           if (r.status === 'storno') return 'bg-red-50 opacity-70'

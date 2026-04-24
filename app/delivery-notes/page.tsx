@@ -1,5 +1,6 @@
 'use client'
 
+import { useMemo } from 'react'
 import { Package, FileDown, XCircle } from 'lucide-react'
 import { EntityPage, LoadingState, ErrorState, ActionToolbar, CustomerOrderDetail } from '@/components/erp'
 import { useCompanySettings } from '@/components/erp/hooks/useCompanySettings'
@@ -8,7 +9,7 @@ import { useToast } from '@/components/warehouse/shared/useToast'
 import { Toast } from '@/components/warehouse/shared/Toast'
 import {
   useDeliveryNotes, useDeliveryNoteActions, useShipmentProcessing,
-  deliveryNoteColumns, ProcessShipmentModal, mapDeliveryNoteToOrderDetail,
+  createDeliveryNoteColumns, ProcessShipmentModal, mapDeliveryNoteToOrderDetail,
 } from '@/features/delivery-notes'
 
 export const dynamic = 'force-dynamic'
@@ -19,6 +20,11 @@ export default function DeliveryNotesPage() {
   const { ep, filters }   = useDeliveryNotes()
   const actions    = useDeliveryNoteActions(ep.rows, isVatPayer, showToast, ep.refresh)
   const processing = useShipmentProcessing(showToast, ep.refresh)
+
+  const customerSuggestions = useMemo(() => {
+    const names = ep.rows.map(r => r.customer?.name || r.customerName || '').filter(Boolean)
+    return [...new Set(names)].sort() as string[]
+  }, [ep.rows])
 
   if (ep.loading) return <LoadingState />
   if (ep.error)   return <ErrorState message={ep.error} onRetry={ep.refresh} />
@@ -34,10 +40,8 @@ export default function DeliveryNotesPage() {
         onRefresh={ep.refresh}
       />
 
-      {filters.bar('auto 1fr 1fr 1fr 1fr 1fr 1fr')}
-
       <EntityPage.Table
-        columns={deliveryNoteColumns(isVatPayer)}
+        columns={createDeliveryNoteColumns(filters, isVatPayer, customerSuggestions)}
         rows={ep.paginated}
         getRowId={r => r.id}
         expanded={ep.expanded}

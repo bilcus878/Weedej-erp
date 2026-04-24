@@ -1,11 +1,12 @@
 'use client'
 
+import { useMemo } from 'react'
 import { ShoppingCart } from 'lucide-react'
 import { EntityPage, LoadingState, ErrorState, CustomerOrderDetail } from '@/components/erp'
 import { useCompanySettings } from '@/components/erp/hooks/useCompanySettings'
 import {
   useCustomerOrders, useCustomerOrderActions,
-  customerOrderColumns, mapCustomerOrderToOrderDetail,
+  createCustomerOrderColumns, mapCustomerOrderToOrderDetail,
   CreateCustomerOrderForm,
 } from '@/features/customer-orders'
 
@@ -16,10 +17,15 @@ export default function CustomerOrdersPage() {
   const { isVatPayer }                        = useCompanySettings()
   const { handleMarkPaid, handleUpdateStatus, handlePrintPDF } = useCustomerOrderActions(ep.refresh)
 
+  const customerSuggestions = useMemo(() => {
+    const names = ep.rows.map(r => r.customer?.name || r.customerName || '').filter(Boolean)
+    return [...new Set(names)].sort() as string[]
+  }, [ep.rows])
+
   if (ep.loading) return <LoadingState />
   if (ep.error)   return <ErrorState message={ep.error} onRetry={ep.refresh} />
 
-  const columns = customerOrderColumns(handleMarkPaid)
+  const columns = createCustomerOrderColumns(filters, handleMarkPaid, customerSuggestions)
 
   return (
     <EntityPage highlightId={ep.highlightId}>
@@ -31,8 +37,6 @@ export default function CustomerOrdersPage() {
         filtered={ep.filtered.length}
         onRefresh={ep.refresh}
       />
-
-      {filters.bar('auto 1fr 1fr 1fr 1fr 1fr 1fr 1fr')}
 
       <EntityPage.Table
         columns={columns}

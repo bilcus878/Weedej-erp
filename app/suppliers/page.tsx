@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { Building2, Edit2, Trash2 } from 'lucide-react'
 import { EntityPage, LoadingState, ErrorState, PartySection, ActionToolbar } from '@/components/erp'
 import {
-  useSuppliers, useSupplierForm, supplierColumns,
+  useSuppliers, useSupplierForm, createSupplierColumns,
   SupplierFormPopup, SupplierOrdersFetcher,
 } from '@/features/suppliers'
 
@@ -29,10 +29,8 @@ export default function SuppliersPage() {
         onRefresh={ep.refresh}
       />
 
-      {filters.bar('auto 1fr 1fr 1fr 1fr 1fr')}
-
       <EntityPage.Table
-        columns={supplierColumns}
+        columns={createSupplierColumns(filters)}
         rows={ep.paginated}
         getRowId={r => r.id}
         expanded={ep.expanded}

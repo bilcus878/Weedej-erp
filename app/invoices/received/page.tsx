@@ -1,11 +1,12 @@
 'use client'
 
+import { useMemo } from 'react'
 import { FileText, FileEdit, XCircle } from 'lucide-react'
 import InvoiceDetailsModal from '@/components/InvoiceDetailsModal'
 import { EntityPage, LoadingState, ErrorState, ActionToolbar, SupplierOrderDetail } from '@/components/erp'
 import { useCompanySettings } from '@/components/erp/hooks/useCompanySettings'
 import {
-  useReceivedInvoices, useReceivedInvoiceActions, receivedInvoiceColumns,
+  useReceivedInvoices, useReceivedInvoiceActions, createReceivedInvoiceColumns,
   InvoiceDiscountWidget, mapInvoiceToSupplierDetail, buildModalInitialData,
 } from '@/features/invoices-received'
 
@@ -16,7 +17,12 @@ export default function ReceivedInvoicesPage() {
   const { isVatPayer }              = useCompanySettings()
   const actions = useReceivedInvoiceActions(ep.rows, ep.refresh)
 
-  const columns = receivedInvoiceColumns(suppliers)
+  const supplierSuggestions = useMemo(() => {
+    const names = ep.rows.map(r => r.supplierName || r.purchaseOrder?.supplierName || '').filter(Boolean)
+    return [...new Set(names)].sort() as string[]
+  }, [ep.rows])
+
+  const columns = createReceivedInvoiceColumns(filters, suppliers, supplierSuggestions)
 
   if (ep.loading) return <LoadingState />
   if (ep.error)   return <ErrorState message={ep.error} onRetry={ep.refresh} />
@@ -33,14 +39,13 @@ export default function ReceivedInvoicesPage() {
           onRefresh={ep.refresh}
         />
 
-        {filters.bar('auto 1fr 1fr 1fr 1fr 1fr 1fr 1fr')}
-
         <EntityPage.Table
           columns={columns}
           rows={ep.paginated}
           getRowId={r => r.id}
           expanded={ep.expanded}
           onToggle={ep.toggleExpand}
+          onClearFilters={filters.clear}
           rowClassName={r =>
             r.isTemporary && r.status !== 'storno' ? 'border-orange-400 bg-orange-50'
             : r.status === 'storno' ? 'bg-red-50 opacity-70'

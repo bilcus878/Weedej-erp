@@ -1,7 +1,7 @@
 export { usePurchaseOrders } from './hooks/usePurchaseOrders'
 export { usePurchaseOrderActions } from './hooks/usePurchaseOrderActions'
 export { useCreatePurchaseOrderForm } from './hooks/useCreatePurchaseOrderForm'
-export { purchaseOrderColumns } from './components/purchaseOrderColumns'
+export { createPurchaseOrderColumns } from './components/purchaseOrderColumns'
 export { PurchaseOrderStatusBadge } from './components/PurchaseOrderStatusBadge'
 export { CreatePurchaseOrderForm } from './components/CreatePurchaseOrderForm'
 export { mapPurchaseOrderToSupplierDetail } from './domain/purchaseOrderMapper'

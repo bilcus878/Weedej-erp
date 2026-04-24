@@ -1,5 +1,6 @@
 'use client'
 
+import { useMemo } from 'react'
 import { Package, FileDown, XCircle } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import { EntityPage, LoadingState, ErrorState, ActionToolbar, SupplierOrderDetail } from '@/components/erp'
@@ -9,7 +10,7 @@ import { useToast } from '@/components/warehouse/shared/useToast'
 import { Toast } from '@/components/warehouse/shared/Toast'
 import {
   useReceipts, useReceiptActions, useReceiptProcessing,
-  receiptColumns, ProcessReceiptModal, mapReceiptToSupplierDetail,
+  createReceiptColumns, ProcessReceiptModal, mapReceiptToSupplierDetail,
 } from '@/features/receipts'
 
 export const dynamic = 'force-dynamic'
@@ -20,6 +21,13 @@ export default function ReceiptsPage() {
   const { ep, filters }   = useReceipts()
   const actions    = useReceiptActions(isVatPayer, showToast, ep.refresh)
   const processing = useReceiptProcessing(showToast, ep.refresh)
+
+  const supplierSuggestions = useMemo(() => {
+    const names = ep.rows.map(r =>
+      r.purchaseOrder?.supplier?.name || r.supplier?.name || r.supplierName || ''
+    ).filter(Boolean)
+    return [...new Set(names)].sort() as string[]
+  }, [ep.rows])
 
   if (ep.loading) return <LoadingState />
   if (ep.error)   return <ErrorState message={ep.error} onRetry={ep.refresh} />
@@ -35,10 +43,8 @@ export default function ReceiptsPage() {
         onRefresh={ep.refresh}
       />
 
-      {filters.bar('auto 1fr 1fr 1fr 1fr 1fr 1fr')}
-
       <EntityPage.Table
-        columns={receiptColumns(isVatPayer)}
+        columns={createReceiptColumns(filters, isVatPayer, supplierSuggestions)}
         rows={ep.paginated}
         getRowId={r => r.id}
         expanded={ep.expanded}

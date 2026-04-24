@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { Users, Edit2, Trash2 } from 'lucide-react'
 import { EntityPage, LoadingState, ErrorState, PartySection, ActionToolbar } from '@/components/erp'
 import {
-  useCustomers, useCustomerForm, customerColumns,
+  useCustomers, useCustomerForm, createCustomerColumns,
   CustomerFormPopup, CustomerOrdersFetcher,
 } from '@/features/customers'
 
@@ -29,10 +29,8 @@ export default function CustomersPage() {
         onRefresh={ep.refresh}
       />
 
-      {filters.bar('auto 1fr 1fr 1fr 1fr 1fr')}
-
       <EntityPage.Table
-        columns={customerColumns}
+        columns={createCustomerColumns(filters)}
         rows={ep.paginated}
         getRowId={r => r.id}
         expanded={ep.expanded}

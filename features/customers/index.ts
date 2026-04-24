@@ -1,6 +1,6 @@
 export { useCustomers }         from './hooks/useCustomers'
 export { useCustomerForm }      from './hooks/useCustomerForm'
-export { customerColumns }      from './components/customerColumns'
+export { createCustomerColumns } from './components/customerColumns'
 export { CustomerFormPopup }    from './components/CustomerFormPopup'
 export { CustomerOrdersFetcher } from './components/CustomerOrdersFetcher'
 export type { Customer, CustomerFormData } from './types'

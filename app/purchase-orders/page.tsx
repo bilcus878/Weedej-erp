@@ -1,10 +1,11 @@
 'use client'
 
+import { useMemo } from 'react'
 import { Package } from 'lucide-react'
 import { EntityPage, LoadingState, ErrorState, SupplierOrderDetail } from '@/components/erp'
 import { useCompanySettings } from '@/components/erp/hooks/useCompanySettings'
 import {
-  usePurchaseOrders, usePurchaseOrderActions, purchaseOrderColumns,
+  usePurchaseOrders, usePurchaseOrderActions, createPurchaseOrderColumns,
   CreatePurchaseOrderForm, mapPurchaseOrderToSupplierDetail,
 } from '@/features/purchase-orders'
 
@@ -15,7 +16,10 @@ export default function PurchaseOrdersPage() {
   const { isVatPayer }                        = useCompanySettings()
   const { handleDownloadPDF }                 = usePurchaseOrderActions(ep.rows)
 
-  const columns = purchaseOrderColumns(suppliers, isVatPayer)
+  const supplierSuggestions = useMemo(() => {
+    const names = ep.rows.map(r => r.supplier?.name || r.supplierName || '').filter(Boolean)
+    return [...new Set(names)].sort() as string[]
+  }, [ep.rows])
 
   if (ep.loading) return <LoadingState />
   if (ep.error)   return <ErrorState message={ep.error} onRetry={ep.refresh} />
@@ -31,10 +35,8 @@ export default function PurchaseOrdersPage() {
         onRefresh={ep.refresh}
       />
 
-      {filters.bar('auto 1fr 1fr 1fr 1fr 1fr 1fr 1fr')}
-
       <EntityPage.Table
-        columns={columns}
+        columns={createPurchaseOrderColumns(filters, suppliers, isVatPayer, supplierSuggestions)}
         rows={ep.paginated}
         getRowId={r => r.id}
         expanded={ep.expanded}

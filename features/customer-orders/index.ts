@@ -1,6 +1,6 @@
 export { useCustomerOrders }             from './hooks/useCustomerOrders'
 export { useCustomerOrderActions }       from './hooks/useCustomerOrderActions'
-export { customerOrderColumns }          from './components/customerOrderColumns'
+export { createCustomerOrderColumns }    from './components/customerOrderColumns'
 export { CustomerOrderStatusBadge }      from './components/CustomerOrderStatusBadge'
 export { CreateCustomerOrderForm }       from './components/CreateCustomerOrderForm'
 export { mapCustomerOrderToOrderDetail } from './domain/customerOrderMapper'

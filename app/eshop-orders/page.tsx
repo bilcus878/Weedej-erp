@@ -6,7 +6,7 @@ import { EntityPage, LoadingState, ErrorState, CustomerOrderDetail, EmptyState }
 import { useCompanySettings } from '@/components/erp/hooks/useCompanySettings'
 import {
   useEshopOrders, useEshopOrderActions,
-  eshopOrderColumns, mapEshopOrderToOrderDetail,
+  createEshopOrderColumns, mapEshopOrderToOrderDetail,
 } from '@/features/eshop-orders'
 
 export const dynamic = 'force-dynamic'
@@ -19,7 +19,7 @@ export default function EshopOrdersPage() {
   if (ep.loading) return <LoadingState message="Načítání eshop objednávek..." />
   if (ep.error)   return <ErrorState message={ep.error} onRetry={ep.refresh} />
 
-  const columns = eshopOrderColumns(isVatPayer)
+  const columns = createEshopOrderColumns(filters, isVatPayer)
 
   return (
     <EntityPage highlightId={ep.highlightId}>
@@ -32,14 +32,13 @@ export default function EshopOrdersPage() {
         onRefresh={ep.refresh}
       />
 
-      {filters.bar('auto 1fr 1fr 2fr 1fr 1fr 1fr')}
-
       <EntityPage.Table
         columns={columns}
         rows={ep.paginated}
         getRowId={r => r.id}
         expanded={ep.expanded}
         onToggle={ep.toggleExpand}
+        onClearFilters={filters.clear}
         rowClassName={r => ['cancelled', 'storno'].includes(r.status) ? 'opacity-60' : ''}
         empty={
           <EmptyState

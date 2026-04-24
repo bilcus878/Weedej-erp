@@ -5,6 +5,6 @@ export { fetchTransactions, syncTransactions } from './services/transactionServi
 export { useTransactions }       from './hooks/useTransactions'
 export { useTransactionActions } from './hooks/useTransactionActions'
 export { TransactionStatusBadge } from './components/TransactionStatusBadge'
-export { transactionColumns }     from './components/transactionColumns'
+export { createTransactionColumns } from './components/transactionColumns'
 export { SyncDropdown }           from './components/SyncDropdown'
 export { SumUpReceiptLink }       from './components/SumUpReceiptLink'

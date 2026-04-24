@@ -1,6 +1,6 @@
 export { useReceivedInvoices } from './hooks/useReceivedInvoices'
 export { useReceivedInvoiceActions } from './hooks/useReceivedInvoiceActions'
-export { receivedInvoiceColumns } from './components/receivedInvoiceColumns'
+export { createReceivedInvoiceColumns } from './components/receivedInvoiceColumns'
 export { ReceivedInvoiceStatusBadge } from './components/ReceivedInvoiceStatusBadge'
 export { InvoiceDiscountWidget } from './components/InvoiceDiscountWidget'
 export { mapInvoiceToSupplierDetail, buildModalInitialData } from './domain/receivedInvoiceMapper'
