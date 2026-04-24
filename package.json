@@ -4,8 +4,7 @@
   "description": "Účetní program s SumUp integrací",
   "private": true,
   "scripts": {
-    "dev": "node scripts/dev-with-browser.js",
-    "dev:only": "next dev",
+    "dev": "next dev",
     "build": "prisma generate && node scripts/prisma-baseline.js && prisma migrate deploy && next build",
     "start": "next start",
     "lint": "next lint",
