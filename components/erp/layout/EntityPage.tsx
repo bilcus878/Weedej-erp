@@ -104,7 +104,7 @@ function Table<T>({
 
   const header = (
     <div
-      className="grid items-center gap-4 px-4 py-3 bg-gray-100 border rounded-lg text-xs font-semibold text-gray-700"
+      className="grid items-center gap-6 px-6 py-3 bg-gray-100 border rounded-lg text-xs font-semibold text-gray-700"
       style={{ gridTemplateColumns: gridTemplate }}
     >
       <div className="w-8 flex items-center justify-center">
