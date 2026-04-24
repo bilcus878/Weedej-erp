@@ -5,11 +5,20 @@ import { useRouter } from 'next/navigation'
 import { ChevronDown, ChevronRight, Edit2 } from 'lucide-react'
 import { formatDate, formatQuantity, formatPrice } from '@/lib/utils'
 import { isNonVatPayer } from '@/lib/vatCalculation'
+import { FilterInput, FilterSelect } from '@/components/erp'
+import type { FiltersResult, SelectOption } from '@/components/erp'
 import type { StockMovement, InventorySummary } from '../types'
+
+const MOVEMENT_TYPE_OPTIONS: SelectOption[] = [
+  { value: '',    label: 'Typ'                                   },
+  { value: 'in',  label: 'Příjem (+)', className: 'text-green-600' },
+  { value: 'out', label: 'Výdej (-)',  className: 'text-red-600'   },
+]
 
 interface Props {
   filteredMovements:     StockMovement[]
   stockMovements:        StockMovement[]
+  filters:               FiltersResult<StockMovement>
   highlightMovementId:   string | null
   expandedMovements:     Set<string>
   onToggle:              (id: string) => void
@@ -38,21 +47,50 @@ function buildPages(totalPages: number, currentPage: number): (number | string)[
 }
 
 export function MovementTable({
-  filteredMovements, stockMovements, highlightMovementId,
+  filteredMovements, stockMovements, filters, highlightMovementId,
   expandedMovements, onToggle,
   movementsPage, movementsPerPage, setMovementsPerPage, onPageChange,
   movementsSectionRef,
   isVatPayer, selectedProductId, summaryRows,
   onOpenAdjustment,
 }: Props) {
-  const router          = useRouter()
-  const totalPages      = Math.ceil(filteredMovements.length / movementsPerPage)
-  const pages           = buildPages(totalPages, movementsPage)
+  const router             = useRouter()
+  const totalPages         = Math.ceil(filteredMovements.length / movementsPerPage)
+  const pages              = buildPages(totalPages, movementsPage)
   const paginatedMovements = filteredMovements.slice((movementsPage - 1) * movementsPerPage, movementsPage * movementsPerPage)
+
+  const v = filters.values
+  const s = filters.set
+
+  const header = (
+    <div className="grid grid-cols-[auto_1fr_1fr_1fr_1fr] items-center gap-3 px-4 py-3 bg-gray-100 border-b rounded-t-lg">
+      <div className="flex items-center gap-1.5">
+        <button
+          onClick={filters.clear}
+          title="Vymazat filtry"
+          className="w-5 h-5 bg-gray-200 hover:bg-gray-300 text-gray-500 text-[10px] rounded transition-colors flex items-center justify-center shrink-0"
+        >
+          ✕
+        </button>
+        <button onClick={onOpenAdjustment} className="flex items-center gap-1 px-2 py-1 bg-orange-50 hover:bg-orange-100 text-orange-700 text-xs font-medium rounded border border-orange-200 transition-colors whitespace-nowrap">
+          <Edit2 className="w-3 h-3 shrink-0" />Manko/Přebytek
+        </button>
+      </div>
+
+      <FilterInput type="date" value={v['date'] ?? ''} onChange={val => s('date', val)} className="w-full text-center" />
+
+      <FilterSelect value={v['type'] ?? ''} onChange={val => s('type', val)} options={MOVEMENT_TYPE_OPTIONS} className="w-full" />
+
+      <FilterInput type="number" value={v['minQuantity'] ?? ''} onChange={val => s('minQuantity', val)} placeholder="Min. mn." className="w-full text-center" />
+
+      <FilterInput value={v['note'] ?? ''} onChange={val => s('note', val)} placeholder="Poznámka..." className="w-full text-center" />
+    </div>
+  )
 
   if (filteredMovements.length === 0) {
     return (
       <div ref={movementsSectionRef} className="bg-white rounded-lg shadow-sm border border-gray-200">
+        {header}
         <div className="text-center py-12">
           <p className="text-gray-500">{stockMovements.length === 0 ? 'Žádné skladové pohyby' : 'Žádné pohyby odpovídající filtru'}</p>
         </div>
@@ -62,15 +100,7 @@ export function MovementTable({
 
   return (
     <div ref={movementsSectionRef} className="bg-white rounded-lg shadow-sm border border-gray-200">
-      <div className="grid grid-cols-[auto_1fr_1fr_1fr_1fr] items-center gap-4 px-4 py-3 bg-gray-100 border-b rounded-t-lg text-xs font-semibold text-gray-700">
-        <button onClick={onOpenAdjustment} className="flex items-center gap-1 px-2 py-1 bg-orange-50 hover:bg-orange-100 text-orange-700 text-xs font-medium rounded border border-orange-200 transition-colors whitespace-nowrap">
-          <Edit2 className="w-3 h-3 shrink-0" />Manko/Přebytek
-        </button>
-        <div className="text-center">Datum</div>
-        <div className="text-center">Typ</div>
-        <div className="text-center">Množství</div>
-        <div className="text-center">Poznámka</div>
-      </div>
+      {header}
 
       <div className="divide-y divide-gray-100">
         {paginatedMovements.map(movement => (
@@ -176,7 +206,7 @@ export function MovementTable({
         <div className="flex items-center gap-2">
           <span className="text-sm text-gray-700">Zobrazit:</span>
           {[10, 20, 50, 100].map(count => (
-            <button key={count} onClick={() => { setMovementsPerPage(count) }} className={`px-3 py-1.5 rounded text-sm font-medium ${movementsPerPage === count ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>{count}</button>
+            <button key={count} onClick={() => setMovementsPerPage(count)} className={`px-3 py-1.5 rounded text-sm font-medium ${movementsPerPage === count ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>{count}</button>
           ))}
           <span className="text-sm text-gray-500 ml-2">({filteredMovements.length} celkem)</span>
         </div>

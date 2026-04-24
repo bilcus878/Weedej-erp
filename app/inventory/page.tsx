@@ -41,7 +41,7 @@ export default function InventoryPage() {
 
   if (mov.selectedProductId) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4">
         {mov.showManualAdjustmentForm && (
           <ManualAdjustmentModal
             adjustmentType={mov.adjustmentType}
@@ -56,10 +56,10 @@ export default function InventoryPage() {
             onClose={mov.closeManualAdjustment}
           />
         )}
-        {mov.filters.bar('auto 1fr 1fr 1fr 1fr')}
         <MovementTable
           filteredMovements={mov.filteredMovements}
           stockMovements={mov.stockMovements}
+          filters={mov.filters}
           highlightMovementId={mov.highlightMovementId}
           expandedMovements={mov.expandedMovements}
           onToggle={mov.toggleMovement}
@@ -79,9 +79,10 @@ export default function InventoryPage() {
 
   return (
     <div className="space-y-4">
-      {inv.filters.bar('auto 1fr 1fr 1fr 1fr 1fr 1fr 1fr')}
       <InventoryTable
         filteredAndSorted={inv.filteredAndSorted}
+        filters={inv.filters}
+        categories={inv.categories}
         highlightId={inv.highlightId}
         sortField={inv.sortField}       sortDirection={inv.sortDirection} onSort={inv.handleSort}
         currentPage={inv.ep.page}       itemsPerPage={inv.itemsPerPage}

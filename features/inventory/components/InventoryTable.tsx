@@ -1,12 +1,23 @@
 'use client'
 
 import type { RefObject } from 'react'
-import { ChevronDown, ChevronUp, ChevronRight } from 'lucide-react'
+import { ChevronDown, ChevronUp, ChevronRight, ChevronsUpDown } from 'lucide-react'
 import { formatQuantity } from '@/lib/utils'
-import type { InventorySummary, SortField, SortDirection } from '../types'
+import { FilterInput, FilterSelect } from '@/components/erp'
+import type { FiltersResult, SelectOption } from '@/components/erp'
+import type { InventorySummary, Category, SortField, SortDirection } from '../types'
+
+const STATUS_OPTIONS: SelectOption[] = [
+  { value: '',      label: 'Status'                                    },
+  { value: 'ok',    label: 'OK',        className: 'text-green-600'  },
+  { value: 'low',   label: 'Nízký',     className: 'text-orange-600' },
+  { value: 'empty', label: 'Vyprodáno', className: 'text-red-600'    },
+]
 
 interface Props {
   filteredAndSorted: InventorySummary[]
+  filters:           FiltersResult<InventorySummary>
+  categories:        Category[]
   highlightId:       string | null | undefined
   sortField:         SortField
   sortDirection:     SortDirection
@@ -20,9 +31,21 @@ interface Props {
   sectionRef:        RefObject<HTMLDivElement>
 }
 
-function SortIcon({ field, sortField, sortDirection }: { field: SortField; sortField: SortField; sortDirection: SortDirection }) {
-  if (sortField !== field) return null
-  return sortDirection === 'asc' ? <ChevronUp className="h-4 w-4 inline ml-1" /> : <ChevronDown className="h-4 w-4 inline ml-1" />
+function SortBtn({ field, sortField, sortDirection, onSort }: {
+  field: SortField; sortField: SortField; sortDirection: SortDirection; onSort: (f: SortField) => void
+}) {
+  const active = sortField === field
+  return (
+    <button
+      onClick={() => onSort(field)}
+      className={`shrink-0 transition-colors ${active ? 'text-purple-600' : 'text-gray-300 hover:text-gray-500'}`}
+    >
+      {active
+        ? (sortDirection === 'asc' ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />)
+        : <ChevronsUpDown className="h-3.5 w-3.5" />
+      }
+    </button>
+  )
 }
 
 function buildPages(totalPages: number, currentPage: number): (number | string)[] {
@@ -31,15 +54,15 @@ function buildPages(totalPages: number, currentPage: number): (number | string)[
     for (let i = 1; i <= totalPages; i++) pages.push(i)
   } else {
     pages.push(1)
-    if (currentPage <= 3)                       pages.push(2, 3, 4, '...', totalPages)
-    else if (currentPage >= totalPages - 2)     pages.push('...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages)
-    else                                        pages.push('...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages)
+    if (currentPage <= 3)                   pages.push(2, 3, 4, '...', totalPages)
+    else if (currentPage >= totalPages - 2) pages.push('...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages)
+    else                                    pages.push('...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages)
   }
   return pages
 }
 
 export function InventoryTable({
-  filteredAndSorted, highlightId,
+  filteredAndSorted, filters, categories, highlightId,
   sortField, sortDirection, onSort,
   currentPage, itemsPerPage, setItemsPerPage, setCurrentPage, onPageChange,
   onSelectProduct, sectionRef,
@@ -48,9 +71,62 @@ export function InventoryTable({
   const pages      = buildPages(totalPages, currentPage)
   const paginated  = filteredAndSorted.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
 
+  const v = filters.values
+  const s = filters.set
+
+  const catOptions: SelectOption[] = [
+    { value: '', label: 'Kategorie' },
+    ...categories.map(c => ({ value: c.id, label: c.name })),
+  ]
+
+  const header = (
+    <div className="grid grid-cols-[auto_1fr_1fr_1fr_1fr_1fr_1fr_1fr] items-center gap-3 px-4 py-3 bg-gray-100 border-b rounded-t-lg">
+      <button
+        onClick={filters.clear}
+        title="Vymazat filtry"
+        className="w-6 h-6 bg-gray-200 hover:bg-gray-300 text-gray-500 text-[10px] rounded transition-colors flex items-center justify-center shrink-0 mx-auto"
+      >
+        ✕
+      </button>
+
+      <div className="flex items-center gap-1.5">
+        <FilterInput value={v['name'] ?? ''} onChange={val => s('name', val)} placeholder="Produkt..." className="flex-1 min-w-0" />
+        <SortBtn field="productName" sortField={sortField} sortDirection={sortDirection} onSort={onSort} />
+      </div>
+
+      <div className="flex items-center gap-1.5">
+        <FilterSelect value={v['category'] ?? ''} onChange={val => s('category', val)} options={catOptions} className="flex-1 min-w-0" />
+        <SortBtn field="category" sortField={sortField} sortDirection={sortDirection} onSort={onSort} />
+      </div>
+
+      <div className="flex items-center gap-1.5">
+        <FilterInput type="number" value={v['minStock'] ?? ''} onChange={val => s('minStock', val)} placeholder="≥ Sklad." className="flex-1 min-w-0" />
+        <SortBtn field="physicalStock" sortField={sortField} sortDirection={sortDirection} onSort={onSort} />
+      </div>
+
+      <div className="flex items-center gap-1.5">
+        <FilterInput type="number" value={v['minReserved'] ?? ''} onChange={val => s('minReserved', val)} placeholder="≥ Rezerv." className="flex-1 min-w-0" />
+        <SortBtn field="reservedStock" sortField={sortField} sortDirection={sortDirection} onSort={onSort} />
+      </div>
+
+      <div className="flex items-center gap-1.5">
+        <FilterInput type="number" value={v['minAvail'] ?? ''} onChange={val => s('minAvail', val)} placeholder="≥ Dostup." className="flex-1 min-w-0" />
+        <SortBtn field="availableStock" sortField={sortField} sortDirection={sortDirection} onSort={onSort} />
+      </div>
+
+      <div className="flex items-center gap-1.5">
+        <FilterInput type="number" value={v['minExpected'] ?? ''} onChange={val => s('minExpected', val)} placeholder="≥ Očekáv." className="flex-1 min-w-0" />
+        <SortBtn field="expectedQuantity" sortField={sortField} sortDirection={sortDirection} onSort={onSort} />
+      </div>
+
+      <FilterSelect value={v['status'] ?? ''} onChange={val => s('status', val)} options={STATUS_OPTIONS} className="w-full" />
+    </div>
+  )
+
   if (filteredAndSorted.length === 0) {
     return (
       <div ref={sectionRef} className="bg-white rounded-lg shadow-sm border border-gray-200">
+        {header}
         <div className="text-center py-12">
           <p className="text-gray-500">Zatím není nic naskladněno</p>
         </div>
@@ -60,16 +136,7 @@ export function InventoryTable({
 
   return (
     <div ref={sectionRef} className="bg-white rounded-lg shadow-sm border border-gray-200">
-      <div className="grid grid-cols-[auto_1fr_1fr_1fr_1fr_1fr_1fr_1fr] items-center gap-4 px-4 py-3 bg-gray-100 border-b rounded-t-lg text-xs font-semibold text-gray-700">
-        <div className="w-8"></div>
-        <div className="text-left cursor-pointer hover:text-purple-600"  onClick={() => onSort('productName')}>Produkt <SortIcon field="productName" sortField={sortField} sortDirection={sortDirection} /></div>
-        <div className="text-center cursor-pointer hover:text-purple-600" onClick={() => onSort('category')}>Kategorie <SortIcon field="category" sortField={sortField} sortDirection={sortDirection} /></div>
-        <div className="text-center cursor-pointer hover:text-purple-600" onClick={() => onSort('physicalStock')}>Skladem <SortIcon field="physicalStock" sortField={sortField} sortDirection={sortDirection} /></div>
-        <div className="text-center cursor-pointer hover:text-purple-600" onClick={() => onSort('reservedStock')}>Rezervováno <SortIcon field="reservedStock" sortField={sortField} sortDirection={sortDirection} /></div>
-        <div className="text-center cursor-pointer hover:text-purple-600" onClick={() => onSort('availableStock')}>Dostupné <SortIcon field="availableStock" sortField={sortField} sortDirection={sortDirection} /></div>
-        <div className="text-center cursor-pointer hover:text-purple-600" onClick={() => onSort('expectedQuantity')}>Očekáváno <SortIcon field="expectedQuantity" sortField={sortField} sortDirection={sortDirection} /></div>
-        <div className="text-center">Status</div>
-      </div>
+      {header}
 
       <div className="divide-y divide-gray-100">
         {paginated.map(item => (
