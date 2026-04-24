@@ -1,11 +1,12 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useRef, useMemo, useEffect } from 'react'
 import { Package, FileDown, XCircle } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import { EntityPage, LoadingState, ErrorState, ActionToolbar, SupplierOrderDetail } from '@/components/erp'
 import { useCompanySettings } from '@/components/erp/hooks/useCompanySettings'
 import { ExpectedOrdersButton } from '@/components/warehouse/expected/ExpectedOrdersButton'
+import { useNavbarMeta } from '@/components/NavbarMetaContext'
 import { useToast } from '@/components/warehouse/shared/useToast'
 import { Toast } from '@/components/warehouse/shared/Toast'
 import {
@@ -21,6 +22,29 @@ export default function ReceiptsPage() {
   const { ep, filters }   = useReceipts()
   const actions    = useReceiptActions(isVatPayer, showToast, ep.refresh)
   const processing = useReceiptProcessing(showToast, ep.refresh)
+  const { setMeta } = useNavbarMeta()
+
+  const handleCreateFromOrderRef = useRef(processing.handleCreateFromOrder)
+  handleCreateFromOrderRef.current = processing.handleCreateFromOrder
+
+  useEffect(() => {
+    const orders = processing.pendingOrders.map((o: any) => ({
+      id: o.id, orderNumber: o.orderNumber,
+      partyName: o.supplier?.name || o.supplierName || '—', orderDate: o.orderDate,
+    }))
+    setMeta({
+      actions: (
+        <ExpectedOrdersButton
+          orders={orders}
+          headerLabel="Čeká na naskladnění"
+          actionLabel="Naskladnit"
+          searchPlaceholder="Hledat číslo obj. nebo dodavatel..."
+          autoOpen={processing.pendingOrders.length > 0}
+          onAction={id => handleCreateFromOrderRef.current(id)}
+        />
+      ),
+    })
+  }, [processing.pendingOrders, setMeta]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const supplierSuggestions = useMemo(() => {
     const names = ep.rows.map(r =>
@@ -49,19 +73,7 @@ export default function ReceiptsPage() {
         getRowId={r => r.id}
         expanded={ep.expanded}
         onToggle={ep.toggleExpand}
-        firstHeader={
-          <ExpectedOrdersButton
-            orders={processing.pendingOrders.map((o: any) => ({
-              id: o.id, orderNumber: o.orderNumber,
-              partyName: o.supplier?.name || o.supplierName || '—', orderDate: o.orderDate,
-            }))}
-            headerLabel="Čeká na naskladnění"
-            actionLabel="Naskladnit"
-            searchPlaceholder="Hledat číslo obj. nebo dodavatel..."
-            autoOpen={processing.pendingOrders.length > 0}
-            onAction={processing.handleCreateFromOrder}
-          />
-        }
+        onClearFilters={filters.clear}
         rowClassName={r => r.status === 'storno' || r.status === 'cancelled' ? 'bg-red-50 opacity-70' : ''}
         renderDetail={receipt => (
           <>

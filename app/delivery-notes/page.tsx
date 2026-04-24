@@ -1,10 +1,11 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useRef, useMemo, useEffect } from 'react'
 import { Package, FileDown, XCircle } from 'lucide-react'
 import { EntityPage, LoadingState, ErrorState, ActionToolbar, CustomerOrderDetail } from '@/components/erp'
 import { useCompanySettings } from '@/components/erp/hooks/useCompanySettings'
 import { ExpectedOrdersButton } from '@/components/warehouse/expected/ExpectedOrdersButton'
+import { useNavbarMeta } from '@/components/NavbarMetaContext'
 import { useToast } from '@/components/warehouse/shared/useToast'
 import { Toast } from '@/components/warehouse/shared/Toast'
 import {
@@ -20,6 +21,30 @@ export default function DeliveryNotesPage() {
   const { ep, filters }   = useDeliveryNotes()
   const actions    = useDeliveryNoteActions(ep.rows, isVatPayer, showToast, ep.refresh)
   const processing = useShipmentProcessing(showToast, ep.refresh)
+  const { setMeta } = useNavbarMeta()
+
+  const handlePrepareShipmentRef = useRef(processing.handlePrepareShipment)
+  handlePrepareShipmentRef.current = processing.handlePrepareShipment
+
+  useEffect(() => {
+    const orders = processing.pendingOrders.map(o => ({
+      id: o.id, orderNumber: o.orderNumber,
+      partyName: o.customer?.name || o.customerName || 'Anonymní zákazník',
+      orderDate: o.orderDate, badge: 'Zaplaceno',
+    }))
+    setMeta({
+      actions: (
+        <ExpectedOrdersButton
+          orders={orders}
+          headerLabel="Čeká na expedici"
+          actionLabel="Vyskladnit"
+          searchPlaceholder="Hledat číslo obj. nebo odběratel..."
+          autoOpen={processing.pendingOrders.length > 0}
+          onAction={id => handlePrepareShipmentRef.current(id)}
+        />
+      ),
+    })
+  }, [processing.pendingOrders, setMeta]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const customerSuggestions = useMemo(() => {
     const names = ep.rows.map(r => r.customer?.name || r.customerName || '').filter(Boolean)
@@ -46,20 +71,7 @@ export default function DeliveryNotesPage() {
         getRowId={r => r.id}
         expanded={ep.expanded}
         onToggle={ep.toggleExpand}
-        firstHeader={
-          <ExpectedOrdersButton
-            orders={processing.pendingOrders.map(o => ({
-              id: o.id, orderNumber: o.orderNumber,
-              partyName: o.customer?.name || o.customerName || 'Anonymní zákazník',
-              orderDate: o.orderDate, badge: 'Zaplaceno',
-            }))}
-            headerLabel="Čeká na expedici"
-            actionLabel="Vyskladnit"
-            searchPlaceholder="Hledat číslo obj. nebo odběratel..."
-            autoOpen={processing.pendingOrders.length > 0}
-            onAction={processing.handlePrepareShipment}
-          />
-        }
+        onClearFilters={filters.clear}
         rowClassName={r => r.status === 'storno' ? 'bg-red-50 opacity-70' : ''}
         renderDetail={note => {
           const orderHref = note.customerOrder

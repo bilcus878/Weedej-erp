@@ -7,9 +7,10 @@ import type { useSupplierForm } from '../hooks/useSupplierForm'
 
 interface Props {
   form: ReturnType<typeof useSupplierForm>
+  hideTrigger?: boolean
 }
 
-export function SupplierFormPopup({ form }: Props) {
+export function SupplierFormPopup({ form, hideTrigger }: Props) {
   const { showForm, editingSupplier, formData, setFormData, handleOpenNew, handleClose, handleSubmit } = form
 
   return (
@@ -18,6 +19,7 @@ export function SupplierFormPopup({ form }: Props) {
       open={showForm}
       onOpen={handleOpenNew}
       onClose={handleClose}
+      hideTrigger={hideTrigger}
     >
       <form onSubmit={handleSubmit} className="space-y-5">
 

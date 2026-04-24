@@ -9,17 +9,21 @@ import { CascadingProductDropdown } from '@/components/CascadingProductDropdown'
 import { CreateOrderPopup } from '@/components/warehouse/create/CreateOrderPopup'
 import { useCreatePurchaseOrderForm } from '../hooks/useCreatePurchaseOrderForm'
 import { PurchaseOrderTotals } from './PurchaseOrderTotals'
+import type { MutableRefObject } from 'react'
 import type { Supplier, Product } from '../types'
 
 interface Props {
-  suppliers:  Supplier[]
-  products:   Product[]
-  isVatPayer: boolean
-  onSuccess:  () => Promise<void>
+  suppliers:    Supplier[]
+  products:     Product[]
+  isVatPayer:   boolean
+  onSuccess:    () => Promise<void>
+  openRef?:     MutableRefObject<() => void>
+  hideTrigger?: boolean
 }
 
-export function CreatePurchaseOrderForm({ suppliers, products, isVatPayer, onSuccess }: Props) {
+export function CreatePurchaseOrderForm({ suppliers, products, isVatPayer, onSuccess, openRef, hideTrigger }: Props) {
   const form = useCreatePurchaseOrderForm(products, isVatPayer, onSuccess)
+  if (openRef) openRef.current = form.handleOpen
 
   return (
     <CreateOrderPopup
@@ -28,6 +32,7 @@ export function CreatePurchaseOrderForm({ suppliers, products, isVatPayer, onSuc
       open={form.open}
       onOpen={form.handleOpen}
       onClose={form.handleClose}
+      hideTrigger={hideTrigger}
     >
       <form onSubmit={form.handleSubmit} className="space-y-3">
         <div className="grid grid-cols-2 gap-3 items-stretch">

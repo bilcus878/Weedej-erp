@@ -44,7 +44,9 @@ function Header({ total, filtered, actions }: HeaderProps) {
   useEffect(() => {
     // actions intentionally excluded from deps — JSX identity changes every render;
     // actions are effectively static per page mount so omitting is safe here.
-    setMeta({ count: `Zobrazeno ${filtered} z ${total}`, actions: actions ?? undefined })
+    const update: Parameters<typeof setMeta>[0] = { count: `Zobrazeno ${filtered} z ${total}` }
+    if (actions !== undefined) update.actions = actions
+    setMeta(update)
     return () => setMeta({ count: '', actions: undefined })
   }, [filtered, total, setMeta]) // eslint-disable-line react-hooks/exhaustive-deps
 

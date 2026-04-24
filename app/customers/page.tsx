@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { Users, Edit2, Trash2 } from 'lucide-react'
+import { Users, Edit2, Plus, Trash2 } from 'lucide-react'
 import { EntityPage, LoadingState, ErrorState, PartySection, ActionToolbar } from '@/components/erp'
 import {
   useCustomers, useCustomerForm, createCustomerColumns,
@@ -27,6 +27,14 @@ export default function CustomersPage() {
         total={ep.rows.length}
         filtered={ep.filtered.length}
         onRefresh={ep.refresh}
+        actions={
+          <button
+            onClick={form.handleOpenNew}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium rounded-lg transition-colors"
+          >
+            <Plus className="w-4 h-4" />Nový odběratel
+          </button>
+        }
       />
 
       <EntityPage.Table
@@ -35,7 +43,7 @@ export default function CustomersPage() {
         getRowId={r => r.id}
         expanded={ep.expanded}
         onToggle={ep.toggleExpand}
-        firstHeader={<CustomerFormPopup form={form} />}
+        onClearFilters={filters.clear}
         renderDetail={customer => (
           <>
             <PartySection
@@ -70,6 +78,8 @@ export default function CustomersPage() {
       />
 
       <EntityPage.Pagination page={ep.page} total={ep.totalPages} onChange={ep.setPage} />
+
+      <CustomerFormPopup form={form} hideTrigger />
     </EntityPage>
   )
 }

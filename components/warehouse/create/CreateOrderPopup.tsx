@@ -9,6 +9,7 @@ interface CreateOrderPopupProps {
   onOpen: () => void
   onClose: () => void
   children: ReactNode
+  hideTrigger?: boolean
 }
 
 export function CreateOrderPopup({
@@ -18,18 +19,21 @@ export function CreateOrderPopup({
   onOpen,
   onClose,
   children,
+  hideTrigger,
 }: CreateOrderPopupProps) {
   return (
     <>
-      <button
-        onClick={() => open ? onClose() : onOpen()}
-        title={open ? 'Zavřít formulář' : title}
-        className={`w-7 h-7 flex items-center justify-center rounded font-bold text-base transition-colors ${
-          open ? 'bg-blue-600 text-white' : 'bg-blue-200 text-blue-800 hover:bg-blue-400'
-        }`}
-      >
-        +
-      </button>
+      {!hideTrigger && (
+        <button
+          onClick={() => open ? onClose() : onOpen()}
+          title={open ? 'Zavřít formulář' : title}
+          className={`w-7 h-7 flex items-center justify-center rounded font-bold text-base transition-colors ${
+            open ? 'bg-blue-600 text-white' : 'bg-blue-200 text-blue-800 hover:bg-blue-400'
+          }`}
+        >
+          +
+        </button>
+      )}
 
       {open && (
         <div className="fixed inset-0 z-50 overflow-y-auto">

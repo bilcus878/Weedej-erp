@@ -21,7 +21,7 @@ type Props = Pick<ProductsHook,
   | 'editingVariant' | 'variantLoading'
   | 'handleToggleExpand' | 'handleInlineEdit' | 'handleInlineCancel' | 'handleInlineSave' | 'handleDelete'
   | 'handleVariantSubmit' | 'handleEditVariant' | 'handleCancelVariantEdit' | 'handleDeleteVariant'
->
+> & { hideTrigger?: boolean }
 
 function SortIcon({ field, sortField, sortDir }: { field: string; sortField: string; sortDir: string }) {
   if (sortField !== field) return <ChevronUp className="h-3 w-3 ml-0.5 opacity-0 inline" />
@@ -39,6 +39,7 @@ export function ProductTable({
   editingVariant, variantLoading,
   handleToggleExpand, handleInlineEdit, handleInlineCancel, handleInlineSave, handleDelete,
   handleVariantSubmit, handleEditVariant, handleCancelVariantEdit, handleDeleteVariant,
+  hideTrigger,
 }: Props) {
   const gridCols = isVatPayer
     ? 'grid-cols-[32px_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]'
@@ -49,7 +50,7 @@ export function ProductTable({
       {/* Header row */}
       <div className={`grid items-center gap-3 px-4 py-3 bg-gray-100 border rounded-lg text-xs font-semibold text-gray-600 ${gridCols}`}>
         <div className="flex items-center justify-center">
-          <PopupButton color="orange" variant="modal" headerLabel="Nový produkt" triggerTitle="Přidat nový produkt" open={popupOpen} onOpenChange={setPopupOpen}>
+          <PopupButton color="orange" variant="modal" headerLabel="Nový produkt" triggerTitle="Přidat nový produkt" open={popupOpen} onOpenChange={setPopupOpen} hideTrigger={hideTrigger}>
             <ProductFormModal categories={categories} isVatPayer={isVatPayer} onSaved={ep.refresh} onClose={() => setPopupOpen(false)} onRefresh={ep.refresh} />
           </PopupButton>
         </div>

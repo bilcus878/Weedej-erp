@@ -1,7 +1,7 @@
 'use client'
 
-import { useMemo } from 'react'
-import { ShoppingCart } from 'lucide-react'
+import { useRef, useMemo } from 'react'
+import { ShoppingCart, Plus } from 'lucide-react'
 import { EntityPage, LoadingState, ErrorState, CustomerOrderDetail } from '@/components/erp'
 import { useCompanySettings } from '@/components/erp/hooks/useCompanySettings'
 import {
@@ -16,6 +16,7 @@ export default function CustomerOrdersPage() {
   const { ep, filters, customers, products } = useCustomerOrders()
   const { isVatPayer }                        = useCompanySettings()
   const { handleMarkPaid, handleUpdateStatus, handlePrintPDF } = useCustomerOrderActions(ep.refresh)
+  const openCreateRef = useRef<() => void>(() => {})
 
   const customerSuggestions = useMemo(() => {
     const names = ep.rows.map(r => r.customer?.name || r.customerName || '').filter(Boolean)
@@ -36,6 +37,14 @@ export default function CustomerOrdersPage() {
         total={ep.rows.length}
         filtered={ep.filtered.length}
         onRefresh={ep.refresh}
+        actions={
+          <button
+            onClick={() => openCreateRef.current()}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium rounded-lg transition-colors"
+          >
+            <Plus className="w-4 h-4" />Nová objednávka
+          </button>
+        }
       />
 
       <EntityPage.Table
@@ -44,14 +53,7 @@ export default function CustomerOrdersPage() {
         getRowId={r => r.id}
         expanded={ep.expanded}
         onToggle={ep.toggleExpand}
-        firstHeader={
-          <CreateCustomerOrderForm
-            customers={customers}
-            products={products}
-            isVatPayer={isVatPayer}
-            onSuccess={ep.refresh}
-          />
-        }
+        onClearFilters={filters.clear}
         rowClassName={r => r.status === 'storno' ? 'bg-red-50 opacity-70' : ''}
         renderDetail={order => (
           <CustomerOrderDetail
@@ -66,6 +68,15 @@ export default function CustomerOrdersPage() {
       />
 
       <EntityPage.Pagination page={ep.page} total={ep.totalPages} onChange={ep.setPage} />
+
+      <CreateCustomerOrderForm
+        customers={customers}
+        products={products}
+        isVatPayer={isVatPayer}
+        onSuccess={ep.refresh}
+        openRef={openCreateRef}
+        hideTrigger
+      />
     </EntityPage>
   )
 }

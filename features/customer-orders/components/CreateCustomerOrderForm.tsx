@@ -10,13 +10,16 @@ import { CreateOrderPopup } from '@/components/warehouse/create/CreateOrderPopup
 import { useCreateOrderForm } from '../hooks/useCreateOrderForm'
 import { CascadingProductDropdown } from '@/components/CascadingProductDropdown'
 import { OrderTotalsPreview } from './OrderTotalsPreview'
+import type { MutableRefObject } from 'react'
 import type { BillingAddress, Customer, CustomerOrderItem, Product } from '../types'
 
 interface Props {
-  customers:  Customer[]
-  products:   Product[]
-  isVatPayer: boolean
-  onSuccess:  () => Promise<void>
+  customers:    Customer[]
+  products:     Product[]
+  isVatPayer:   boolean
+  onSuccess:    () => Promise<void>
+  openRef?:     MutableRefObject<() => void>
+  hideTrigger?: boolean
 }
 
 const SHIPPING_OPTIONS = [
@@ -38,8 +41,9 @@ const COUNTRY_OPTIONS = [
 
 const selectClass = 'w-full h-9 rounded border border-gray-300 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
 
-export function CreateCustomerOrderForm({ customers, products, isVatPayer, onSuccess }: Props) {
+export function CreateCustomerOrderForm({ customers, products, isVatPayer, onSuccess, openRef, hideTrigger }: Props) {
   const form = useCreateOrderForm(products, isVatPayer, onSuccess)
+  if (openRef) openRef.current = form.handleOpen
   const isPickup = form.shippingMethod === 'DPD_PICKUP' || form.shippingMethod === 'ZASILKOVNA_PICKUP'
 
   return (
@@ -49,6 +53,7 @@ export function CreateCustomerOrderForm({ customers, products, isVatPayer, onSuc
       open={form.open}
       onOpen={form.handleOpen}
       onClose={form.handleClose}
+      hideTrigger={hideTrigger}
     >
       <form onSubmit={form.handleSubmit} className="space-y-3">
         <div className="grid grid-cols-2 gap-3 items-stretch">

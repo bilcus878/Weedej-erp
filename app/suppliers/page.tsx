@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { Building2, Edit2, Trash2 } from 'lucide-react'
+import { Building2, Edit2, Plus, Trash2 } from 'lucide-react'
 import { EntityPage, LoadingState, ErrorState, PartySection, ActionToolbar } from '@/components/erp'
 import {
   useSuppliers, useSupplierForm, createSupplierColumns,
@@ -27,6 +27,14 @@ export default function SuppliersPage() {
         total={ep.rows.length}
         filtered={ep.filtered.length}
         onRefresh={ep.refresh}
+        actions={
+          <button
+            onClick={form.handleOpenNew}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium rounded-lg transition-colors"
+          >
+            <Plus className="w-4 h-4" />Nový dodavatel
+          </button>
+        }
       />
 
       <EntityPage.Table
@@ -35,7 +43,7 @@ export default function SuppliersPage() {
         getRowId={r => r.id}
         expanded={ep.expanded}
         onToggle={ep.toggleExpand}
-        firstHeader={<SupplierFormPopup form={form} />}
+        onClearFilters={filters.clear}
         renderDetail={supplier => (
           <>
             <PartySection
@@ -70,6 +78,8 @@ export default function SuppliersPage() {
       />
 
       <EntityPage.Pagination page={ep.page} total={ep.totalPages} onChange={ep.setPage} />
+
+      <SupplierFormPopup form={form} hideTrigger />
     </EntityPage>
   )
 }

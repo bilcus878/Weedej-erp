@@ -7,9 +7,10 @@ import type { useCustomerForm } from '../hooks/useCustomerForm'
 
 interface Props {
   form: ReturnType<typeof useCustomerForm>
+  hideTrigger?: boolean
 }
 
-export function CustomerFormPopup({ form }: Props) {
+export function CustomerFormPopup({ form, hideTrigger }: Props) {
   const { showForm, editingCustomer, formData, setFormData, handleOpenNew, handleClose, handleSubmit } = form
 
   return (
@@ -18,6 +19,7 @@ export function CustomerFormPopup({ form }: Props) {
       open={showForm}
       onOpen={handleOpenNew}
       onClose={handleClose}
+      hideTrigger={hideTrigger}
     >
       <form onSubmit={handleSubmit} className="space-y-5">
 

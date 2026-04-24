@@ -32,6 +32,7 @@ interface PopupButtonProps {
   // Content
   children:        ReactNode
   footer?:         ReactNode
+  hideTrigger?:    boolean            // suppress the trigger button (modal still controlled externally)
 }
 
 // ─── Color map ────────────────────────────────────────────────────────────────
@@ -84,6 +85,7 @@ export function PopupButton({
   onOpen,
   children,
   footer,
+  hideTrigger,
 }: PopupButtonProps) {
   const isControlled = controlledOpen !== undefined
   const [internalOpen, setInternalOpen] = useState(false)
@@ -115,19 +117,23 @@ export function PopupButton({
     return (
       <>
         {/* Trigger */}
-        <button
-          onClick={handleToggle}
-          title={triggerTitle}
-          className={`w-7 h-7 flex items-center justify-center rounded font-bold text-base transition-colors ${
-            open ? c.open : c.closed
-          }`}
-        >
-          {triggerLabel ?? '+'}
-        </button>
-        {triggerCount !== undefined && triggerCount > 0 && (
-          <span className="text-xs font-semibold text-gray-600 whitespace-nowrap">
-            ({triggerCount})
-          </span>
+        {!hideTrigger && (
+          <>
+            <button
+              onClick={handleToggle}
+              title={triggerTitle}
+              className={`w-7 h-7 flex items-center justify-center rounded font-bold text-base transition-colors ${
+                open ? c.open : c.closed
+              }`}
+            >
+              {triggerLabel ?? '+'}
+            </button>
+            {triggerCount !== undefined && triggerCount > 0 && (
+              <span className="text-xs font-semibold text-gray-600 whitespace-nowrap">
+                ({triggerCount})
+              </span>
+            )}
+          </>
         )}
 
         {/* Modal */}
