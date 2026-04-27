@@ -7,25 +7,10 @@ import { VAT_RATE_LABELS, isNonVatPayer, calculateLineVat, calculateVatSummary }
 import { useCreateOrderForm } from '../hooks/useCreateOrderForm'
 import { CascadingProductDropdown } from '@/components/CascadingProductDropdown'
 import { OrderTotalsPreview } from './OrderTotalsPreview'
+import { useShippingMethods } from '@/features/shipping'
 import type { BillingAddress, Customer, CustomerOrderItem, Product } from '../types'
 
 // ─── Config ───────────────────────────────────────────────────────────────────
-
-const SHIPPING_OPTIONS = [
-  { value: 'DPD_HOME',          label: 'DPD — Na adresu',                    price: 99  },
-  { value: 'DPD_PICKUP',        label: 'DPD — Výdejní místo',                price: 79  },
-  { value: 'ZASILKOVNA_HOME',   label: 'Zásilkovna — Na adresu',             price: 89  },
-  { value: 'ZASILKOVNA_PICKUP', label: 'Zásilkovna — Výdejní místo / Z-BOX', price: 69  },
-  { value: 'COURIER',           label: 'Kurýr',                               price: 150 },
-  { value: 'PICKUP_IN_STORE',   label: 'Osobní odběr',                       price: 0   },
-]
-
-const CARRIER_CONFIG = [
-  { id: 'DPD',             label: 'DPD',          Icon: Truck,   priceLabel: 'od 79 Kč', hasTypes: true  },
-  { id: 'ZASILKOVNA',      label: 'Zásilkovna',   Icon: Package, priceLabel: 'od 69 Kč', hasTypes: true  },
-  { id: 'COURIER',         label: 'Kurýr',        Icon: Truck,   priceLabel: '150 Kč',   hasTypes: false },
-  { id: 'PICKUP_IN_STORE', label: 'Osobní odběr', Icon: MapPin,  priceLabel: 'zdarma',   hasTypes: false },
-]
 
 const COUNTRY_OPTIONS = [
   { value: 'CZ', label: 'Česká republika' },
@@ -181,7 +166,8 @@ function PickupPointSelector({ carrier, onSelect, selected }: {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function CreateCustomerOrderForm({ customers, products, isVatPayer, onSuccess, openRef, hideTrigger }: Props) {
-  const form = useCreateOrderForm(products, isVatPayer, onSuccess)
+  const form    = useCreateOrderForm(products, isVatPayer, onSuccess)
+  const sm      = useShippingMethods()
   if (openRef) openRef.current = form.handleOpen
 
   const [customerTab,     setCustomerTab]     = useState<'list' | 'manual' | 'anonymous'>('list')
@@ -197,9 +183,39 @@ export function CreateCustomerOrderForm({ customers, products, isVatPayer, onSuc
     }
   }, [form.open])
 
+  // ── Dynamic shipping data from DB ──────────────────────────────────────────
+  const dpdMethods      = sm.byProvider('dpd')
+  const zMethods        = sm.byProvider('zasilkovna')
+  const courierMethod   = sm.byProvider('courier')[0]
+  const pickupMethod    = sm.byProvider('personal')[0]
+
+  const CARRIER_CONFIG = [
+    dpdMethods.length > 0 && {
+      id: 'DPD', label: 'DPD', Icon: Truck, hasTypes: true,
+      priceLabel: `od ${sm.minPriceOf('dpd')} Kč`,
+    },
+    zMethods.length > 0 && {
+      id: 'ZASILKOVNA', label: 'Zásilkovna', Icon: Package, hasTypes: true,
+      priceLabel: `od ${sm.minPriceOf('zasilkovna')} Kč`,
+    },
+    courierMethod && {
+      id: 'COURIER', label: 'Kurýr', Icon: Truck, hasTypes: false,
+      priceLabel: courierMethod.price > 0 ? `${courierMethod.price} Kč` : 'zdarma',
+    },
+    pickupMethod && {
+      id: 'PICKUP_IN_STORE', label: 'Osobní odběr', Icon: MapPin, hasTypes: false,
+      priceLabel: pickupMethod.price > 0 ? `${pickupMethod.price} Kč` : 'zdarma',
+    },
+  ].filter(Boolean) as { id: string; label: string; Icon: LucideIcon; hasTypes: boolean; priceLabel: string }[]
+
+  // Price labels for HOME/PICKUP toggle
+  const dpdHomePrice    = sm.priceOf('DPD_HOME')
+  const dpdPickupPrice  = sm.priceOf('DPD_PICKUP')
+  const zHomePrice      = sm.priceOf('ZASILKOVNA_HOME')
+  const zPickupPrice    = sm.priceOf('ZASILKOVNA_PICKUP')
+
   // Derived
-  const shippingOption    = SHIPPING_OPTIONS.find(o => o.value === form.shippingMethod)
-  const shippingCost      = shippingOption?.price ?? 0
+  const shippingCost = sm.priceOf(form.shippingMethod)
   const isPickup          = form.shippingMethod === 'DPD_PICKUP' || form.shippingMethod === 'ZASILKOVNA_PICKUP'
   const filteredCustomers = customers.filter(c => {
     const q = customerSearch.toLowerCase()
@@ -489,7 +505,12 @@ export function CreateCustomerOrderForm({ customers, products, isVatPayer, onSuc
                     <SectionLabel>Způsob doručení</SectionLabel>
 
                     {/* Step 1 — carrier cards */}
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    {sm.loading && (
+                      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                        {[1, 2, 3, 4].map(i => <div key={i} className="h-20 rounded-xl bg-gray-100 animate-pulse" />)}
+                      </div>
+                    )}
+                    <div className={`grid grid-cols-2 gap-3 sm:grid-cols-4 ${sm.loading ? 'hidden' : ''}`}>
                       {CARRIER_CONFIG.map(({ id, label, Icon, priceLabel }) => {
                         const isSelected = shippingCarrier === id
                         const isDisabled = form.isAnonymousCustomer && id !== 'PICKUP_IN_STORE'
@@ -523,8 +544,8 @@ export function CreateCustomerOrderForm({ customers, products, isVatPayer, onSuc
                     {(shippingCarrier === 'DPD' || shippingCarrier === 'ZASILKOVNA') && (
                       <div className="mt-4 flex gap-3">
                         {([
-                          { type: 'HOME',   label: 'Na adresu',          Icon: Truck,  desc: shippingCarrier === 'DPD' ? '99 Kč' : '89 Kč' },
-                          { type: 'PICKUP', label: 'Do výdejního místa', Icon: MapPin, desc: shippingCarrier === 'DPD' ? '79 Kč' : '69 Kč' },
+                          { type: 'HOME',   label: 'Na adresu',          Icon: Truck,  desc: shippingCarrier === 'DPD' ? `${dpdHomePrice} Kč`   : `${zHomePrice} Kč`   },
+                          { type: 'PICKUP', label: 'Do výdejního místa', Icon: MapPin, desc: shippingCarrier === 'DPD' ? `${dpdPickupPrice} Kč` : `${zPickupPrice} Kč` },
                         ] as const).map(({ type, label, Icon, desc }) => (
                           <button key={type} type="button"
                             onClick={() => handleSelectShippingType(type)}
@@ -648,7 +669,7 @@ export function CreateCustomerOrderForm({ customers, products, isVatPayer, onSuc
                       </div>
                       <OrderTotalsPreview items={form.items} isVatPayer={isVatPayer}
                         discountType={form.discountType} discountValue={form.discountValue}
-                        shippingCost={shippingCost} shippingLabel={shippingOption?.label} />
+                        shippingCost={shippingCost} shippingLabel={sm.byId(form.shippingMethod)?.name} />
                     </div>
                   </section>
 
@@ -691,7 +712,7 @@ export function CreateCustomerOrderForm({ customers, products, isVatPayer, onSuc
                     <p className="text-xs text-gray-400 italic">Způsob doručení nevybrán</p>
                   ) : (
                     <div className="space-y-1.5">
-                      <p className="font-medium text-gray-800 leading-snug text-sm">{shippingOption?.label}</p>
+                      <p className="font-medium text-gray-800 leading-snug text-sm">{sm.byId(form.shippingMethod)?.name}</p>
                       <p className="text-xs text-gray-500">{shippingCost > 0 ? `${shippingCost} Kč` : 'Zdarma'}</p>
                       {isPickup && form.pickupPointName && (
                         <div className="pt-1.5 border-t border-gray-100">

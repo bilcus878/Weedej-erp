@@ -836,14 +836,17 @@ model EshopUser {
 model ShippingMethod {
   id            String   @id
   name          String
+  provider      String   @default("custom")
   description   String?
   price         Int      @default(0)
+  freeThreshold Int?
+  codFee        Int      @default(0)
   isActive      Boolean  @default(true)
   sortOrder     Int      @default(0)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime
   estimatedDays String   @default("2-3")
-  freeThreshold Int?
+  note          String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 // ========== UŽIVATELÉ (PŘIHLÁŠENÍ DO ERP) ==========
