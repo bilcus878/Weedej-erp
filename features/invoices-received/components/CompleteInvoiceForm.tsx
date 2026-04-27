@@ -63,11 +63,17 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   )
 }
 
-function SummaryRow({ label, value, red }: { label: string; value: string; red?: boolean }) {
+function TotalsRow({ label, value, bold, red, indent }: {
+  label: string; value: string; bold?: boolean; red?: boolean; indent?: boolean
+}) {
   return (
-    <div className="flex justify-between text-sm">
-      <span className={red ? 'text-red-600' : 'text-gray-500'}>{label}:</span>
-      <span className={`font-medium ${red ? 'text-red-600' : 'text-gray-800'}`}>{value}</span>
+    <div className={`flex justify-between text-sm ${bold ? 'pt-2 border-t border-gray-200' : ''} ${indent ? 'pl-4' : ''}`}>
+      <span className={bold ? 'font-semibold text-gray-800' : red ? 'text-red-600' : 'text-gray-600'}>
+        {label}
+      </span>
+      <span className={bold ? 'font-bold text-gray-900 text-base' : red ? 'font-medium text-red-600' : 'font-medium text-gray-900'}>
+        {value}
+      </span>
     </div>
   )
 }
@@ -113,17 +119,13 @@ export function CompleteInvoiceForm({ invoice, open, onClose, onSuccess, isVatPa
     const rate  = Number(item.vatRate ?? (isVatPayer ? 21 : 0))
     const base  = qty * price
     const vat   = base * (rate / 100)
-    return {
-      name: item.product?.name || item.productName || '—',
-      qty, unit: item.unit, price, rate,
-      base, vat, total: base + vat,
-    }
+    return { name: item.product?.name || item.productName || '—', qty, unit: item.unit, price, rate, base, vat, total: base + vat }
   })
 
-  const totalBase = lineData.reduce((s, l) => s + l.base, 0)
-  const totalVat  = lineData.reduce((s, l) => s + l.vat, 0)
-  const totalAmt  = Number(invoice.totalAmount)
-  const disc      = Number(invoice.discountAmount ?? 0)
+  const totalBase      = lineData.reduce((s, l) => s + l.base, 0)
+  const totalVat       = lineData.reduce((s, l) => s + l.vat, 0)
+  const totalAmt       = Number(invoice.totalAmount)
+  const disc           = Number(invoice.discountAmount ?? 0)
   const isBankTransfer = form.formData.paymentType === 'bank_transfer'
 
   return (
@@ -138,17 +140,23 @@ export function CompleteInvoiceForm({ invoice, open, onClose, onSuccess, isVatPa
           <div>
             <h2 className="text-lg font-bold text-gray-900">Doplnit fakturu</h2>
             <p className="text-sm text-gray-400">
-              {po ? `Objednávka #${po.orderNumber} · ` : ''}
+              {supplier.name !== '—' ? supplier.name : 'Přijatá faktura'}
+              {' · '}
               {invoice.isTemporary ? 'Dočasná · čeká na doplnění' : 'Potvrzená faktura'}
             </p>
           </div>
+          {po && (
+            <span className="text-xs font-mono bg-gray-100 text-gray-500 px-2.5 py-1 rounded font-semibold">
+              OBJ #{po.orderNumber}
+            </span>
+          )}
           {invoice.isTemporary ? (
-            <span className="ml-4 flex items-center gap-1.5 text-xs font-semibold bg-orange-100 text-orange-700 px-2.5 py-1 rounded">
+            <span className="flex items-center gap-1.5 text-xs font-semibold bg-orange-100 text-orange-700 px-2.5 py-1 rounded">
               <AlertTriangle className="w-3 h-3" />
               Dočasná
             </span>
           ) : (
-            <span className="ml-4 text-xs font-mono bg-orange-100 text-orange-700 px-2.5 py-1 rounded font-semibold">
+            <span className="text-xs font-mono bg-orange-100 text-orange-700 px-2.5 py-1 rounded font-semibold">
               #{invoice.invoiceNumber}
             </span>
           )}
@@ -190,21 +198,124 @@ export function CompleteInvoiceForm({ invoice, open, onClose, onSuccess, isVatPa
                 </div>
               </section>
 
-              {/* 2. Referenční objednávka */}
-              {po && (
+              {/* 2. Fakturační údaje + Platební podmínky — 2-col grid matching PO Termíny/Platba layout */}
+              <div className="grid grid-cols-2 gap-8">
                 <section>
-                  <SectionLabel>Referenční objednávka</SectionLabel>
-                  <div className="bg-gray-50 rounded-xl p-4">
-                    <div className="grid grid-cols-3 gap-4">
-                      <InfoRow label="Číslo"    value={`#${po.orderNumber}`} />
-                      {po.orderDate    && <InfoRow label="Datum objednávky"   value={fmtDate(po.orderDate)} />}
-                      {po.expectedDate && <InfoRow label="Očekávané dodání"   value={fmtDate(po.expectedDate)} />}
-                    </div>
+                  <SectionLabel>Fakturační údaje</SectionLabel>
+
+                  <div className="mb-3">
+                    <label className="block text-xs font-semibold text-gray-500 mb-1.5">
+                      Číslo faktury od dodavatele <span className="text-red-400">*</span>
+                    </label>
+                    <input
+                      className={inp}
+                      value={form.formData.invoiceNumber}
+                      onChange={e => form.handleFieldChange('invoiceNumber', e.target.value)}
+                      placeholder="FAK-2025-001"
+                      required
+                    />
+                    {invoice.isTemporary && (
+                      <p className="mt-1 text-xs text-gray-400">
+                        Dočasné č.: <span className="font-mono">{invoice.invoiceNumber}</span>
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="block text-xs font-semibold text-gray-500 mb-1.5">
+                      Datum vystavení <span className="text-red-400">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      className={inp}
+                      value={form.formData.invoiceDate}
+                      onChange={e => form.handleFieldChange('invoiceDate', e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 mb-1.5">
+                      Datum splatnosti <span className="font-normal text-gray-300">(volitelné)</span>
+                    </label>
+                    <input
+                      type="date"
+                      className={inp}
+                      value={form.formData.dueDate}
+                      onChange={e => form.handleFieldChange('dueDate', e.target.value)}
+                    />
                   </div>
                 </section>
-              )}
 
-              {/* 3. Položky objednávky */}
+                <section>
+                  <SectionLabel>
+                    Platební podmínky <span className="normal-case font-normal text-gray-300">(volitelné)</span>
+                  </SectionLabel>
+
+                  <div className="flex flex-col gap-2">
+                    {([
+                      { value: 'cash',          label: 'Hotovost',        Icon: Banknote, desc: 'Platba v hotovosti'       },
+                      { value: 'bank_transfer',  label: 'Bankovní převod', Icon: Landmark, desc: 'Převod na bankovní účet' },
+                    ] as const).map(({ value, label, Icon, desc }) => {
+                      const isSelected = form.formData.paymentType === value
+                      return (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => form.handleFieldChange('paymentType', isSelected ? '' : value)}
+                          className={`flex items-center gap-3 px-4 py-3 border rounded-xl text-left transition-all ${
+                            isSelected ? 'border-orange-400 bg-orange-50' : 'border-gray-200 bg-white hover:bg-gray-50'
+                          }`}
+                        >
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                            isSelected ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-400'
+                          }`}>
+                            <Icon className="w-4 h-4" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-sm font-semibold ${isSelected ? 'text-orange-700' : 'text-gray-800'}`}>{label}</p>
+                            <p className="text-xs text-gray-400">{desc}</p>
+                          </div>
+                          {isSelected && <CheckCircle className="w-4 h-4 text-orange-500 shrink-0" />}
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  {isBankTransfer && (
+                    <div className="mt-3 grid grid-cols-3 gap-2">
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-500 mb-1">VS</label>
+                        <input
+                          className={inp}
+                          value={form.formData.variableSymbol}
+                          onChange={e => form.handleFieldChange('variableSymbol', e.target.value)}
+                          placeholder={form.formData.invoiceNumber || 'VS'}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-500 mb-1">KS</label>
+                        <input
+                          className={inp}
+                          value={form.formData.constantSymbol}
+                          onChange={e => form.handleFieldChange('constantSymbol', e.target.value)}
+                          placeholder="0308"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-500 mb-1">SS</label>
+                        <input
+                          className={inp}
+                          value={form.formData.specificSymbol}
+                          onChange={e => form.handleFieldChange('specificSymbol', e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </section>
+              </div>
+
+              {/* 3. Položky objednávky — table + integrated totals */}
               <section>
                 <SectionLabel>Položky objednávky</SectionLabel>
                 {items.length === 0 ? (
@@ -243,145 +354,26 @@ export function CompleteInvoiceForm({ invoice, open, onClose, onSuccess, isVatPa
                         </tbody>
                       </table>
                     </div>
-                  </div>
-                )}
-              </section>
 
-              {/* 4. Finanční souhrn */}
-              <section>
-                <SectionLabel>Finanční souhrn</SectionLabel>
-                <div className="max-w-sm ml-auto bg-gray-50 rounded-xl p-4 space-y-2">
-                  {isVatPayer && (
-                    <>
-                      <SummaryRow label="Základ bez DPH" value={fmt(totalBase)} />
-                      <SummaryRow label="DPH celkem"     value={fmt(totalVat)} />
-                      <SummaryRow label="Celkem s DPH"   value={fmt(totalBase + totalVat)} />
-                    </>
-                  )}
-                  {disc > 0 && (
-                    <SummaryRow label="Sleva dodavatele" value={`− ${fmt(disc)}`} red />
-                  )}
-                  <div className="flex justify-between pt-2 border-t border-gray-200">
-                    <span className="font-semibold text-gray-800 text-sm">Celkem k úhradě:</span>
-                    <span className="font-bold text-gray-900">{fmt(totalAmt)}</span>
-                  </div>
-                </div>
-              </section>
-
-              {/* 5. Fakturační údaje */}
-              <section>
-                <SectionLabel>Fakturační údaje</SectionLabel>
-
-                <div className="mb-4">
-                  <label className="block text-xs font-semibold text-gray-500 mb-1.5">
-                    Číslo faktury od dodavatele <span className="text-red-400">*</span>
-                  </label>
-                  <input
-                    className={inp}
-                    value={form.formData.invoiceNumber}
-                    onChange={e => form.handleFieldChange('invoiceNumber', e.target.value)}
-                    placeholder="FAK-2025-001"
-                    required
-                  />
-                  {invoice.isTemporary && (
-                    <p className="mt-1 text-xs text-gray-400">
-                      Dočasné č.: <span className="font-mono">{invoice.invoiceNumber}</span>
-                    </p>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-500 mb-1.5">
-                      Datum vystavení <span className="text-red-400">*</span>
-                    </label>
-                    <input
-                      type="date"
-                      className={inp}
-                      value={form.formData.invoiceDate}
-                      onChange={e => form.handleFieldChange('invoiceDate', e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-500 mb-1.5">
-                      Datum splatnosti <span className="font-normal text-gray-300">(volitelné)</span>
-                    </label>
-                    <input
-                      type="date"
-                      className={inp}
-                      value={form.formData.dueDate}
-                      onChange={e => form.handleFieldChange('dueDate', e.target.value)}
-                    />
-                  </div>
-                </div>
-
-                <div className="mb-4">
-                  <label className="block text-xs font-semibold text-gray-500 mb-1.5">Forma úhrady</label>
-                  <div className="flex flex-col gap-2">
-                    {([
-                      { value: 'cash',          label: 'Hotovost',        Icon: Banknote, desc: 'Platba v hotovosti'       },
-                      { value: 'bank_transfer',  label: 'Bankovní převod', Icon: Landmark, desc: 'Převod na bankovní účet' },
-                    ] as const).map(({ value, label, Icon, desc }) => {
-                      const isSelected = form.formData.paymentType === value
-                      return (
-                        <button
-                          key={value}
-                          type="button"
-                          onClick={() => form.handleFieldChange('paymentType', isSelected ? '' : value)}
-                          className={`flex items-center gap-3 px-4 py-3 border rounded-xl text-left transition-all ${
-                            isSelected ? 'border-orange-400 bg-orange-50' : 'border-gray-200 bg-white hover:bg-gray-50'
-                          }`}
-                        >
-                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                            isSelected ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-400'
-                          }`}>
-                            <Icon className="w-4 h-4" />
-                          </div>
-                          <div className="flex-1">
-                            <p className={`text-sm font-semibold ${isSelected ? 'text-orange-700' : 'text-gray-800'}`}>{label}</p>
-                            <p className="text-xs text-gray-400">{desc}</p>
-                          </div>
-                          {isSelected && <CheckCircle className="w-4 h-4 text-orange-500 shrink-0" />}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-
-                {isBankTransfer && (
-                  <div className="grid grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-500 mb-1">VS</label>
-                      <input
-                        className={inp}
-                        value={form.formData.variableSymbol}
-                        onChange={e => form.handleFieldChange('variableSymbol', e.target.value)}
-                        placeholder="Variabilní symbol"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-500 mb-1">KS</label>
-                      <input
-                        className={inp}
-                        value={form.formData.constantSymbol}
-                        onChange={e => form.handleFieldChange('constantSymbol', e.target.value)}
-                        placeholder="0308"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-500 mb-1">SS</label>
-                      <input
-                        className={inp}
-                        value={form.formData.specificSymbol}
-                        onChange={e => form.handleFieldChange('specificSymbol', e.target.value)}
-                      />
+                    {/* Integrated totals — matching PurchaseOrderTotalsPreview style */}
+                    <div className="border-t border-gray-200 bg-gray-50/60 p-4 space-y-2">
+                      {isVatPayer && (
+                        <>
+                          <TotalsRow label="Základ bez DPH:" value={fmt(totalBase)} />
+                          <TotalsRow label={`DPH celkem:`}   value={fmt(totalVat)} indent />
+                          <TotalsRow label="Celkem s DPH:"   value={fmt(totalBase + totalVat)} />
+                        </>
+                      )}
+                      {disc > 0 && (
+                        <TotalsRow label="Sleva dodavatele:" value={`− ${fmt(disc)}`} red />
+                      )}
+                      <TotalsRow label="Celkem k úhradě:" value={fmt(totalAmt)} bold />
                     </div>
                   </div>
                 )}
               </section>
 
-              {/* 6. Interní poznámka */}
+              {/* 4. Interní poznámka */}
               <section>
                 <label className="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">
                   Interní poznámka <span className="normal-case font-normal text-gray-300">(volitelné)</span>
@@ -400,9 +392,9 @@ export function CompleteInvoiceForm({ invoice, open, onClose, onSuccess, isVatPa
             {/* Sticky footer */}
             <div className="border-t border-gray-200 px-6 py-4 bg-white flex items-center justify-between gap-4 shrink-0">
               {form.errorMessage ? (
-                <p className="text-sm text-red-600 flex items-center gap-1.5 min-w-0 truncate">
+                <p className="text-sm text-red-600 flex items-center gap-1.5 min-w-0">
                   <AlertTriangle className="w-4 h-4 shrink-0" />
-                  {form.errorMessage}
+                  <span className="truncate">{form.errorMessage}</span>
                 </p>
               ) : (
                 <button
@@ -436,17 +428,10 @@ export function CompleteInvoiceForm({ invoice, open, onClose, onSuccess, isVatPa
 
             <SideCard icon={Calendar} title="Termíny">
               <div className="space-y-1.5">
-                <SideRow
-                  label="Faktura"
-                  value={fmtDate(form.formData.invoiceDate || invoice.invoiceDate)}
-                />
-                <SideRow
-                  label="Splatnost"
-                  value={fmtDate(form.formData.dueDate || invoice.dueDate)}
-                />
-                {po?.orderDate && (
-                  <SideRow label="Objednávka" value={fmtDate(po.orderDate)} />
-                )}
+                <SideRow label="Faktura"    value={fmtDate(form.formData.invoiceDate || invoice.invoiceDate)} />
+                <SideRow label="Splatnost"  value={fmtDate(form.formData.dueDate || invoice.dueDate)} />
+                {po?.orderDate    && <SideRow label="Objednávka" value={fmtDate(po.orderDate)} />}
+                {po?.expectedDate && <SideRow label="Dodání"     value={fmtDate(po.expectedDate)} />}
               </div>
             </SideCard>
 
