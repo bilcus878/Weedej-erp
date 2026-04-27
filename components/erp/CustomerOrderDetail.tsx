@@ -228,6 +228,7 @@ export function CustomerOrderDetail({
   const [isEditingTracking, setIsEditingTracking] = useState(false)
   const [trackingForm, setTrackingForm] = useState({ trackingNumber: '', carrier: '' })
   const [savingTracking, setSavingTracking] = useState(false)
+  const [showAllDns, setShowAllDns] = useState(false)
 
   const inventoryLookup: Record<string, string> = {}
   for (const dn of order.deliveryNotes || []) {
@@ -444,12 +445,6 @@ export function CustomerOrderDetail({
                   <span className="font-mono font-medium text-gray-800 text-right">{order.issuedInvoice.specificSymbol}</span>
                 </div>
               )}
-              {order.paymentReference && (
-                <div className="flex justify-between items-center gap-2">
-                  <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Ref. platby</span>
-                  <span className="font-mono text-xs text-gray-500 text-right break-all">{order.paymentReference}</span>
-                </div>
-              )}
               {order.note && !order.note.startsWith('Platba:') && (
                 <div className="flex justify-between items-center gap-2">
                   <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium">Poznámka</span>
@@ -460,6 +455,49 @@ export function CustomerOrderDetail({
                 <span className="text-gray-500 shrink-0 text-xs uppercase tracking-wide font-bold">Celkem</span>
                 <span className="font-bold text-gray-900 text-right text-base">{formatPrice(Number(order.totalAmount))}</span>
               </div>
+              {showDeliveryNotes && (() => {
+                const active = order.deliveryNotes?.filter(dn => dn.status === 'active') ?? []
+                const visible = showAllDns ? active : active.slice(0, 2)
+                const hiddenCount = active.length - 2
+                return (
+                  <div className="flex justify-between items-start gap-2 pt-1">
+                    <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium mt-0.5">Výdejky</span>
+                    {active.length === 0 ? (
+                      <span className="text-xs text-gray-400 italic">Žádné výdejky</span>
+                    ) : (
+                      <div className="flex flex-wrap gap-1.5 justify-end">
+                        {visible.map(dn => {
+                          const dnTotal = dn.items.reduce((sum, item) => {
+                            const hasSaved = item.price != null && item.priceWithVat != null
+                            const unitPrice = hasSaved ? Number(item.price) : Number(item.product?.price || 0)
+                            const vatPerUnit = hasSaved ? Number(item.vatAmount ?? 0) : unitPrice * 0.21
+                            const priceWithVatPU = hasSaved ? Number(item.priceWithVat) : unitPrice + vatPerUnit
+                            return sum + Number(item.quantity) * (isVatPayer ? priceWithVatPU : unitPrice)
+                          }, 0)
+                          return (
+                            <Link
+                              key={dn.id}
+                              href={`/delivery-notes?highlight=${dn.id}`}
+                              className="inline-flex items-center px-2 py-0.5 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-medium rounded border border-green-200 transition-colors whitespace-nowrap"
+                              onClick={e => e.stopPropagation()}
+                            >
+                              {dn.deliveryNumber} · {new Date(dn.deliveryDate).toLocaleDateString('cs-CZ')} · {dn.items.length} pol. · {Math.round(dnTotal).toLocaleString('cs-CZ')} Kč
+                            </Link>
+                          )
+                        })}
+                        {!showAllDns && hiddenCount > 0 && (
+                          <button
+                            onClick={e => { e.stopPropagation(); setShowAllDns(true) }}
+                            className="text-xs text-blue-600 hover:text-blue-800 font-medium whitespace-nowrap"
+                          >
+                            a {hiddenCount} dalších →
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
             </div>
           </div>
         </div>
@@ -791,68 +829,6 @@ export function CustomerOrderDetail({
           </div>
         </div>
       )}
-
-      {/* ── Výdejky ─────────────────────────────────────────────────────────── */}
-      {showDeliveryNotes && (() => {
-        const active = order.deliveryNotes?.filter(dn => dn.status === 'active') ?? []
-        if (active.length === 0) return null
-        return (
-          <div className="border border-gray-200 rounded-lg overflow-hidden">
-            <h4 className="font-bold text-sm text-gray-900 px-4 py-2.5 bg-gray-100 border-b border-gray-200 flex items-center gap-2">
-              <CheckCircle className="w-4 h-4 text-green-600" />
-              Výdejky — vyskladněno ({active.length})
-            </h4>
-            <div className="text-sm">
-              <div className="grid grid-cols-[1.5fr_1fr_0.8fr_1fr_auto] gap-3 px-4 py-2 bg-gray-50 font-semibold text-gray-700 border-b text-xs">
-                <div>Číslo</div>
-                <div>Datum</div>
-                <div className="text-center">Položek</div>
-                <div className="text-right">Hodnota</div>
-                <div className="w-4" />
-              </div>
-              {active.map(dn => {
-                const dnTotal = dn.items.reduce((sum, item) => {
-                  const hasSaved = item.price != null && item.priceWithVat != null
-                  const unitPrice = hasSaved ? Number(item.price) : Number(item.product?.price || 0)
-                  const itemVatRate = hasSaved ? Number(item.vatRate ?? 21) : 21
-                  const vatPerUnit = hasSaved ? Number(item.vatAmount ?? 0) : (itemVatRate === 0 ? 0 : unitPrice * itemVatRate / 100)
-                  const priceWithVatPU = hasSaved ? Number(item.priceWithVat) : (unitPrice + vatPerUnit)
-                  let packs = Number(item.quantity)
-                  if (item.productName?.includes(' — ') && item.unit !== 'ks') {
-                    const variantLabel = item.productName.split(' — ').slice(-1)[0]
-                    const match = variantLabel.match(/^([\d.]+)/)
-                    if (match) {
-                      const packSize = parseFloat(match[1])
-                      if (packSize > 0) packs = Math.round((packs / packSize) * 1000) / 1000
-                    }
-                  }
-                  return sum + packs * (isVatPayer ? priceWithVatPU : unitPrice)
-                }, 0)
-                return (
-                  <div
-                    key={dn.id}
-                    className="grid grid-cols-[1.5fr_1fr_0.8fr_1fr_auto] gap-3 px-4 py-3 bg-white hover:bg-green-50 transition-colors items-center"
-                  >
-                    <div className="font-medium text-green-700">{dn.deliveryNumber}</div>
-                    <div className="text-gray-700">{new Date(dn.deliveryDate).toLocaleDateString('cs-CZ')}</div>
-                    <div className="text-gray-700 text-center">{dn.items.length}</div>
-                    <div className="font-semibold text-gray-900 text-right">{dnTotal.toLocaleString('cs-CZ')} Kč</div>
-                    <div className="flex justify-end">
-                      <Link
-                        href={`/delivery-notes?highlight=${dn.id}`}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-medium rounded-md shadow-sm border border-green-200 transition-colors"
-                        onClick={e => e.stopPropagation()}
-                      >
-                        Zobrazit
-                      </Link>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )
-      })()}
 
       {/* ── Footer: akce ────────────────────────────────────────────────────── */}
       {(onPrintPdf || onUpdateStatus) && (

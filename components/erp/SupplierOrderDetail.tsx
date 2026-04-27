@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import {
   FileText, FileDown, Truck, CheckCircle, Clock,
@@ -167,6 +168,7 @@ export function SupplierOrderDetail({
   const isCancelled = ['storno', 'cancelled'].includes(order.status)
   const supplierName = order.supplierName || 'Dodavatel'
   const hasReceipts  = (order.receipts?.filter(r => r.status !== 'storno') ?? []).length > 0
+  const [showAllReceipts, setShowAllReceipts] = useState(false)
 
   const inventoryLookup: Record<string, string> = {}
   for (const receipt of order.receipts || []) {
@@ -333,6 +335,46 @@ export function SupplierOrderDetail({
                 <span className="text-gray-500 shrink-0 text-xs uppercase tracking-wide font-bold">Celkem</span>
                 <span className="font-bold text-gray-900 text-right text-base">{formatPrice(Number(order.totalAmount))}</span>
               </div>
+              {showReceiptsSection && (() => {
+                const active = order.receipts?.filter(r => r.status !== 'storno') ?? []
+                const visible = showAllReceipts ? active : active.slice(0, 2)
+                const hiddenCount = active.length - 2
+                return (
+                  <div className="flex justify-between items-start gap-2 pt-1">
+                    <span className="text-gray-400 shrink-0 text-xs uppercase tracking-wide font-medium mt-0.5">Příjemky</span>
+                    {active.length === 0 ? (
+                      <span className="text-xs text-gray-400 italic">Žádné příjemky</span>
+                    ) : (
+                      <div className="flex flex-wrap gap-1.5 justify-end">
+                        {visible.map(receipt => {
+                          const receiptTotal = receipt.items.reduce((sum, item) => {
+                            const qty = item.receivedQuantity ?? item.quantity
+                            return sum + Number(qty) * Number(item.purchasePrice)
+                          }, 0)
+                          return (
+                            <Link
+                              key={receipt.id}
+                              href={`/receipts?highlight=${receipt.id}`}
+                              className="inline-flex items-center px-2 py-0.5 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-medium rounded border border-green-200 transition-colors whitespace-nowrap"
+                              onClick={e => e.stopPropagation()}
+                            >
+                              {receipt.receiptNumber} · {new Date(receipt.receiptDate).toLocaleDateString('cs-CZ')} · {receipt.items.length} pol. · {Math.round(receiptTotal).toLocaleString('cs-CZ')} Kč
+                            </Link>
+                          )
+                        })}
+                        {!showAllReceipts && hiddenCount > 0 && (
+                          <button
+                            onClick={e => { e.stopPropagation(); setShowAllReceipts(true) }}
+                            className="text-xs text-blue-600 hover:text-blue-800 font-medium whitespace-nowrap"
+                          >
+                            a {hiddenCount} dalších →
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
             </div>
           </div>
         </div>
@@ -557,55 +599,6 @@ export function SupplierOrderDetail({
           </div>
         </div>
       )}
-
-      {/* ── Příjemky ────────────────────────────────────────────────────────── */}
-      {showReceiptsSection && (() => {
-        const active = order.receipts?.filter(r => r.status !== 'storno') ?? []
-        if (active.length === 0) return null
-        return (
-          <div className="border border-gray-200 rounded-lg overflow-hidden">
-            <h4 className="font-bold text-sm text-gray-900 px-4 py-2.5 bg-gray-100 border-b border-gray-200 flex items-center gap-2">
-              <CheckCircle className="w-4 h-4 text-green-600" />
-              Příjemky — přijato ({active.length})
-            </h4>
-            <div className="text-sm">
-              <div className="grid grid-cols-[1.5fr_1fr_0.8fr_1fr_auto] gap-3 px-4 py-2 bg-gray-50 font-semibold text-gray-700 border-b text-xs">
-                <div>Číslo</div>
-                <div>Datum</div>
-                <div className="text-center">Položek</div>
-                <div className="text-right">Hodnota</div>
-                <div className="w-4" />
-              </div>
-              {active.map(receipt => {
-                const receiptTotal = receipt.items.reduce((sum, item) => {
-                  const qty = item.receivedQuantity ?? item.quantity
-                  return sum + Number(qty) * Number(item.purchasePrice)
-                }, 0)
-                return (
-                  <div
-                    key={receipt.id}
-                    className="grid grid-cols-[1.5fr_1fr_0.8fr_1fr_auto] gap-3 px-4 py-3 bg-white hover:bg-green-50 transition-colors items-center"
-                  >
-                    <div className="font-medium text-green-700">{receipt.receiptNumber}</div>
-                    <div className="text-gray-700">{new Date(receipt.receiptDate).toLocaleDateString('cs-CZ')}</div>
-                    <div className="text-gray-700 text-center">{receipt.items.length}</div>
-                    <div className="font-semibold text-gray-900 text-right">{receiptTotal.toLocaleString('cs-CZ')} Kč</div>
-                    <div className="flex justify-end">
-                      <Link
-                        href={`/receipts?highlight=${receipt.id}`}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-medium rounded-md shadow-sm border border-green-200 transition-colors"
-                        onClick={e => e.stopPropagation()}
-                      >
-                        Zobrazit
-                      </Link>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )
-      })()}
 
       {/* ── Footer: akce ────────────────────────────────────────────────────── */}
       {(onPrintPdf || onUpdateStatus) && (
