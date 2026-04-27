@@ -38,6 +38,8 @@ export default function ReceiptsPage() {
           orders={orders}
           headerLabel="Čeká na naskladnění"
           actionLabel="Naskladnit"
+          buttonLabel="Očekávaný příjem"
+          align="right"
           searchPlaceholder="Hledat číslo obj. nebo dodavatel..."
           autoOpen={processing.pendingOrders.length > 0}
           onAction={id => handleCreateFromOrderRef.current(id)}

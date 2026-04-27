@@ -17,6 +17,8 @@ interface ExpectedOrdersButtonProps {
   orders: PopoverOrder[]
   headerLabel: string
   actionLabel: string
+  buttonLabel?: string
+  align?: 'left' | 'right'
   searchPlaceholder?: string
   autoOpen?: boolean
   onAction: (orderId: string) => void
@@ -26,6 +28,8 @@ export function ExpectedOrdersButton({
   orders,
   headerLabel,
   actionLabel,
+  buttonLabel,
+  align = 'left',
   searchPlaceholder = 'Hledat číslo obj...',
   autoOpen = false,
   onAction,
@@ -53,21 +57,40 @@ export function ExpectedOrdersButton({
 
   return (
     <div ref={ref} className="relative flex items-center gap-1">
-      <button
-        onClick={() => { setOpen(v => !v); setSearch('') }}
-        title={open ? 'Zavřít přehled' : headerLabel}
-        className={`w-7 h-7 flex items-center justify-center rounded font-bold text-base transition-colors ${
-          open ? 'bg-orange-600 text-white' : 'bg-orange-200 text-orange-800 hover:bg-orange-400'
-        }`}
-      >
-        +
-      </button>
-      {orders.length > 0 && (
-        <span className="text-xs font-semibold text-orange-700 whitespace-nowrap">({orders.length})</span>
+      {buttonLabel ? (
+        <button
+          onClick={() => { setOpen(v => !v); setSearch('') }}
+          className={`flex items-center gap-1.5 px-3 py-1.5 text-white text-sm font-medium rounded-lg transition-colors ${
+            open ? 'bg-orange-700' : 'bg-orange-500 hover:bg-orange-600'
+          }`}
+        >
+          <Package className="w-4 h-4" />
+          {buttonLabel}
+          {orders.length > 0 && (
+            <span className="ml-0.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[11px] font-bold bg-white text-orange-600">
+              {orders.length}
+            </span>
+          )}
+        </button>
+      ) : (
+        <>
+          <button
+            onClick={() => { setOpen(v => !v); setSearch('') }}
+            title={open ? 'Zavřít přehled' : headerLabel}
+            className={`w-7 h-7 flex items-center justify-center rounded font-bold text-base transition-colors ${
+              open ? 'bg-orange-600 text-white' : 'bg-orange-200 text-orange-800 hover:bg-orange-400'
+            }`}
+          >
+            +
+          </button>
+          {orders.length > 0 && (
+            <span className="text-xs font-semibold text-orange-700 whitespace-nowrap">({orders.length})</span>
+          )}
+        </>
       )}
 
       {open && (
-        <div className="absolute left-0 top-full z-50 mt-2 w-[480px] max-h-[500px] flex flex-col bg-white border border-orange-200 rounded-xl shadow-2xl overflow-hidden">
+        <div className={`absolute ${align === 'right' ? 'right-0' : 'left-0'} top-full z-50 mt-2 w-[480px] max-h-[500px] flex flex-col bg-white border border-orange-200 rounded-xl shadow-2xl overflow-hidden`}>
 
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-2.5 bg-orange-50 border-b border-orange-200 shrink-0">

@@ -38,6 +38,8 @@ export default function DeliveryNotesPage() {
           orders={orders}
           headerLabel="Čeká na expedici"
           actionLabel="Vyskladnit"
+          buttonLabel="Očekávaný výdej"
+          align="right"
           searchPlaceholder="Hledat číslo obj. nebo odběratel..."
           autoOpen={processing.pendingOrders.length > 0}
           onAction={id => handlePrepareShipmentRef.current(id)}
