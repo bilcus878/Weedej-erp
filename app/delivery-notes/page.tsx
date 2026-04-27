@@ -119,6 +119,7 @@ export default function DeliveryNotesPage() {
         <ProcessShipmentModal
           isVatPayer={isVatPayer}
           isCustomerOrder={processing.pendingOrders.some(o => o.id === processing.processingNoteId)}
+          processingOrder={processing.pendingOrders.find(o => o.id === processing.processingNoteId) ?? null}
           processingNoteItems={processing.processingNoteItems}
           shippedQuantities={processing.shippedQuantities}
           setShippedQuantities={processing.setShippedQuantities}

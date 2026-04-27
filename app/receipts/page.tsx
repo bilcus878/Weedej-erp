@@ -109,6 +109,7 @@ export default function ReceiptsPage() {
         <ProcessReceiptModal
           isVatPayer={isVatPayer}
           processingOrderId={processing.processingOrderId}
+          processingOrder={(processing.pendingOrders as any[]).find(o => o.id === processing.processingOrderId) ?? null}
           processingReceiptItems={processing.processingReceiptItems}
           receivedQuantities={processing.receivedQuantities}
           setReceivedQuantities={processing.setReceivedQuantities}
