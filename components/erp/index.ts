@@ -48,5 +48,9 @@ export { FilterCombobox }       from './filters/FilterCombobox'
 export { LoadingState }         from './states/LoadingState'
 export { ErrorState }           from './states/ErrorState'
 
+// ── Shared party form ────────────────────────────────────────────────────────
+export { PartyFormModal }         from './PartyFormModal'
+export type { PartyFormData, PartyFormConfig } from './PartyFormModal'
+
 // ── Types ────────────────────────────────────────────────────────────────────
 export type { ColumnDef, AccentColor, SelectOption } from './table/ColumnDef'

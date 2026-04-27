@@ -1,12 +1,8 @@
-// API Endpoint pro jednoho odběratele
-// URL: http://localhost:3000/api/customers/[id]
-
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'
 
-// PATCH /api/customers/[id] - Aktualizovat odběratele
 export async function PATCH(
   request: Request,
   { params }: { params: { id: string } }
@@ -14,41 +10,60 @@ export async function PATCH(
   try {
     const body = await request.json()
 
+    if (!body.name?.trim()) {
+      return NextResponse.json({ error: 'Jméno odběratele je povinné' }, { status: 400 })
+    }
+
     const customer = await prisma.customer.update({
-      where: {
-        id: params.id,
+      where: { id: params.id },
+      data: {
+        name:        body.name.trim(),
+        entityType:  body.entityType  || 'company',
+        contact:     body.contact     || null,
+        email:       body.email       || null,
+        phone:       body.phone       || null,
+        ico:         body.ico         || null,
+        dic:         body.dic         || null,
+        bankAccount: body.bankAccount || null,
+        website:     body.website     || null,
+        address:     body.address     || null,
+        note:        body.note        || null,
       },
-      data: body,
     })
 
     return NextResponse.json(customer)
-  } catch (error) {
+  } catch (error: any) {
     console.error('Chyba při aktualizaci odběratele:', error)
-    return NextResponse.json(
-      { error: 'Nepodařilo se aktualizovat odběratele' },
-      { status: 500 }
-    )
+    if (error.code === 'P2025') {
+      return NextResponse.json({ error: 'Odběratel nebyl nalezen' }, { status: 404 })
+    }
+    if (error.code === 'P2002') {
+      return NextResponse.json({ error: 'Odběratel se stejným názvem již existuje' }, { status: 409 })
+    }
+    return NextResponse.json({ error: 'Nepodařilo se aktualizovat odběratele' }, { status: 500 })
   }
 }
 
-// DELETE /api/customers/[id] - Smazat odběratele
 export async function DELETE(
   request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    await prisma.customer.delete({
-      where: {
-        id: params.id,
-      },
-    })
+    const customer = await prisma.customer.findUnique({ where: { id: params.id } })
+    if (!customer) {
+      return NextResponse.json({ error: 'Odběratel nebyl nalezen' }, { status: 404 })
+    }
 
-    return NextResponse.json({ message: 'Odběratel smazán' })
-  } catch (error) {
+    await prisma.customer.delete({ where: { id: params.id } })
+    return NextResponse.json({ message: 'Odběratel byl smazán' })
+  } catch (error: any) {
     console.error('Chyba při mazání odběratele:', error)
-    return NextResponse.json(
-      { error: 'Nepodařilo se smazat odběratele' },
-      { status: 500 }
-    )
+    if (error.code === 'P2003') {
+      return NextResponse.json(
+        { error: 'Nelze smazat odběratele, který má připojené záznamy' },
+        { status: 409 }
+      )
+    }
+    return NextResponse.json({ error: 'Nepodařilo se smazat odběratele' }, { status: 500 })
   }
 }

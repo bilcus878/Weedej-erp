@@ -79,7 +79,7 @@ export default function SuppliersPage() {
 
       <EntityPage.Pagination page={ep.page} total={ep.totalPages} onChange={ep.setPage} />
 
-      <SupplierFormPopup form={form} hideTrigger />
+      <SupplierFormPopup form={form} />
     </EntityPage>
   )
 }

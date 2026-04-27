@@ -15,7 +15,7 @@ export function useCustomers() {
     { key: 'contact', type: 'text', placeholder: 'Kontakt...',  match: (r, v) => (r.contact || '').toLowerCase().includes(v.toLowerCase()) },
     { key: 'email',   type: 'text', placeholder: 'Email...',    match: (r, v) => (r.email   || '').toLowerCase().includes(v.toLowerCase()) },
     { key: 'phone',   type: 'text', placeholder: 'Telefon...',  match: (r, v) => (r.phone   || '').toLowerCase().includes(v.toLowerCase()) },
-    { key: 'web',     type: 'text', placeholder: 'Web...',      match: (r, v) => (r.website || '').toLowerCase().includes(v.toLowerCase()) },
+    { key: 'website', type: 'text', placeholder: 'Web...',      match: (r, v) => (r.website || '').toLowerCase().includes(v.toLowerCase()) },
   ], () => resetPage.current())
 
   const ep = useEntityPage<Customer>({

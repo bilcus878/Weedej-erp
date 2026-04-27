@@ -4,15 +4,19 @@ import { useState } from 'react'
 import { createCustomer, updateCustomer, deleteCustomer } from '../services/customerService'
 import { emptyCustomerForm } from '../types'
 import type { Customer, CustomerFormData } from '../types'
+import type { PartyFormData } from '@/components/erp/PartyFormModal'
 
 export function useCustomerForm(onRefresh: () => Promise<void>) {
   const [showForm,        setShowForm]        = useState(false)
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null)
   const [formData,        setFormData]        = useState<CustomerFormData>({ ...emptyCustomerForm })
+  const [isSubmitting,    setIsSubmitting]    = useState(false)
+  const [errorMessage,    setErrorMessage]    = useState<string | null>(null)
 
   function handleOpenNew() {
     setEditingCustomer(null)
     setFormData({ ...emptyCustomerForm })
+    setErrorMessage(null)
     setShowForm(true)
   }
 
@@ -31,6 +35,7 @@ export function useCustomerForm(onRefresh: () => Promise<void>) {
       address:     customer.address     || '',
       note:        customer.note        || '',
     })
+    setErrorMessage(null)
     setShowForm(true)
   }
 
@@ -38,19 +43,32 @@ export function useCustomerForm(onRefresh: () => Promise<void>) {
     setShowForm(false)
     setEditingCustomer(null)
     setFormData({ ...emptyCustomerForm })
+    setErrorMessage(null)
+  }
+
+  function handleFieldChange(field: keyof PartyFormData, value: string) {
+    setFormData(prev => ({ ...prev, [field]: value }))
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    setIsSubmitting(true)
+    setErrorMessage(null)
     try {
       const res = editingCustomer
         ? await updateCustomer(editingCustomer.id, formData)
         : await createCustomer(formData)
-      if (!res.ok) { alert(editingCustomer ? 'Nepodařilo se upravit odběratele' : 'Nepodařilo se přidat odběratele'); return }
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        setErrorMessage(body.error || (editingCustomer ? 'Nepodařilo se upravit odběratele' : 'Nepodařilo se přidat odběratele'))
+        return
+      }
       await onRefresh()
       handleClose()
     } catch {
-      alert('Nepodařilo se uložit odběratele')
+      setErrorMessage('Nepodařilo se uložit odběratele')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -58,8 +76,12 @@ export function useCustomerForm(onRefresh: () => Promise<void>) {
     if (!confirm(`Opravdu chceš smazat odběratele "${customer.name}"?`)) return
     try {
       const res = await deleteCustomer(customer.id)
-      if (res.ok) await onRefresh()
-      else alert('Nepodařilo se smazat odběratele')
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        alert(body.error || 'Nepodařilo se smazat odběratele')
+      } else {
+        await onRefresh()
+      }
     } catch {
       alert('Nepodařilo se smazat odběratele')
     }
@@ -67,7 +89,9 @@ export function useCustomerForm(onRefresh: () => Promise<void>) {
 
   return {
     showForm, editingCustomer,
-    formData, setFormData,
+    formData,
+    isSubmitting, errorMessage,
     handleOpenNew, handleEdit, handleClose, handleSubmit, handleDelete,
+    handleFieldChange,
   }
 }

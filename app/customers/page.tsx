@@ -79,7 +79,7 @@ export default function CustomersPage() {
 
       <EntityPage.Pagination page={ep.page} total={ep.totalPages} onChange={ep.setPage} />
 
-      <CustomerFormPopup form={form} hideTrigger />
+      <CustomerFormPopup form={form} />
     </EntityPage>
   )
 }
