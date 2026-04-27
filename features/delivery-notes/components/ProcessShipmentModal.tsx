@@ -297,7 +297,7 @@ export function ProcessShipmentModal({
                       </datalist>
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-gray-600 mb-1.5">Číslo zásilky</label>
+                      <label className="block text-xs font-semibold text-gray-600 mb-1.5">Tracking number</label>
                       <input
                         type="text"
                         value={trackingNum}
