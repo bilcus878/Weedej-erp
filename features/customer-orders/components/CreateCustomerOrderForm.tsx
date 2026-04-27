@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useRef, useState, useEffect, type MutableRefObject } from 'react'
-import { ShoppingCart, Plus, Trash2, MapPin, Package, User, CreditCard, Truck, Search, Loader2 } from 'lucide-react'
+import React, { useState, useEffect, type MutableRefObject } from 'react'
+import { ShoppingCart, Plus, Trash2, MapPin, Package, User, CreditCard, Truck, Search, Loader2, Banknote, Landmark, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { VAT_RATE_LABELS, isNonVatPayer, calculateLineVat, calculateVatSummary } from '@/lib/vatCalculation'
 import { useCreateOrderForm } from '../hooks/useCreateOrderForm'
@@ -36,8 +36,8 @@ const COUNTRY_OPTIONS = [
 ]
 
 const PAYMENT_LABELS: Record<string, string> = {
-  card: 'Platební karta', cash: 'Hotovost', transfer: 'Bankovní převod',
-  bank_transfer: 'Bankovní převod', online: 'Online platba',
+  cash: 'Hotovost',
+  bank_transfer: 'Bankovní převod',
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -53,94 +53,128 @@ interface Props {
 
 const inp = 'w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-gray-400 focus:ring-1 focus:ring-gray-100 focus:outline-none bg-white transition-colors'
 
-// ─── Packeta inline widget ────────────────────────────────────────────────────
+// ─── Pickup-point postcode search ─────────────────────────────────────────────
 
 interface PickupPoint { id: string; name: string; nameStreet: string; city: string; zip: string }
 
-function PacketaWidget({ onSelect, selected }: { onSelect: (p: PickupPoint) => void; selected: PickupPoint | null }) {
-  const apiKey = process.env.NEXT_PUBLIC_PACKETA_API_KEY ?? ''
-  const [ready, setReady]   = useState(false)
-  const [open,  setOpen]    = useState(false)
-  const containerRef        = useRef<HTMLDivElement>(null)
-  const cbRef               = useRef(onSelect)
-  useEffect(() => { cbRef.current = onSelect }, [onSelect])
+function PickupPointSelector({ carrier, onSelect, selected }: {
+  carrier:  'DPD' | 'ZASILKOVNA'
+  onSelect: (p: PickupPoint) => void
+  selected: PickupPoint | null
+}) {
+  const [postcode,   setPostcode]   = useState('')
+  const [results,    setResults]    = useState<PickupPoint[]>([])
+  const [loading,    setLoading]    = useState(false)
+  const [error,      setError]      = useState('')
+  const [searched,   setSearched]   = useState(false)
+  const [showSearch, setShowSearch] = useState(true)
+
+  const endpoint  = carrier === 'ZASILKOVNA' ? '/api/shipping/packeta-pickup' : '/api/shipping/dpd-pickup'
+  const pscClean  = postcode.replace(/\s/g, '')
+  const pscValid  = /^\d{5}$/.test(pscClean)
+  const carrierLabel = carrier === 'ZASILKOVNA' ? 'Zásilkovny' : 'DPD'
 
   useEffect(() => {
-    const w = window as any
-    if (w.Packeta?.Widget) { setReady(true); return }
-    const ID = 'packeta-widget-js'
-    if (document.getElementById(ID)) {
-      const t = setInterval(() => { if (w.Packeta?.Widget) { setReady(true); clearInterval(t) } }, 100)
-      return () => clearInterval(t)
-    }
-    const s = document.createElement('script')
-    s.id = ID; s.src = 'https://widget.packeta.com/v6/www/js/library.js'; s.async = true
-    s.onload = () => setReady(true)
-    document.body.appendChild(s)
-  }, [])
-
-  useEffect(() => {
-    function onMsg(e: MessageEvent) {
-      let d: any
-      try { d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data } catch { return }
-      if (!d?.packetaWidgetMessage) return
-      setOpen(false)
-      const p = d.packetaPoint
-      if (!p) return
-      cbRef.current({ id: String(p.id), name: String(p.place ?? p.name), nameStreet: String(p.nameStreet ?? p.street ?? ''), city: String(p.city ?? ''), zip: String(p.zip ?? '') })
-    }
-    window.addEventListener('message', onMsg)
-    return () => window.removeEventListener('message', onMsg)
-  }, [])
-
-  useEffect(() => {
-    if (!open || !containerRef.current) return
-    const w = window as any
-    if (!w.Packeta?.Widget) return
-    const t = setTimeout(() => {
-      w.Packeta.Widget.pick(apiKey, { country: 'cz', language: 'cs' }, (raw: any) => {
-        setOpen(false)
-        if (!raw) return
-        cbRef.current({ id: String(raw.id), name: String(raw.place ?? raw.name), nameStreet: String(raw.nameStreet ?? raw.street ?? ''), city: String(raw.city ?? ''), zip: String(raw.zip ?? '') })
-      }, containerRef.current)
-    }, 150)
+    if (!pscValid) { setResults([]); setError(''); setSearched(false); return }
+    const t = setTimeout(() => doSearch(pscClean), 400)
     return () => clearTimeout(t)
-  }, [open, apiKey])
+  }, [postcode])
 
-  if (open) return (
-    <div>
-      <div ref={containerRef} className="rounded-xl border border-gray-200 overflow-hidden" style={{ width: '100%', height: 480 }} />
-      <button type="button" onClick={() => { (window as any).Packeta?.Widget?.close?.(); setOpen(false) }}
-        className="w-full mt-2 py-1.5 text-xs text-gray-500 hover:text-gray-700 transition-colors">
-        Zrušit
-      </button>
-    </div>
-  )
+  async function doSearch(q: string) {
+    setLoading(true); setError(''); setSearched(true); setResults([])
+    try {
+      const res = await fetch(`${endpoint}?q=${encodeURIComponent(q)}`)
+      if (!res.ok) throw new Error(`Chyba serveru (${res.status})`)
+      const data = await res.json()
+      setResults(data.points ?? [])
+    } catch (e: any) {
+      setError(e.message || 'Nepodařilo se načíst výdejní místa')
+    } finally {
+      setLoading(false)
+    }
+  }
 
-  if (selected) return (
-    <div className="flex items-start justify-between gap-3 p-3 border border-orange-200 bg-orange-50 rounded-xl">
+  if (selected && !showSearch) return (
+    <div className="flex items-start justify-between gap-3 p-3 border border-green-200 bg-green-50 rounded-xl">
       <div className="flex items-start gap-2.5">
-        <MapPin className="w-4 h-4 text-orange-500 mt-0.5 shrink-0" />
+        <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
         <div>
           <p className="text-sm font-semibold text-gray-900">{selected.name}</p>
           {selected.nameStreet && <p className="text-xs text-gray-500">{selected.nameStreet}</p>}
           <p className="text-xs text-gray-400">{selected.zip} {selected.city}</p>
         </div>
       </div>
-      <button type="button" onClick={() => setOpen(true)} disabled={!apiKey}
-        className="shrink-0 text-xs font-medium text-orange-600 hover:text-orange-800 border border-orange-200 rounded-lg px-2.5 py-1.5 bg-white transition-colors">
+      <button type="button" onClick={() => setShowSearch(true)}
+        className="shrink-0 text-xs font-medium text-gray-600 hover:text-gray-900 border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white transition-colors">
         Změnit
       </button>
     </div>
   )
 
   return (
-    <button type="button" onClick={() => setOpen(true)} disabled={!apiKey || !ready}
-      className="w-full flex items-center justify-center gap-2 py-2.5 border-2 border-dashed border-gray-200 rounded-xl text-sm text-gray-500 hover:border-orange-300 hover:text-orange-600 disabled:opacity-50 transition-colors">
-      {!ready
-        ? <><Loader2 className="w-4 h-4 animate-spin" /> Načítám mapu…</>
-        : <><MapPin className="w-4 h-4" /> Vybrat výdejní místo Zásilkovny</>}
-    </button>
+    <div className="space-y-3">
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text" value={postcode} onChange={e => setPostcode(e.target.value)}
+            placeholder="PSČ (např. 11000)" maxLength={6}
+            className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-orange-300 focus:ring-1 focus:ring-orange-100 focus:outline-none bg-white transition-colors"
+          />
+        </div>
+        <button type="button" onClick={() => pscValid && doSearch(pscClean)} disabled={!pscValid || loading}
+          className="px-4 py-2.5 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-100 disabled:text-gray-400 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-1.5">
+          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+          Hledat
+        </button>
+      </div>
+
+      {loading && (
+        <div className="space-y-2">
+          {[1, 2, 3].map(i => <div key={i} className="h-12 bg-gray-100 rounded-lg animate-pulse" />)}
+        </div>
+      )}
+
+      {!loading && error && (
+        <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          <span className="flex-1">{error}</span>
+          <button type="button" onClick={() => pscValid && doSearch(pscClean)}
+            className="shrink-0 text-xs font-medium hover:text-red-900 flex items-center gap-1">
+            <RefreshCw className="w-3 h-3" /> Zkusit znovu
+          </button>
+        </div>
+      )}
+
+      {!loading && !error && searched && results.length === 0 && (
+        <p className="text-sm text-gray-400 italic text-center py-4">
+          Žádná výdejní místa {carrierLabel} pro zadané PSČ
+        </p>
+      )}
+
+      {!loading && results.length > 0 && (
+        <div className="border border-gray-200 rounded-xl divide-y divide-gray-100 max-h-56 overflow-y-auto">
+          {results.map(p => (
+            <button key={p.id} type="button"
+              onMouseDown={e => { e.preventDefault(); onSelect(p); setShowSearch(false) }}
+              className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-orange-50 transition-colors">
+              <MapPin className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-gray-900 truncate">{p.name}</p>
+                <p className="text-xs text-gray-400 truncate">{p.nameStreet} · {p.zip} {p.city}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {selected && showSearch && (
+        <button type="button" onClick={() => setShowSearch(false)}
+          className="text-xs text-gray-400 hover:text-gray-600 transition-colors">
+          ← Zpět na vybrané místo
+        </button>
+      )}
+    </div>
   )
 }
 
@@ -154,12 +188,12 @@ export function CreateCustomerOrderForm({ customers, products, isVatPayer, onSuc
   const [customerSearch,  setCustomerSearch]  = useState('')
   const [shippingCarrier, setShippingCarrier] = useState('')
   const [shippingType,    setShippingType]    = useState<'HOME' | 'PICKUP' | ''>('')
-  const [packetaPoint,    setPacketaPoint]    = useState<PickupPoint | null>(null)
+  const [selectedPickupPoint, setSelectedPickupPoint] = useState<PickupPoint | null>(null)
 
   useEffect(() => {
     if (!form.open) {
       setCustomerTab('list'); setCustomerSearch('')
-      setShippingCarrier(''); setShippingType(''); setPacketaPoint(null)
+      setShippingCarrier(''); setShippingType(''); setSelectedPickupPoint(null)
     }
   }, [form.open])
 
@@ -199,7 +233,6 @@ export function CreateCustomerOrderForm({ customers, products, isVatPayer, onSuc
       setShippingCarrier('PICKUP_IN_STORE'); setShippingType('')
       form.setShippingMethod('PICKUP_IN_STORE')
       form.setPickupPointId(''); form.setPickupPointName(''); form.setPickupPointAddress('')
-      if (form.paymentType === 'card' || form.paymentType === 'online') form.setPaymentType('')
     }
   }
 
@@ -209,7 +242,7 @@ export function CreateCustomerOrderForm({ customers, products, isVatPayer, onSuc
   }
 
   function handleSelectCarrier(carrierId: string) {
-    setShippingCarrier(carrierId); setShippingType(''); setPacketaPoint(null)
+    setShippingCarrier(carrierId); setShippingType(''); setSelectedPickupPoint(null)
     form.setPickupPointId(''); form.setPickupPointName(''); form.setPickupPointAddress('')
     if (carrierId === 'COURIER')          form.setShippingMethod('COURIER')
     else if (carrierId === 'PICKUP_IN_STORE') form.setShippingMethod('PICKUP_IN_STORE')
@@ -217,13 +250,13 @@ export function CreateCustomerOrderForm({ customers, products, isVatPayer, onSuc
   }
 
   function handleSelectShippingType(type: 'HOME' | 'PICKUP') {
-    setShippingType(type); setPacketaPoint(null)
+    setShippingType(type); setSelectedPickupPoint(null)
     form.setPickupPointId(''); form.setPickupPointName(''); form.setPickupPointAddress('')
     form.setShippingMethod(`${shippingCarrier}_${type}`)
   }
 
-  function handlePacketaSelect(point: PickupPoint) {
-    setPacketaPoint(point)
+  function handlePickupSelect(point: PickupPoint) {
+    setSelectedPickupPoint(point)
     form.setPickupPointId(point.id); form.setPickupPointName(point.name)
     form.setPickupPointAddress([point.nameStreet, `${point.zip} ${point.city}`.trim()].filter(Boolean).join(', '))
   }
@@ -398,21 +431,39 @@ export function CreateCustomerOrderForm({ customers, products, isVatPayer, onSuc
                     <section>
                       <SectionLabel>Datum objednávky</SectionLabel>
                       <input type="date" value={form.orderDate} onChange={e => form.setOrderDate(e.target.value)} className={inp} />
+                      <div className="mt-3">
+                        <label className="block text-xs font-semibold text-gray-500 mb-1.5">
+                          Datum splatnosti <span className="text-red-400">*</span>
+                        </label>
+                        <input type="date" value={form.dueDate} onChange={e => form.setDueDate(e.target.value)} className={inp} required />
+                      </div>
                     </section>
                     <section>
-                      <SectionLabel required>Platba</SectionLabel>
-                      <div className="space-y-3">
-                        <select value={form.paymentType} onChange={e => form.setPaymentType(e.target.value)} className={inp} required>
-                          <option value="">— Vyberte formu úhrady —</option>
-                          <option value="cash">Hotovost</option>
-                          <option value="transfer">Bankovní převod</option>
-                          {!form.isAnonymousCustomer && <option value="card">Platební karta</option>}
-                          {!form.isAnonymousCustomer && <option value="online">Online platba</option>}
-                        </select>
-                        <input type="date" value={form.dueDate} onChange={e => form.setDueDate(e.target.value)}
-                          title="Datum splatnosti" className={inp} required />
+                      <SectionLabel required>Forma úhrady</SectionLabel>
+                      <div className="flex flex-col gap-2">
+                        {([
+                          { value: 'cash',         label: 'Hotovost',        Icon: Banknote, desc: 'Platba v hotovosti'        },
+                          { value: 'bank_transfer', label: 'Bankovní převod', Icon: Landmark, desc: 'Převod na bankovní účet'  },
+                        ] as const).map(({ value, label, Icon, desc }) => {
+                          const isSelected = form.paymentType === value
+                          return (
+                            <button key={value} type="button" onClick={() => form.setPaymentType(value)}
+                              className={`flex items-center gap-3 px-4 py-3 border rounded-xl text-left transition-all
+                                ${isSelected ? 'border-orange-400 bg-orange-50' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
+                              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0
+                                ${isSelected ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-400'}`}>
+                                <Icon className="w-4 h-4" />
+                              </div>
+                              <div className="flex-1">
+                                <p className={`text-sm font-semibold ${isSelected ? 'text-orange-700' : 'text-gray-800'}`}>{label}</p>
+                                <p className="text-xs text-gray-400">{desc}</p>
+                              </div>
+                              {isSelected && <CheckCircle className="w-4 h-4 text-orange-500 shrink-0" />}
+                            </button>
+                          )
+                        })}
                       </div>
-                      {(form.paymentType === 'transfer' || form.paymentType === 'bank_transfer') && (
+                      {form.paymentType === 'bank_transfer' && (
                         <div className="mt-3 grid grid-cols-3 gap-2">
                           <div>
                             <label className="block text-xs font-semibold text-gray-500 mb-1">VS</label>
@@ -501,27 +552,13 @@ export function CreateCustomerOrderForm({ customers, products, isVatPayer, onSuc
 
                     {shippingType === 'PICKUP' && shippingCarrier === 'ZASILKOVNA' && (
                       <div className="mt-4">
-                        <PacketaWidget onSelect={handlePacketaSelect} selected={packetaPoint} />
+                        <PickupPointSelector carrier="ZASILKOVNA" onSelect={handlePickupSelect} selected={selectedPickupPoint} />
                       </div>
                     )}
 
                     {shippingType === 'PICKUP' && shippingCarrier === 'DPD' && (
-                      <div className="mt-4 grid grid-cols-3 gap-3">
-                        <div>
-                          <label className="block text-xs font-semibold text-gray-500 mb-1.5">ID výdejního místa</label>
-                          <input value={form.pickupPointId} onChange={e => form.setPickupPointId(e.target.value)}
-                            placeholder="12345" className={inp} />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-gray-500 mb-1.5">Název <span className="text-red-400">*</span></label>
-                          <input value={form.pickupPointName} onChange={e => form.setPickupPointName(e.target.value)}
-                            placeholder="DPD Pickup Praha" required className={inp} />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-gray-500 mb-1.5">Adresa</label>
-                          <input value={form.pickupPointAddress} onChange={e => form.setPickupPointAddress(e.target.value)}
-                            placeholder="Ulice, Město" className={inp} />
-                        </div>
+                      <div className="mt-4">
+                        <PickupPointSelector carrier="DPD" onSelect={handlePickupSelect} selected={selectedPickupPoint} />
                       </div>
                     )}
 

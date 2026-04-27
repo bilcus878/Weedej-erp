@@ -113,6 +113,14 @@ export async function POST(request: Request) {
       )
     }
 
+    const normalizedPaymentType = paymentType === 'transfer' ? 'bank_transfer' : String(paymentType)
+    if (!['cash', 'bank_transfer'].includes(normalizedPaymentType)) {
+      return NextResponse.json(
+        { error: 'Neplatná forma úhrady. Povolené hodnoty: hotovost (cash), bankovní převod (bank_transfer)' },
+        { status: 400 }
+      )
+    }
+
     // Kontrola dostupnosti skladu pro všechny položky
     for (const item of items) {
       if (item.productId) {
@@ -299,7 +307,7 @@ export async function POST(request: Request) {
       const { createIssuedInvoiceFromCustomerOrder } = await import('@/lib/createIssuedInvoice')
       await createIssuedInvoiceFromCustomerOrder(order.id, {
         dueDate,
-        paymentType,
+        paymentType: normalizedPaymentType,
         variableSymbol,
         constantSymbol,
         specificSymbol
