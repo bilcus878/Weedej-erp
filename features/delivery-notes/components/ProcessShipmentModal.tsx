@@ -1,10 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import {
-  AlertTriangle, Package, Truck, MapPin,
-  CheckCircle, ChevronDown, ChevronUp,
-} from 'lucide-react'
+import { Package, Truck, MapPin, ChevronDown, ChevronUp } from 'lucide-react'
 import { formatPrice } from '@/lib/utils'
 import { isNonVatPayer, DEFAULT_VAT_RATE } from '@/lib/vatCalculation'
 import type { DeliveryNoteItem, CustomerOrder } from '../types'
@@ -67,35 +64,30 @@ export function ProcessShipmentModal({
 }: Props) {
   const o = processingOrder as any
 
-  // Tracking — local state, saved independently via PATCH
-  const [carrier,       setCarrier]       = useState<string>(o?.carrier || o?.pickupPointCarrier || '')
-  const [trackingNum,   setTrackingNum]   = useState<string>(o?.trackingNumber || '')
-  const [savingTracking, setSavingTracking] = useState(false)
-  const [trackingSaved,  setTrackingSaved]  = useState(false)
-  const [showMap,        setShowMap]        = useState(false)
+  // Tracking — saved automatically as part of dispatch
+  const [carrier,     setCarrier]     = useState<string>(o?.carrier || o?.pickupPointCarrier || '')
+  const [trackingNum, setTrackingNum] = useState<string>(o?.trackingNumber || '')
+  const [showMap,     setShowMap]     = useState(false)
 
   const isEshopOrder = processingOrder?.orderNumber?.startsWith('ESH')
 
-  async function handleSaveTracking() {
-    if (!isEshopOrder || !processingOrder?.id) return
-    setSavingTracking(true)
-    setTrackingSaved(false)
-    try {
-      const res = await fetch(`/api/eshop-orders/${processingOrder.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          trackingNumber: trackingNum.trim() || null,
-          carrier: carrier.trim() || null,
-        }),
-      })
-      if (!res.ok) { alert('Nepodařilo se uložit tracking'); return }
-      setTrackingSaved(true)
-    } catch {
-      alert('Chyba při ukládání trackingu')
-    } finally {
-      setSavingTracking(false)
+  // Saves tracking then dispatches. Tracking failure is non-blocking.
+  async function handleDispatch() {
+    if (isEshopOrder && processingOrder?.id && (trackingNum.trim() || carrier.trim())) {
+      try {
+        await fetch(`/api/eshop-orders/${processingOrder.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            trackingNumber: trackingNum.trim() || null,
+            carrier: carrier.trim() || null,
+          }),
+        })
+      } catch {
+        // non-blocking — dispatch proceeds regardless
+      }
     }
+    await onConfirm()
   }
 
   // Totals
@@ -132,6 +124,9 @@ export function ProcessShipmentModal({
             </h2>
             <p className="text-sm text-gray-400">
               Zkontroluj adresu · nastav množství · zadej tracking · odešli zásilku
+            </p>
+            <p className="text-xs text-gray-300 mt-0.5">
+              Po potvrzení bude sklad automaticky upraven a rezervace uvolněna.
             </p>
           </div>
           <button
@@ -313,24 +308,10 @@ export function ProcessShipmentModal({
                       />
                     </div>
                   </div>
-                  {isEshopOrder && (
-                    <div className="flex items-center gap-3 pt-1">
-                      <button
-                        type="button"
-                        onClick={handleSaveTracking}
-                        disabled={savingTracking || (!trackingNum.trim() && !carrier.trim())}
-                        className="flex items-center gap-2 px-4 py-2 bg-gray-900 hover:bg-gray-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                      >
-                        <Truck className="w-3.5 h-3.5" />
-                        {savingTracking ? 'Ukládám…' : 'Uložit tracking'}
-                      </button>
-                      {trackingSaved && (
-                        <span className="flex items-center gap-1.5 text-sm text-green-600 font-medium">
-                          <CheckCircle className="w-4 h-4" />
-                          Tracking uložen
-                        </span>
-                      )}
-                    </div>
+                  {isEshopOrder && (trackingNum || carrier) && (
+                    <p className="text-xs text-gray-400 pt-1">
+                      Tracking se uloží automaticky při vyskladnění.
+                    </p>
                   )}
                 </div>
               </section>
@@ -347,15 +328,6 @@ export function ProcessShipmentModal({
                 />
               </section>
 
-              {/* Warning ─────────────────────────────────────────────────────── */}
-              <div className="flex items-start gap-3 px-4 py-3 bg-amber-50 border border-amber-100 rounded-xl">
-                <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                <p className="text-sm text-amber-700">
-                  Zboží bude odečteno ze skladu a rezervace bude uvolněna.{' '}
-                  <strong className="font-semibold">Tuto akci nelze vrátit zpět.</strong>
-                </p>
-              </div>
-
             </div>
 
             {/* Sticky footer ────────────────────────────────────────────────── */}
@@ -367,7 +339,7 @@ export function ProcessShipmentModal({
                 Zrušit
               </button>
               <button
-                onClick={onConfirm}
+                onClick={handleDispatch}
                 disabled={isProcessing}
                 className="flex items-center gap-2 px-7 py-2.5 bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white text-sm font-semibold rounded-lg shadow-sm hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
