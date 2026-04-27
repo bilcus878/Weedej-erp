@@ -117,6 +117,8 @@ export interface CreatePurchaseOrderPayload {
   isAnonymousSupplier: boolean
   saveSupplierToDatabase: boolean
   manualSupplierData: ManualSupplierData | null
+  discountType: string | null
+  discountValue: number | null
   items: {
     productId: string | null
     productName: string | null
@@ -124,5 +126,6 @@ export interface CreatePurchaseOrderPayload {
     quantity: number
     unit: string
     expectedPrice: number
+    vatRate?: number
   }[]
 }
