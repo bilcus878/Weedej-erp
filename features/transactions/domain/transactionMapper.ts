@@ -40,9 +40,12 @@ export function mapTransactionToOrderDetail(tx: Transaction): OrderDetailData {
       deliveryDate:   tx.deliveryNote.deliveryDate,
       status:         'active',
       items: (tx.deliveryNote.items || []).map(i => ({
-        id:       i.id,
-        quantity: Number(i.quantity),
-        unit:     'ks',
+        id:              i.id,
+        quantity:        Number(i.quantity),
+        unit:            i.unit || 'ks',
+        productId:       (i as any).productId       ?? null,
+        inventoryItemId: (i as any).inventoryItemId ?? null,
+        productName:     (i as any).productName     ?? null,
       })),
     }] : [],
   }
