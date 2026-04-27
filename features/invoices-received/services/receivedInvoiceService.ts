@@ -1,4 +1,4 @@
-import type { ReceivedInvoice, Supplier } from '../types'
+import type { ReceivedInvoice, Supplier, CompleteInvoicePayload } from '../types'
 
 export async function fetchReceivedInvoices(): Promise<ReceivedInvoice[]> {
   const res = await fetch('/api/invoices/received')
@@ -50,25 +50,7 @@ export async function applyDiscount(invoiceId: string, discountType: string, dis
   if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Chyba při uplatňování slevy') }
 }
 
-export async function saveInvoiceDetails(invoiceId: string, details: Record<string, unknown>): Promise<void> {
-  const res = await fetch(`/api/invoices/received/${invoiceId}/details`, {
-    method:  'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify(details),
-  })
-  if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Nepodařilo se uložit údaje') }
-}
-
-export async function createSupplier(data: Record<string, unknown>): Promise<void> {
-  const res = await fetch('/api/suppliers', {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify(data),
-  })
-  if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Nepodařilo se uložit dodavatele') }
-}
-
-export async function completeInvoice(invoiceId: string, payload: import('../types').CompleteInvoicePayload): Promise<void> {
+export async function completeInvoice(invoiceId: string, payload: CompleteInvoicePayload): Promise<void> {
   const res = await fetch(`/api/invoices/received/${invoiceId}/complete`, {
     method:  'PATCH',
     headers: { 'Content-Type': 'application/json' },

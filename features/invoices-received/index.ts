@@ -4,5 +4,5 @@ export { createReceivedInvoiceColumns } from './components/receivedInvoiceColumn
 export { ReceivedInvoiceStatusBadge } from './components/ReceivedInvoiceStatusBadge'
 export { InvoiceDiscountWidget } from './components/InvoiceDiscountWidget'
 export { CompleteInvoiceForm } from './components/CompleteInvoiceForm'
-export { mapInvoiceToSupplierDetail, buildModalInitialData } from './domain/receivedInvoiceMapper'
+export { mapInvoiceToSupplierDetail } from './domain/receivedInvoiceMapper'
 export type { ReceivedInvoice, Supplier, CompleteInvoicePayload } from './types'

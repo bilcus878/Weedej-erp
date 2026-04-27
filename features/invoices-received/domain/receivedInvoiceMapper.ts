@@ -58,28 +58,3 @@ export function mapInvoiceToSupplierDetail(inv: ReceivedInvoice): SupplierOrderD
     })) || [],
   }
 }
-
-export function buildModalInitialData(inv: ReceivedInvoice): Record<string, string> {
-  const po = inv.purchaseOrder as any
-  return {
-    invoiceDate:           inv.invoiceDate ? new Date(inv.invoiceDate).toISOString().split('T')[0] : '',
-    dueDate:               inv.dueDate     ? new Date(inv.dueDate).toISOString().split('T')[0]     : '',
-    expectedDeliveryDate:  po?.expectedDate ? new Date(po.expectedDate).toISOString().split('T')[0] : '',
-    paymentType:           inv.paymentType    || '',
-    variableSymbol:        inv.variableSymbol || '',
-    constantSymbol:        inv.constantSymbol || '',
-    specificSymbol:        inv.specificSymbol || '',
-    supplierName:          inv.supplierName          || po?.supplierName          || po?.supplier?.name        || inv.receipts?.[0]?.supplier?.name || '',
-    supplierContactPerson: inv.supplierContactPerson || po?.supplierContactPerson || po?.supplier?.contact     || '',
-    supplierEmail:         inv.supplierEmail         || po?.supplierEmail         || po?.supplier?.email       || '',
-    supplierPhone:         inv.supplierPhone         || po?.supplierPhone         || po?.supplier?.phone       || '',
-    supplierIco:           inv.supplierIco           || po?.supplierICO           || po?.supplier?.ico         || '',
-    supplierDic:           inv.supplierDic           || po?.supplierDIC           || po?.supplier?.dic         || '',
-    supplierBankAccount:   inv.supplierBankAccount   || po?.supplierBankAccount   || po?.supplier?.bankAccount || '',
-    supplierWebsite:       inv.supplierWebsite       || po?.supplierWebsite       || po?.supplier?.website     || '',
-    supplierAddress:       inv.supplierAddress       || po?.supplierAddress       || po?.supplier?.address     || '',
-    supplierEntityType:    inv.supplierEntityType    || po?.supplierEntityType    || po?.supplier?.entityType  || 'company',
-    supplierNote:          inv.supplierNote          || '',
-    note:                  inv.note                  || po?.note                  || '',
-  }
-}

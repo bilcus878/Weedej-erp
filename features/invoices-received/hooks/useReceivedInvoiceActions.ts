@@ -2,8 +2,7 @@
 
 import { useState } from 'react'
 import {
-  stornoInvoice, uploadFile, updateAttachmentUrl,
-  applyDiscount, saveInvoiceDetails, createSupplier,
+  stornoInvoice, uploadFile, updateAttachmentUrl, applyDiscount,
 } from '../services/receivedInvoiceService'
 import type { ReceivedInvoice } from '../types'
 
@@ -47,7 +46,7 @@ export function useReceivedInvoiceActions(rows: ReceivedInvoice[], onRefresh: ()
       await updateAttachmentUrl(invoiceId, url)
       await onRefresh()
       alert('Soubor byl úspěšně nahrán!')
-    } catch (error: any) {
+    } catch {
       alert('Nepodařilo se nahrát soubor')
     }
   }
@@ -64,39 +63,9 @@ export function useReceivedInvoiceActions(rows: ReceivedInvoice[], onRefresh: ()
     }
   }
 
-  async function handleSaveDetails(details: any) {
-    if (!selectedInvoice) return
-    try {
-      await saveInvoiceDetails(selectedInvoice.id, details)
-      alert('Údaje faktury byly uloženy')
-      await onRefresh()
-      handleCloseDetailsModal()
-    } catch (error: any) {
-      throw error
-    }
-  }
-
-  async function handleSaveAsSupplier(details: any): Promise<void> {
-    if (!selectedInvoice) return
-    if (!details.supplierName) throw new Error('Vyplňte alespoň název dodavatele')
-    try {
-      await createSupplier({
-        name: details.supplierName, entityType: details.supplierEntityType || 'company',
-        contact: details.supplierContactPerson, email: details.supplierEmail,
-        phone: details.supplierPhone, ico: details.supplierIco, dic: details.supplierDic,
-        bankAccount: details.supplierBankAccount, website: details.supplierWebsite,
-        address: details.supplierAddress, note: details.supplierNote,
-      })
-      await handleSaveDetails(details)
-    } catch (error: any) {
-      throw error
-    }
-  }
-
   return {
     selectedInvoice, showDetailsModal,
     handleOpenDetailsModal, handleCloseDetailsModal,
     handleStorno, handleFileUpload, handleApplyDiscount,
-    handleSaveDetails, handleSaveAsSupplier,
   }
 }
