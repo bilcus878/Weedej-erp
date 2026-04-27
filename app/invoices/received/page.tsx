@@ -2,12 +2,11 @@
 
 import { useMemo } from 'react'
 import { FileText, FileEdit, XCircle } from 'lucide-react'
-import InvoiceDetailsModal from '@/components/InvoiceDetailsModal'
 import { EntityPage, LoadingState, ErrorState, ActionToolbar, SupplierOrderDetail } from '@/components/erp'
 import { useCompanySettings } from '@/components/erp/hooks/useCompanySettings'
 import {
   useReceivedInvoices, useReceivedInvoiceActions, createReceivedInvoiceColumns,
-  InvoiceDiscountWidget, mapInvoiceToSupplierDetail, buildModalInitialData,
+  InvoiceDiscountWidget, CompleteInvoiceForm, mapInvoiceToSupplierDetail,
 } from '@/features/invoices-received'
 
 export const dynamic = 'force-dynamic'
@@ -72,7 +71,7 @@ export default function ReceivedInvoicesPage() {
                     <>
                       <button
                         onClick={() => actions.handleOpenDetailsModal(inv)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors"
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium rounded-lg transition-colors"
                       >
                         <FileEdit className="w-3.5 h-3.5" />
                         Doplnit fakturu
@@ -91,7 +90,12 @@ export default function ReceivedInvoicesPage() {
                         <label className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white text-xs font-medium rounded-lg transition-colors cursor-pointer">
                           <FileText className="w-3.5 h-3.5" />
                           Nahrát soubor
-                          <input type="file" accept="image/*,application/pdf" className="hidden" onChange={e => actions.handleFileUpload(e, inv.id)} />
+                          <input
+                            type="file"
+                            accept="image/*,application/pdf"
+                            className="hidden"
+                            onChange={e => actions.handleFileUpload(e, inv.id)}
+                          />
                         </label>
                       )}
                     </>
@@ -114,13 +118,12 @@ export default function ReceivedInvoicesPage() {
         <EntityPage.Pagination page={ep.page} total={ep.totalPages} onChange={ep.setPage} />
       </EntityPage>
 
-      <InvoiceDetailsModal
-        isOpen={actions.showDetailsModal}
+      <CompleteInvoiceForm
+        invoice={actions.selectedInvoice}
+        open={actions.showDetailsModal}
         onClose={actions.handleCloseDetailsModal}
-        onSave={actions.handleSaveDetails}
-        onSaveAsSupplier={actions.handleSaveAsSupplier}
-        initialData={actions.selectedInvoice ? buildModalInitialData(actions.selectedInvoice) : undefined}
-        type="received"
+        onSuccess={ep.refresh}
+        isVatPayer={isVatPayer}
       />
     </>
   )

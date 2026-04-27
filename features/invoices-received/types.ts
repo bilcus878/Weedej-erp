@@ -58,6 +58,8 @@ export type ReceivedInvoice = {
   invoiceDate: string
   dueDate?: string | null
   totalAmount: number
+  totalAmountWithoutVat?: number
+  totalVatAmount?: number
   paymentType: string
   attachmentUrl?: string | null
   note?: string | null
@@ -85,4 +87,16 @@ export type ReceivedInvoice = {
   receipts?: Receipt[]
   purchaseOrder?: PurchaseOrderRef | null
   createdAt: string
+}
+
+// Payload sent to PATCH /api/invoices/received/[id]/complete
+export interface CompleteInvoicePayload {
+  invoiceNumber:  string
+  invoiceDate:    string
+  dueDate:        string | null
+  paymentType:    string
+  variableSymbol: string | null
+  constantSymbol: string | null
+  specificSymbol: string | null
+  note:           string | null
 }

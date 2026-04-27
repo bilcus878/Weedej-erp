@@ -67,3 +67,15 @@ export async function createSupplier(data: Record<string, unknown>): Promise<voi
   })
   if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Nepodařilo se uložit dodavatele') }
 }
+
+export async function completeInvoice(invoiceId: string, payload: import('../types').CompleteInvoicePayload): Promise<void> {
+  const res = await fetch(`/api/invoices/received/${invoiceId}/complete`, {
+    method:  'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify(payload),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.error || 'Nepodařilo se uložit fakturu')
+  }
+}
