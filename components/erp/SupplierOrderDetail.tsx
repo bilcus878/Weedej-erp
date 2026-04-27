@@ -493,9 +493,11 @@ export function SupplierOrderDetail({
               else if (received > 0) bg = 'bg-orange-50'
 
               const invMovId = item.productId ? (inventoryLookup[item.productId] ?? null) : null
-              const invLink = item.productId
-                ? <Link href={`/inventory?selectedProduct=${item.productId}${invMovId ? `&highlightMovement=${invMovId}` : ''}`} className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-medium rounded-md shadow-sm border border-green-200 transition-colors" onClick={e => e.stopPropagation()}>Zobrazit</Link>
-                : <span className="text-gray-300 text-xs">—</span>
+              const invLink = item.productId == null
+                ? <span className="text-gray-300 text-xs">—</span>
+                : invMovId
+                  ? <Link href={`/inventory?selectedProduct=${item.productId}&highlightMovement=${invMovId}`} className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-medium rounded-md shadow-sm border border-green-200 transition-colors" onClick={e => e.stopPropagation()}>Zobrazit</Link>
+                  : <span className="text-xs text-gray-400 italic">Čeká na příjemku</span>
               return isVatPayer ? (
                 <div key={item.id} className={`grid grid-cols-[3fr_0.7fr_repeat(8,1fr)] gap-2 px-4 py-2 ${bg} text-xs`}>
                   <div className="font-medium text-gray-900">{item.product?.name || item.productName}</div>
