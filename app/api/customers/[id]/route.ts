@@ -25,7 +25,6 @@ export async function PATCH(
         ico:         body.ico         || null,
         dic:         body.dic         || null,
         bankAccount: body.bankAccount || null,
-        website:     body.website     || null,
         address:     body.address     || null,
         note:        body.note        || null,
       },

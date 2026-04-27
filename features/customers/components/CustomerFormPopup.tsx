@@ -14,6 +14,7 @@ const CUSTOMER_CONFIG: PartyFormConfig = {
   emailPlaceholder:       'info@odberatel.cz',
   headerIcon:             Users,
   accentColor:            'blue',
+  showWebsite:            false,
 }
 
 interface Props {

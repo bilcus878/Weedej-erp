@@ -16,7 +16,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { name, entityType, contact, email, phone, ico, dic, bankAccount, website, address, note } = body
+    const { name, entityType, contact, email, phone, ico, dic, bankAccount, address, note } = body
 
     if (!name?.trim()) {
       return NextResponse.json({ error: 'Jméno odběratele je povinné' }, { status: 400 })
@@ -32,7 +32,6 @@ export async function POST(request: Request) {
         ico:         ico         || null,
         dic:         dic         || null,
         bankAccount: bankAccount || null,
-        website:     website     || null,
         address:     address     || null,
         note:        note        || null,
       },

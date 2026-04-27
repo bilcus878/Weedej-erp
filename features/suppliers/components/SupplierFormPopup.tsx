@@ -14,6 +14,7 @@ const SUPPLIER_CONFIG: PartyFormConfig = {
   emailPlaceholder:       'info@dodavatel.cz',
   headerIcon:             Truck,
   accentColor:            'emerald',
+  showWebsite:            true,
 }
 
 interface Props {

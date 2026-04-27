@@ -26,6 +26,7 @@ export interface PartyFormConfig {
   emailPlaceholder:       string
   headerIcon:             LucideIcon
   accentColor:            'emerald' | 'blue'
+  showWebsite:            boolean
 }
 
 interface Props {
@@ -215,7 +216,7 @@ export function PartyFormModal({
                     placeholder="+420 123 456 789"
                   />
                 </Field>
-                {isCompany && (
+                {isCompany && config.showWebsite && (
                   <Field label="Web">
                     <input
                       className={inp}
