@@ -29,8 +29,13 @@ export default function ReceiptsPage() {
 
   useEffect(() => {
     const orders = processing.pendingOrders.map((o: any) => ({
-      id: o.id, orderNumber: o.orderNumber,
-      partyName: o.supplier?.name || o.supplierName || '—', orderDate: o.orderDate,
+      id:        o.id,
+      orderNumber: o.orderNumber,
+      partyName: o.supplier?.name || o.supplierName || '—',
+      orderDate: o.orderDate,
+      itemCount: (o.items || []).filter((i: any) => i.productId !== null).length,
+      value:     (o.items || []).reduce((sum: number, i: any) =>
+        sum + Number(i.quantity) * Number(i.expectedPrice || 0), 0),
     }))
     setMeta({
       actions: (

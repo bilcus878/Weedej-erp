@@ -29,8 +29,11 @@ export default function DeliveryNotesPage() {
   useEffect(() => {
     const orders = processing.pendingOrders.map(o => ({
       id: o.id, orderNumber: o.orderNumber,
-      partyName: o.customer?.name || o.customerName || 'Anonymní zákazník',
-      orderDate: o.orderDate, badge: 'Zaplaceno',
+      partyName:  o.customer?.name || o.customerName || 'Anonymní zákazník',
+      orderDate:  o.orderDate,
+      badge:      'Zaplaceno',
+      itemCount:  o.items.filter(i => i.productId !== null).length,
+      value:      Number(o.totalAmount),
     }))
     setMeta({
       actions: (

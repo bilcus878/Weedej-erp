@@ -2,7 +2,7 @@
 
 import { useRef, useState, useEffect } from 'react'
 import { Package } from 'lucide-react'
-import { formatDate } from '@/lib/utils'
+import { formatDate, formatPrice } from '@/lib/utils'
 import { useClickOutside } from '../shared/useClickOutside'
 
 export interface PopoverOrder {
@@ -11,6 +11,8 @@ export interface PopoverOrder {
   partyName: string
   orderDate: string
   badge?: string
+  itemCount?: number
+  value?: number
 }
 
 interface ExpectedOrdersButtonProps {
@@ -142,6 +144,16 @@ export function ExpectedOrdersButton({
                     </div>
                     <p className="text-xs text-gray-500 truncate mt-0.5">{order.partyName}</p>
                   </div>
+                  {(order.itemCount != null || order.value != null) && (
+                    <div className="text-right shrink-0">
+                      {order.itemCount != null && (
+                        <p className="text-xs text-gray-400">{order.itemCount} pol.</p>
+                      )}
+                      {order.value != null && order.value > 0 && (
+                        <p className="text-xs font-semibold text-orange-600 tabular-nums">{formatPrice(order.value)}</p>
+                      )}
+                    </div>
+                  )}
                   <p className="text-xs text-gray-400 shrink-0 tabular-nums">{formatDate(order.orderDate)}</p>
                   <button
                     onClick={() => { onAction(order.id); setOpen(false) }}
