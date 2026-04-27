@@ -286,7 +286,7 @@ export function ProcessShipmentModal({
                       <input
                         type="text"
                         value={carrier}
-                        onChange={e => { setCarrier(e.target.value); setTrackingSaved(false) }}
+                        onChange={e => setCarrier(e.target.value)}
                         placeholder="Zásilkovna, DPD, PPL…"
                         list="carriers-datalist"
                         disabled={!isEshopOrder}
@@ -301,7 +301,7 @@ export function ProcessShipmentModal({
                       <input
                         type="text"
                         value={trackingNum}
-                        onChange={e => { setTrackingNum(e.target.value); setTrackingSaved(false) }}
+                        onChange={e => setTrackingNum(e.target.value)}
                         placeholder="např. Z1234567890"
                         disabled={!isEshopOrder}
                         className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm font-mono focus:border-gray-400 focus:ring-1 focus:ring-gray-100 focus:outline-none disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors bg-white"
