@@ -8,10 +8,12 @@ interface Props {
   isVatPayer:    boolean
   discountType:  'percentage' | 'fixed' | 'none'
   discountValue: string
+  shippingCost?: number       // Kč — 0 when no method selected or free
+  shippingLabel?: string      // e.g. "DPD — Výdejní místo"
 }
 
-export function OrderTotalsPreview({ items, isVatPayer, discountType, discountValue }: Props) {
-  if (items.length === 0) return null
+export function OrderTotalsPreview({ items, isVatPayer, discountType, discountValue, shippingCost = 0, shippingLabel }: Props) {
+  if (items.length === 0 && shippingCost === 0) return null
 
   const fixedDiscount = discountType === 'fixed' && discountValue ? parseFloat(discountValue) : 0
 
@@ -20,11 +22,12 @@ export function OrderTotalsPreview({ items, isVatPayer, discountType, discountVa
     const disc     = discountType === 'percentage' && discountValue
       ? (subtotal * parseFloat(discountValue)) / 100
       : fixedDiscount
-    const total = subtotal - disc
+    const total = subtotal - disc + shippingCost
     return (
       <div className="p-4 space-y-2">
-        <Row label="Mezisoučet:" value={fmt(subtotal)} />
+        {items.length > 0 && <Row label="Mezisoučet:" value={fmt(subtotal)} />}
         {disc > 0 && <Row label={discountLabel(discountType, discountValue)} value={`-${fmt(disc)}`} red />}
+        {shippingCost > 0 && <Row label={shippingLabel ? `Doprava (${shippingLabel}):` : 'Doprava:'} value={fmt(shippingCost)} />}
         <Row label="Celkem k úhradě:" value={fmt(total)} bold />
       </div>
     )
@@ -35,13 +38,13 @@ export function OrderTotalsPreview({ items, isVatPayer, discountType, discountVa
   const disc         = discountType === 'percentage' && discountValue
     ? (summary.totalWithoutVat * parseFloat(discountValue)) / 100
     : fixedDiscount
-  const afterDiscount    = summary.totalWithoutVat - disc
-  const discountRatio    = summary.totalWithoutVat > 0 ? afterDiscount / summary.totalWithoutVat : 1
-  const totalWithVat     = afterDiscount + summary.totalVat * discountRatio
+  const afterDiscount = summary.totalWithoutVat - disc
+  const discountRatio = summary.totalWithoutVat > 0 ? afterDiscount / summary.totalWithoutVat : 1
+  const totalWithVat  = afterDiscount + summary.totalVat * discountRatio + shippingCost
 
   return (
     <div className="p-4 space-y-2">
-      <Row label="Základ bez DPH:" value={fmt(summary.totalWithoutVat)} />
+      {items.length > 0 && <Row label="Základ bez DPH:" value={fmt(summary.totalWithoutVat)} />}
       {Object.entries(summary.byRate)
         .filter(([rate]) => !isNonVatPayer(Number(rate)))
         .map(([rate, breakdown]) => (
@@ -50,8 +53,9 @@ export function OrderTotalsPreview({ items, isVatPayer, discountType, discountVa
             <span className="text-gray-700">{fmt(breakdown.vat)}</span>
           </div>
         ))}
-      <Row label="Celkem s DPH:" value={fmt(summary.totalWithVat)} />
+      {items.length > 0 && <Row label="Celkem s DPH:" value={fmt(summary.totalWithVat)} />}
       {disc > 0 && <Row label={discountLabel(discountType, discountValue)} value={`-${fmt(disc)}`} red />}
+      {shippingCost > 0 && <Row label={shippingLabel ? `Doprava (${shippingLabel}):` : 'Doprava:'} value={fmt(shippingCost)} />}
       <Row label="Celkem k úhradě:" value={fmt(totalWithVat)} bold />
     </div>
   )
