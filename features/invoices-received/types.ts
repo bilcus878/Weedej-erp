@@ -9,6 +9,8 @@ export type ReceiptItem = {
   purchasePrice: number
   product?: Product
   productName?: string
+  productId?: string | null
+  inventoryItemId?: string | null
 }
 
 export type Receipt = {

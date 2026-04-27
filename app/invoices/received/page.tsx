@@ -58,6 +58,7 @@ export default function ReceivedInvoicesPage() {
                   isVatPayer={isVatPayer}
                   orderHref={inv.purchaseOrder ? `/purchase-orders?highlight=${inv.purchaseOrder.id}` : undefined}
                   onRefresh={ep.refresh}
+                  showPaymentSection={false}
                 />
               </div>
 

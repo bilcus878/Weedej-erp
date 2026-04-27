@@ -40,6 +40,7 @@ export function mapInvoiceToSupplierDetail(inv: ReceivedInvoice): SupplierOrderD
         productId:   item.productId || null,
         productName: item.productName || item.product?.name || null,
         quantity:    n(item.quantity),
+        alreadyReceivedQuantity: n(item.alreadyReceivedQuantity || 0),
         unit:        item.unit,
         price, vatRate, vatAmount, priceWithVat,
         product: item.product
@@ -54,6 +55,8 @@ export function mapInvoiceToSupplierDetail(inv: ReceivedInvoice): SupplierOrderD
         receivedQuantity: ri.receivedQuantity != null ? n(ri.receivedQuantity) : undefined,
         unit: ri.unit, productName: ri.productName || ri.product?.name || null,
         purchasePrice: n(ri.purchasePrice), product: null,
+        productId: ri.productId ?? null,
+        inventoryItemId: ri.inventoryItemId ?? null,
       })) || [],
     })) || [],
   }
