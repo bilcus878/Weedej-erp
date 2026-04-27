@@ -53,11 +53,31 @@ export function mapDeliveryNoteToOrderDetail(note: DeliveryNote, isVatPayer: boo
     }
   })
 
-  // Total from product items only — shipping is never included here
-  const totalAmount = mappedItems.reduce(
-    (sum, item) => sum + item.quantity * (isVatPayer ? item.priceWithVat : item.price),
-    0,
-  )
+  // Include shipping / discount null-productId items from the linked customer
+  // order so CustomerOrderDetail can render the full breakdown (subtotal +
+  // shipping row + grand total) and the summary card shows the correct amount.
+  const nullOrderItems: OrderDetailItem[] = (co?.items || [])
+    .filter((item: any) => item.productId === null)
+    .map((item: any) => ({
+      id:          item.id,
+      productId:   null,
+      productName: item.productName,
+      quantity:    Number(item.quantity ?? 1),
+      unit:        item.unit || 'ks',
+      price:       Number(item.price ?? item.priceWithVat ?? 0),
+      vatRate:     Number(item.vatRate ?? 21),
+      vatAmount:   Number(item.vatAmount ?? 0),
+      priceWithVat: Number(item.priceWithVat ?? item.price ?? 0),
+      product:     null,
+    }))
+
+  const allItems = [...mappedItems, ...nullOrderItems]
+
+  // Use the customer order's total (includes shipping) when available;
+  // fall back to calculating from items if there is no linked order.
+  const totalAmount = (co?.totalAmount != null && Number(co.totalAmount) > 0)
+    ? Number(co.totalAmount)
+    : allItems.reduce((sum, item) => sum + item.quantity * (isVatPayer ? item.priceWithVat : item.price), 0)
 
   const invoice = co?.issuedInvoice || note.issuedInvoice
 
@@ -97,7 +117,7 @@ export function mapDeliveryNoteToOrderDetail(note: DeliveryNote, isVatPayer: boo
     trackingNumber:     co?.trackingNumber     || null,
     carrier:            co?.carrier            || null,
 
-    items: mappedItems,
+    items: allItems,
 
     issuedInvoice: invoice ? {
       id:             invoice.id,
