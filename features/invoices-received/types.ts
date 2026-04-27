@@ -34,6 +34,7 @@ export type OrderItem = {
 export type PurchaseOrderRef = {
   id: string
   orderNumber: string
+  orderDate?: string | null
   expectedDate?: string | null
   supplierId?: string
   supplierName?: string
