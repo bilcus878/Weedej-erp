@@ -74,3 +74,28 @@ export function computePaymentBar(cashRevenue: number, cardRevenue: number): { c
   if (total === 0) return { cash: 50, card: 50 }
   return { cash: (cashRevenue / total) * 100, card: (cardRevenue / total) * 100 }
 }
+
+export function computeOutstandingReceivables(issued: IssuedInvoice[]): { amount: number; count: number } {
+  const outstanding = issued.filter(i => i.status !== 'paid' && i.status !== 'storno')
+  return {
+    amount: outstanding.reduce((s, i) => s + Number(i.totalAmount || 0), 0),
+    count:  outstanding.length,
+  }
+}
+
+export function computeNewOrdersCount(orders: CustomerOrder[]): number {
+  return orders.filter(o => o.status === 'new').length
+}
+
+export function computeRevenueContext(todayRevenue: number, avgDailyRevenue: number): {
+  pct: number; label: string; dir: 'up' | 'down' | 'flat'
+} | null {
+  if (avgDailyRevenue <= 0) return null
+  const pct = ((todayRevenue - avgDailyRevenue) / avgDailyRevenue) * 100
+  if (Math.abs(pct) < 5) return { pct, label: '≈ průměr', dir: 'flat' }
+  return {
+    pct,
+    label: `${pct > 0 ? '+' : ''}${Math.round(pct)} % vs průměr`,
+    dir:   pct > 0 ? 'up' : 'down',
+  }
+}

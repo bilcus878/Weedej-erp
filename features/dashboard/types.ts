@@ -54,6 +54,7 @@ export interface DashboardData {
   issuedInvoices:    IssuedInvoice[]
   customerOrders:    CustomerOrder[]
   inventorySummary:  InventorySummaryItem[]
+  pendingShipments:  PendingShipmentOrder[]
 }
 
 export interface NormalizedInvoice {
@@ -80,10 +81,22 @@ export interface OrderStats {
 }
 
 export interface InventorySummaryItem {
-  productId:     string
-  productName:   string
-  unit:          string
-  physicalStock: number
+  productId:      string
+  productName:    string
+  unit:           string
+  physicalStock:  number
   availableStock: number
-  stockStatus:   'empty' | 'low' | 'ok'
+  stockStatus:    'empty' | 'low' | 'ok'
+}
+
+export interface PendingShipmentOrder {
+  id:           string
+  orderNumber:  string
+  orderDate:    string
+  totalAmount:  number | string
+  status:       string
+  source?:      string | null
+  customerName: string | null
+  customer:     { name: string } | null
+  items:        { id: string; productId: string | null; quantity: number | string }[]
 }

@@ -4,6 +4,8 @@ import { AlertTriangle, Loader2 } from 'lucide-react'
 import {
   useDashboard,
   KpiCards,
+  ActionCenterCard,
+  PendingShipmentsCard,
   UpcomingDueCard,
   RecentOrdersCard,
   LowStockCard,
@@ -40,35 +42,41 @@ export default function DashboardPage() {
   return (
     <div className="space-y-5 max-w-screen-2xl mx-auto">
 
-      {/* KPI row */}
+      {/* Business summary */}
       <KpiCards
         stats={d.stats}
-        overdueInvoices={d.overdueInvoices}
         orderStats={d.orderStats}
+        revenueContext={d.revenueContext}
       />
 
-      {/* Recent orders + alerts */}
+      {/* Action center — what needs doing right now */}
+      <ActionCenterCard
+        pendingShipmentsCount={d.pendingShipments.length}
+        newOrdersCount={d.newOrdersCount}
+        outstandingAmount={d.outstandingReceivables.amount}
+        outstandingCount={d.outstandingReceivables.count}
+        lowStockCount={d.stats.lowStockCount}
+        outOfStockCount={d.stats.outOfStockCount}
+      />
+
+      {/* Operational: pending shipments + financial alerts */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
         <div className="lg:col-span-3">
-          <RecentOrdersCard orders={d.recentOrders} />
+          <PendingShipmentsCard orders={d.pendingShipments} />
         </div>
         <div className="lg:col-span-2">
           <UpcomingDueCard items={upcomingItems} overdueInvoices={d.overdueInvoices} />
         </div>
       </div>
 
-      {/* Low stock + quick nav */}
+      {/* Context: recent activity + warehouse status */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <LowStockCard items={d.lowStockItems} />
-        <div className="lg:hidden">
-          <QuickNavCard />
-        </div>
+        <RecentOrdersCard orders={d.recentOrders} />
+        <LowStockCard     items={d.lowStockItems} />
       </div>
 
-      {/* Quick navigation — full width on large screens */}
-      <div className="hidden lg:block">
-        <QuickNavCard />
-      </div>
+      {/* Navigation */}
+      <QuickNavCard />
 
     </div>
   )
