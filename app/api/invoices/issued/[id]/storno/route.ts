@@ -5,6 +5,7 @@
 
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { cancelReservations } from '@/lib/reservationManagement'
 
 export const dynamic = 'force-dynamic'
 
@@ -75,7 +76,10 @@ export async function POST(
           }
         })
 
-        console.log(`✓ CASCADE: Objednávka zákazníka stornována společně s fakturou`)
+        // Uvolni všechny aktivní rezervace skladu — atomicky ve stejné transakci
+        await cancelReservations(invoice.customerOrderId, tx)
+
+        console.log(`✓ CASCADE: Objednávka zákazníka stornována společně s fakturou, rezervace uvolněny`)
       }
 
       // 3. CASCADE: Pokud je propojena s SumUp transakcí → STORNUJ I TRANSAKCI

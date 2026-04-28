@@ -69,13 +69,6 @@ export default function EshopOrdersPage() {
                 showDelivered={order.status === 'shipped'}
                 onDelivered={() => handleUpdateStatus(rawOrder.id, 'delivered')}
                 processingStatus={isProcessing}
-                showStorno={['paid', 'shipped'].includes(order.status)}
-                onStorno={() => {
-                  if (confirm(`Opravdu zrušit objednávku ${order.orderNumber}?`)) {
-                    handleUpdateStatus(rawOrder.id, 'cancelled')
-                  }
-                }}
-                stornoLabel="Zrušit"
               />
             </>
           )

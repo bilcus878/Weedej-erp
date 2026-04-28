@@ -62,6 +62,7 @@ export default function PurchaseOrdersPage() {
             <DetailActionFooter
               flow="incoming"
               onPrintPdf={() => handleDownloadPDF(order.id)}
+              showInventory={['confirmed', 'partially_received'].includes(order.status)}
             />
           </div>
         )}

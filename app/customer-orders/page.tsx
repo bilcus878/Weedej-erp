@@ -72,9 +72,6 @@ export default function CustomerOrdersPage() {
                 showInventory={(order.status === 'paid' || order.status === 'processing') && !hasActiveDeliveryNote}
                 showDelivered={order.status === 'shipped'}
                 onDelivered={() => handleUpdateStatus(rawOrder.id, 'delivered')}
-                showStorno={['paid', 'shipped'].includes(order.status)}
-                onStorno={() => handleUpdateStatus(rawOrder.id, 'cancelled')}
-                stornoLabel="Zrušit"
               />
             </>
           )

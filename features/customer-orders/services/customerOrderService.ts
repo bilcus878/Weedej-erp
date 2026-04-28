@@ -62,8 +62,8 @@ export async function cancelCustomerOrder(orderId: string): Promise<void> {
 }
 
 export async function updateCustomerOrderStatus(orderId: string, status: string): Promise<void> {
-  const res = await fetch(`/api/customer-orders/${orderId}/status`, {
-    method:  'POST',
+  const res = await fetch(`/api/customer-orders/${orderId}`, {
+    method:  'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body:    JSON.stringify({ status }),
   })
