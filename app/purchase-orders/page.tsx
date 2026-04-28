@@ -55,7 +55,7 @@ export default function PurchaseOrdersPage() {
         renderDetail={order => {
           const hasActiveReceipt = order.receipts?.some(r => r.status !== 'storno') ?? false
           const showNaskladnit = order.status === 'partially_received'
-            || (order.status === 'confirmed' && !hasActiveReceipt)
+            || (['pending', 'confirmed'].includes(order.status) && !hasActiveReceipt)
           return (
             <div className="mt-3">
               <SupplierOrderDetail
