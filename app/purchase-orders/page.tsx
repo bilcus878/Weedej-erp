@@ -52,20 +52,25 @@ export default function PurchaseOrdersPage() {
         onToggle={ep.toggleExpand}
         onClearFilters={filters.clear}
         rowClassName={r => r.status === 'storno' ? 'bg-red-50 opacity-70' : ''}
-        renderDetail={order => (
-          <div className="mt-3">
-            <SupplierOrderDetail
-              order={mapPurchaseOrderToSupplierDetail(order)}
-              isVatPayer={isVatPayer}
-              showPaymentSection={false}
-            />
-            <DetailActionFooter
-              flow="incoming"
-              onPrintPdf={() => handleDownloadPDF(order.id)}
-              showInventory={['confirmed', 'partially_received'].includes(order.status)}
-            />
-          </div>
-        )}
+        renderDetail={order => {
+          const hasActiveReceipt = order.receipts?.some(r => r.status !== 'storno') ?? false
+          const showNaskladnit = order.status === 'partially_received'
+            || (order.status === 'confirmed' && !hasActiveReceipt)
+          return (
+            <div className="mt-3">
+              <SupplierOrderDetail
+                order={mapPurchaseOrderToSupplierDetail(order)}
+                isVatPayer={isVatPayer}
+                showPaymentSection={false}
+              />
+              <DetailActionFooter
+                flow="incoming"
+                onPrintPdf={() => handleDownloadPDF(order.id)}
+                showInventory={showNaskladnit}
+              />
+            </div>
+          )
+        }}
       />
 
       <EntityPage.Pagination page={ep.page} total={ep.totalPages} onChange={ep.setPage} />
