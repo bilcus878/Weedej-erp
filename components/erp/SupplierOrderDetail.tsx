@@ -3,11 +3,10 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import {
-  FileText, FileDown, Truck, CheckCircle, Clock,
-  Package, ExternalLink, Building2, CreditCard,
+  FileText, Truck, CheckCircle, Clock,
+  ExternalLink, Building2, CreditCard,
   XCircle,
 } from 'lucide-react'
-import Button from '@/components/ui/Button'
 import { formatPrice } from '@/lib/utils'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -90,10 +89,7 @@ interface Props {
   order: SupplierOrderDetailData
   isVatPayer: boolean
   orderHref?: string
-  onPrintPdf?: () => void
-  onUpdateStatus?: (status: string) => void
   onRefresh?: () => Promise<void>
-  processingStatus?: boolean
   showReceiptsSection?: boolean
   showPaymentSection?: boolean
 }
@@ -158,10 +154,6 @@ export function SupplierOrderDetail({
   order,
   isVatPayer,
   orderHref,
-  onPrintPdf,
-  onUpdateStatus,
-  onRefresh: _onRefresh,
-  processingStatus,
   showReceiptsSection = true,
   showPaymentSection  = true,
 }: Props) {
@@ -619,55 +611,6 @@ export function SupplierOrderDetail({
         </div>
       )}
 
-      {/* ── Footer: akce ────────────────────────────────────────────────────── */}
-      {(onPrintPdf || onUpdateStatus) && (
-        <div className="flex items-center justify-between pt-2 border-t border-gray-200">
-          <div>
-            {onPrintPdf && (
-              <Button size="sm" variant="secondary" onClick={e => { e.stopPropagation(); onPrintPdf() }}>
-                <FileDown className="w-4 h-4 mr-1" />
-                Zobrazit PDF
-              </Button>
-            )}
-          </div>
-          <div className="flex flex-wrap gap-2 justify-end">
-            {onUpdateStatus && order.status === 'pending' && (
-              <button
-                onClick={e => { e.stopPropagation(); onUpdateStatus('confirmed') }}
-                disabled={processingStatus}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
-              >
-                <CheckCircle className="w-3.5 h-3.5" />
-                {processingStatus ? 'Zpracovává se...' : 'Potvrdit'}
-              </button>
-            )}
-            {onUpdateStatus && ['confirmed', 'partially_received'].includes(order.status) && (
-              <Link
-                href="/receipts"
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 text-xs font-medium rounded-lg transition-colors"
-                onClick={e => e.stopPropagation()}
-              >
-                <Package className="w-3.5 h-3.5" />
-                Příjemka
-                <ExternalLink className="w-3 h-3" />
-              </Link>
-            )}
-            {onUpdateStatus && ['pending', 'confirmed'].includes(order.status) && (
-              <button
-                onClick={e => {
-                  e.stopPropagation()
-                  if (confirm(`Opravdu stornovat objednávku ${order.orderNumber}?`)) onUpdateStatus('storno')
-                }}
-                disabled={processingStatus}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-red-50 text-red-600 text-xs font-medium rounded-lg transition-colors border border-red-200 disabled:opacity-50"
-              >
-                <XCircle className="w-3.5 h-3.5" />
-                Storno
-              </button>
-            )}
-          </div>
-        </div>
-      )}
 
     </div>
   )

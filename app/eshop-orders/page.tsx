@@ -2,7 +2,7 @@
 
 import { Globe } from 'lucide-react'
 import Button from '@/components/ui/Button'
-import { EntityPage, LoadingState, ErrorState, CustomerOrderDetail, EmptyState } from '@/components/erp'
+import { EntityPage, LoadingState, ErrorState, CustomerOrderDetail, DetailActionFooter, EmptyState } from '@/components/erp'
 import { useCompanySettings } from '@/components/erp/hooks/useCompanySettings'
 import {
   useEshopOrders, useEshopOrderActions,
@@ -51,16 +51,35 @@ export default function EshopOrdersPage() {
               : undefined}
           />
         }
-        renderDetail={order => (
-          <CustomerOrderDetail
-            order={mapEshopOrderToOrderDetail(order)}
-            isVatPayer={isVatPayer}
-            onPrintPdf={() => handlePrintPDF(order)}
-            onUpdateStatus={status => handleUpdateStatus(order.id, status)}
-            onRefresh={ep.refresh}
-            processingStatus={processingId === order.id}
-          />
-        )}
+        renderDetail={rawOrder => {
+          const order = mapEshopOrderToOrderDetail(rawOrder)
+          const hasActiveDeliveryNote = order.deliveryNotes?.some(dn => dn.status === 'active') ?? false
+          const isProcessing = processingId === rawOrder.id
+          return (
+            <>
+              <CustomerOrderDetail
+                order={order}
+                isVatPayer={isVatPayer}
+                onRefresh={ep.refresh}
+              />
+              <DetailActionFooter
+                flow="outgoing"
+                onPrintPdf={() => handlePrintPDF(rawOrder)}
+                showInventory={(order.status === 'paid' || order.status === 'processing') && !hasActiveDeliveryNote}
+                showDelivered={order.status === 'shipped'}
+                onDelivered={() => handleUpdateStatus(rawOrder.id, 'delivered')}
+                processingStatus={isProcessing}
+                showStorno={['paid', 'shipped'].includes(order.status)}
+                onStorno={() => {
+                  if (confirm(`Opravdu zrušit objednávku ${order.orderNumber}?`)) {
+                    handleUpdateStatus(rawOrder.id, 'cancelled')
+                  }
+                }}
+                stornoLabel="Zrušit"
+              />
+            </>
+          )
+        }}
       />
 
       <EntityPage.Pagination page={ep.page} total={ep.totalPages} onChange={ep.setPage} />

@@ -1,10 +1,10 @@
 'use client'
 
 import { useMemo } from 'react'
-import { FileText, XCircle } from 'lucide-react'
+import { FileText } from 'lucide-react'
 import {
   EntityPage, LoadingState, ErrorState,
-  LinkedDocumentBanner, ActionToolbar, CustomerOrderDetail,
+  LinkedDocumentBanner, DetailActionFooter, CustomerOrderDetail,
 } from '@/components/erp'
 import { useCompanySettings } from '@/components/erp/hooks/useCompanySettings'
 import {
@@ -59,15 +59,11 @@ export default function CreditNotesPage() {
             <>
               <LinkedDocumentBanner links={links} color="purple" />
               <CustomerOrderDetail order={mapCreditNoteToOrderDetail(cn)} isVatPayer={isVatPayer} />
-              {cn.status !== 'storno' && (
-                <ActionToolbar
-                  right={
-                    <button onClick={() => handleStorno(cn)} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded-lg transition-colors">
-                      <XCircle className="w-3.5 h-3.5" />Stornovat
-                    </button>
-                  }
-                />
-              )}
+              <DetailActionFooter
+                showStorno={cn.status !== 'storno'}
+                onStorno={() => handleStorno(cn)}
+                stornoLabel="Stornovat"
+              />
             </>
           )
         }}

@@ -1,9 +1,8 @@
 'use client'
 
 import { useRef, useMemo, useEffect } from 'react'
-import { Package, FileDown, XCircle } from 'lucide-react'
-import Button from '@/components/ui/Button'
-import { EntityPage, LoadingState, ErrorState, ActionToolbar, SupplierOrderDetail } from '@/components/erp'
+import { Package } from 'lucide-react'
+import { EntityPage, LoadingState, ErrorState, DetailActionFooter, SupplierOrderDetail } from '@/components/erp'
 import { useCompanySettings } from '@/components/erp/hooks/useCompanySettings'
 import { ExpectedOrdersButton } from '@/components/warehouse/expected/ExpectedOrdersButton'
 import { useNavbarMeta } from '@/components/NavbarMetaContext'
@@ -90,19 +89,12 @@ export default function ReceiptsPage() {
               orderHref={receipt.purchaseOrder ? `/purchase-orders?highlight=${receipt.purchaseOrder.id}` : undefined}
               showReceiptsSection={false}
             />
-            <ActionToolbar
-              right={
-                <div className="flex items-center gap-2">
-                  <Button size="sm" variant="secondary" onClick={() => actions.handleDownloadPDF(receipt)}>
-                    <FileDown className="w-4 h-4 mr-1" />Zobrazit PDF
-                  </Button>
-                  {receipt.status === 'active' && (
-                    <Button size="sm" variant="danger" onClick={() => actions.handleStorno(receipt)}>
-                      <XCircle className="w-4 h-4 mr-1" />Stornovat
-                    </Button>
-                  )}
-                </div>
-              }
+            <DetailActionFooter
+              flow="incoming"
+              onPrintPdf={() => actions.handleDownloadPDF(receipt)}
+              showStorno={receipt.status === 'active'}
+              onStorno={() => actions.handleStorno(receipt)}
+              stornoLabel="Stornovat"
             />
           </>
         )}

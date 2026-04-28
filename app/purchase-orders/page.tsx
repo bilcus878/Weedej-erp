@@ -2,7 +2,7 @@
 
 import { useRef, useMemo } from 'react'
 import { Package, Plus } from 'lucide-react'
-import { EntityPage, LoadingState, ErrorState, SupplierOrderDetail } from '@/components/erp'
+import { EntityPage, LoadingState, ErrorState, SupplierOrderDetail, DetailActionFooter } from '@/components/erp'
 import { useCompanySettings } from '@/components/erp/hooks/useCompanySettings'
 import {
   usePurchaseOrders, usePurchaseOrderActions, createPurchaseOrderColumns,
@@ -57,9 +57,11 @@ export default function PurchaseOrdersPage() {
             <SupplierOrderDetail
               order={mapPurchaseOrderToSupplierDetail(order)}
               isVatPayer={isVatPayer}
-              onPrintPdf={() => handleDownloadPDF(order.id)}
-              onRefresh={ep.refresh}
               showPaymentSection={false}
+            />
+            <DetailActionFooter
+              flow="incoming"
+              onPrintPdf={() => handleDownloadPDF(order.id)}
             />
           </div>
         )}

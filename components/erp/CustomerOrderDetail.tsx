@@ -3,11 +3,10 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import {
-  FileText, FileDown, Truck, CheckCircle, Clock,
+  FileText, Truck, CheckCircle, Clock,
   Package, ExternalLink, ShoppingBag, CreditCard,
   XCircle, RefreshCw, MapPin,
 } from 'lucide-react'
-import Button from '@/components/ui/Button'
 import { formatPrice } from '@/lib/utils'
 import { formatVariantQty } from '@/lib/formatVariantQty'
 
@@ -107,10 +106,7 @@ interface Props {
   order: OrderDetailData
   isVatPayer: boolean
   orderHref?: string
-  onPrintPdf?: () => void
-  onUpdateStatus?: (status: string) => void
   onRefresh?: () => Promise<void>
-  processingStatus?: boolean
   showShipping?: boolean        // hide Doručení column; default true
   showDeliveryNotes?: boolean   // hide výdejky list;   default true
   disableTrackingEdit?: boolean // hide tracking edit controls; default false
@@ -214,10 +210,7 @@ export function CustomerOrderDetail({
   order,
   isVatPayer,
   orderHref,
-  onPrintPdf,
-  onUpdateStatus,
   onRefresh,
-  processingStatus,
   showShipping = true,
   showDeliveryNotes = true,
   disableTrackingEdit = false,
@@ -830,55 +823,6 @@ export function CustomerOrderDetail({
         </div>
       )}
 
-      {/* ── Footer: akce ────────────────────────────────────────────────────── */}
-      {(onPrintPdf || onUpdateStatus) && (
-      <div className="flex items-center justify-between pt-2 border-t border-gray-200">
-        <div>
-          {onPrintPdf && (
-            <Button size="sm" variant="secondary" onClick={e => { e.stopPropagation(); onPrintPdf() }}>
-              <FileDown className="w-4 h-4 mr-1" />
-              Zobrazit PDF
-            </Button>
-          )}
-        </div>
-        <div className="flex flex-wrap gap-2 justify-end">
-          {onUpdateStatus && (order.status === 'paid' || order.status === 'processing') && !order.deliveryNotes?.some(dn => dn.status === 'active') && (
-            <Link
-              href="/delivery-notes"
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 text-xs font-medium rounded-lg transition-colors"
-              onClick={e => e.stopPropagation()}
-            >
-              <Package className="w-3.5 h-3.5" />
-              Vyskladnit
-              <ExternalLink className="w-3 h-3" />
-            </Link>
-          )}
-          {onUpdateStatus && order.status === 'shipped' && (
-            <button
-              onClick={e => { e.stopPropagation(); onUpdateStatus('delivered') }}
-              disabled={processingStatus}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <CheckCircle className="w-3.5 h-3.5" />
-              {processingStatus ? 'Zpracovává se...' : 'Doručeno'}
-            </button>
-          )}
-          {onUpdateStatus && ['paid', 'shipped'].includes(order.status) && (
-            <button
-              onClick={e => {
-                e.stopPropagation()
-                if (confirm(`Opravdu zrušit objednávku ${order.orderNumber}?`)) onUpdateStatus('cancelled')
-              }}
-              disabled={processingStatus}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-red-50 text-red-600 text-xs font-medium rounded-lg transition-colors border border-red-200 disabled:opacity-50"
-            >
-              <XCircle className="w-3.5 h-3.5" />
-              Zrušit
-            </button>
-          )}
-        </div>
-      </div>
-      )}
 
     </div>
   )

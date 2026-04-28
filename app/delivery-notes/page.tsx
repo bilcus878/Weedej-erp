@@ -1,8 +1,8 @@
 'use client'
 
 import { useRef, useMemo, useEffect } from 'react'
-import { Package, FileDown, XCircle } from 'lucide-react'
-import { EntityPage, LoadingState, ErrorState, ActionToolbar, CustomerOrderDetail } from '@/components/erp'
+import { Package } from 'lucide-react'
+import { EntityPage, LoadingState, ErrorState, DetailActionFooter, CustomerOrderDetail } from '@/components/erp'
 import { useCompanySettings } from '@/components/erp/hooks/useCompanySettings'
 import { ExpectedOrdersButton } from '@/components/warehouse/expected/ExpectedOrdersButton'
 import { useNavbarMeta } from '@/components/NavbarMetaContext'
@@ -97,19 +97,12 @@ export default function DeliveryNotesPage() {
                   <div className="px-4 py-3 text-sm text-gray-700 bg-white">{note.note}</div>
                 </div>
               )}
-              <ActionToolbar
-                left={
-                  <button onClick={() => actions.handleDownloadPDF(note.id)} className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-medium rounded-lg transition-colors">
-                    <FileDown className="w-3.5 h-3.5" />Zobrazit PDF
-                  </button>
-                }
-                right={
-                  note.status !== 'storno' ? (
-                    <button onClick={() => actions.handleStorno(note.id)} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded-lg transition-colors">
-                      <XCircle className="w-3.5 h-3.5" />Stornovat
-                    </button>
-                  ) : undefined
-                }
+              <DetailActionFooter
+                flow="outgoing"
+                onPrintPdf={() => actions.handleDownloadPDF(note.id)}
+                showStorno={note.status !== 'storno'}
+                onStorno={() => actions.handleStorno(note.id)}
+                stornoLabel="Stornovat"
               />
             </>
           )

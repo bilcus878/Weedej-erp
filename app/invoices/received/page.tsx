@@ -1,8 +1,8 @@
 'use client'
 
 import { useMemo } from 'react'
-import { FileText, FileEdit, XCircle } from 'lucide-react'
-import { EntityPage, LoadingState, ErrorState, ActionToolbar, SupplierOrderDetail } from '@/components/erp'
+import { FileText, FileEdit } from 'lucide-react'
+import { EntityPage, LoadingState, ErrorState, DetailActionFooter, SupplierOrderDetail } from '@/components/erp'
 import { useCompanySettings } from '@/components/erp/hooks/useCompanySettings'
 import {
   useReceivedInvoices, useReceivedInvoiceActions, createReceivedInvoiceColumns,
@@ -57,7 +57,6 @@ export default function ReceivedInvoicesPage() {
                   order={mapInvoiceToSupplierDetail(inv)}
                   isVatPayer={isVatPayer}
                   orderHref={inv.purchaseOrder ? `/purchase-orders?highlight=${inv.purchaseOrder.id}` : undefined}
-                  onRefresh={ep.refresh}
                   showPaymentSection={false}
                 />
               </div>
@@ -67,8 +66,12 @@ export default function ReceivedInvoicesPage() {
               )}
 
               {inv.status !== 'storno' && (
-                <ActionToolbar
-                  left={
+                <DetailActionFooter
+                  flow="incoming"
+                  showStorno={true}
+                  onStorno={() => actions.handleStorno(inv.id)}
+                  stornoLabel="Stornovat"
+                  extraLeft={
                     <>
                       <button
                         onClick={() => actions.handleOpenDetailsModal(inv)}
@@ -100,15 +103,6 @@ export default function ReceivedInvoicesPage() {
                         </label>
                       )}
                     </>
-                  }
-                  right={
-                    <button
-                      onClick={() => actions.handleStorno(inv.id)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded-lg transition-colors"
-                    >
-                      <XCircle className="w-3.5 h-3.5" />
-                      Stornovat
-                    </button>
                   }
                 />
               )}

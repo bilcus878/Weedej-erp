@@ -2,7 +2,7 @@
 
 import { useRef, useMemo } from 'react'
 import { ShoppingCart, Plus } from 'lucide-react'
-import { EntityPage, LoadingState, ErrorState, CustomerOrderDetail } from '@/components/erp'
+import { EntityPage, LoadingState, ErrorState, CustomerOrderDetail, DetailActionFooter } from '@/components/erp'
 import { useCompanySettings } from '@/components/erp/hooks/useCompanySettings'
 import {
   useCustomerOrders, useCustomerOrderActions,
@@ -55,16 +55,30 @@ export default function CustomerOrdersPage() {
         onToggle={ep.toggleExpand}
         onClearFilters={filters.clear}
         rowClassName={r => r.status === 'storno' ? 'bg-red-50 opacity-70' : ''}
-        renderDetail={order => (
-          <CustomerOrderDetail
-            order={mapCustomerOrderToOrderDetail(order)}
-            isVatPayer={isVatPayer}
-            orderHref={`/customer-orders?highlight=${order.id}`}
-            onPrintPdf={() => handlePrintPDF(order)}
-            onUpdateStatus={status => handleUpdateStatus(order.id, status)}
-            onRefresh={ep.refresh}
-          />
-        )}
+        renderDetail={rawOrder => {
+          const order = mapCustomerOrderToOrderDetail(rawOrder)
+          const hasActiveDeliveryNote = order.deliveryNotes?.some(dn => dn.status === 'active') ?? false
+          return (
+            <>
+              <CustomerOrderDetail
+                order={order}
+                isVatPayer={isVatPayer}
+                orderHref={`/customer-orders?highlight=${rawOrder.id}`}
+                onRefresh={ep.refresh}
+              />
+              <DetailActionFooter
+                flow="outgoing"
+                onPrintPdf={() => handlePrintPDF(rawOrder)}
+                showInventory={(order.status === 'paid' || order.status === 'processing') && !hasActiveDeliveryNote}
+                showDelivered={order.status === 'shipped'}
+                onDelivered={() => handleUpdateStatus(rawOrder.id, 'delivered')}
+                showStorno={['paid', 'shipped'].includes(order.status)}
+                onStorno={() => handleUpdateStatus(rawOrder.id, 'cancelled')}
+                stornoLabel="Zrušit"
+              />
+            </>
+          )
+        }}
       />
 
       <EntityPage.Pagination page={ep.page} total={ep.totalPages} onChange={ep.setPage} />
