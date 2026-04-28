@@ -60,7 +60,11 @@ export function ProductFormModal({ categories, isVatPayer, onClose, onSaved, onR
 
   function handleEditDraft(v: DraftVariant) {
     setEditingTempId(v.tempId)
-    setVariantDraft({ name: v.name, price: v.price, variantValue: v.variantValue, variantUnit: v.variantUnit, isDefault: v.isDefault, isActive: v.isActive, isSumup: v.isSumup })
+    setVariantDraft({
+      name: v.name, price: v.price, variantValue: v.variantValue, variantUnit: v.variantUnit,
+      isDefault: v.isDefault, isActive: v.isActive, isSumup: v.isSumup,
+      sku: v.sku, ean: v.ean,
+    })
     setAddingVariant(true)
   }
 
@@ -86,12 +90,20 @@ export function ProductFormModal({ categories, isVatPayer, onClose, onSaved, onR
         batchTracking,
       })
       for (const v of draftVariants) {
-        await createVariant(id, {
-          name: v.name, price: parseFloat(v.price),
+        const varPayload: Record<string, unknown> = {
+          name:         v.name,
+          price:        parseFloat(v.price),
           variantValue: v.variantValue ? parseFloat(v.variantValue) : null,
-          variantUnit: v.variantUnit || null,
-          isDefault: v.isDefault, isActive: v.isActive, isSumup: v.isSumup,
-        })
+          variantUnit:  v.variantUnit || null,
+          isDefault:    v.isDefault,
+          isActive:     v.isActive,
+          isSumup:      v.isSumup,
+          ean:          v.ean.trim() || null,
+        }
+        // SKU: only include when non-empty; empty → server auto-generates
+        const normSku = v.sku.trim().toUpperCase()
+        if (normSku) varPayload.sku = normSku
+        await createVariant(id, varPayload)
       }
       onSaved(); onClose()
     } catch (err: unknown) {
@@ -182,15 +194,31 @@ export function ProductFormModal({ categories, isVatPayer, onClose, onSaved, onR
                     {formatPrice(parseFloat(v.price) || 0)}
                     {v.variantValue && ` · ${v.variantValue} ${v.variantUnit || ''}`.trim()}
                   </p>
-                  <div className="flex gap-1.5 mt-1.5 flex-wrap">
+                  {/* SKU / EAN identifiers */}
+                  <div className="flex gap-1.5 mt-1.5 flex-wrap items-center">
+                    {v.sku.trim() ? (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 font-mono text-[10px] border border-slate-200">
+                        {v.sku.trim().toUpperCase()}
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-gray-400 italic">SKU: auto</span>
+                    )}
+                    {v.ean.trim() && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-mono text-[10px] border border-indigo-100">
+                        {v.ean.trim()}
+                      </span>
+                    )}
+                  </div>
+                  {/* Flag badges */}
+                  <div className="flex gap-1.5 mt-1 flex-wrap">
                     {v.isDefault && <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-semibold">★ Výchozí</span>}
                     {v.isActive  && <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-semibold">🛒 E-shop</span>}
                     {v.isSumup   && <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-semibold">⚡ SumUp</span>}
                   </div>
                 </div>
                 <div className="flex gap-1 shrink-0">
-                  <button type="button" onClick={() => handleEditDraft(v)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition-colors"><Edit2 className="w-3.5 h-3.5" /></button>
-                  <button type="button" onClick={() => handleRemoveDraft(v.tempId)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-md transition-colors"><X className="w-3.5 h-3.5" /></button>
+                  <button type="button" onClick={() => handleEditDraft(v)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition-colors" title="Upravit"><Edit2 className="w-3.5 h-3.5" /></button>
+                  <button type="button" onClick={() => handleRemoveDraft(v.tempId)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-md transition-colors" title="Odebrat"><X className="w-3.5 h-3.5" /></button>
                 </div>
               </div>
             </div>

@@ -1,6 +1,6 @@
 'use client'
 
-import { ChevronUp, ChevronDown, ChevronRight, Package, Edit2, Trash2, ShoppingBag, Plus, X } from 'lucide-react'
+import { ChevronUp, ChevronDown, ChevronRight, Package, Edit2, Trash2, ShoppingBag, Plus, X, Barcode } from 'lucide-react'
 import { PopupButton } from '@/components/ui/PopupButton'
 import { EmptyState, DetailSection, DetailRow, ActionToolbar } from '@/components/erp'
 import { VAT_RATE_LABELS, isNonVatPayer } from '@/lib/vatCalculation'
@@ -30,6 +30,31 @@ function SortIcon({ field, sortField, sortDir }: { field: string; sortField: str
     : <ChevronDown className="h-3 w-3 ml-0.5 text-orange-600 inline" />
 }
 
+/** Monospace SKU chip — visually distinct from normal text. */
+function SkuBadge({ sku }: { sku: string | null }) {
+  if (!sku) return <span className="text-gray-300 text-xs">—</span>
+  return (
+    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 font-mono text-[11px] leading-tight border border-slate-200">
+      {sku}
+    </span>
+  )
+}
+
+/** EAN display with optional format badge. */
+function EanBadge({ ean }: { ean: string | null }) {
+  if (!ean) return <span className="text-gray-300 text-xs">—</span>
+  const fmt = ean.length === 8 ? 'EAN-8' : ean.length === 13 ? 'EAN-13' : 'GTIN-14'
+  return (
+    <span
+      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-mono text-[11px] leading-tight border border-indigo-100"
+      title={fmt}
+    >
+      <Barcode className="w-3 h-3 flex-shrink-0" />
+      {ean}
+    </span>
+  )
+}
+
 export function ProductTable({
   ep, categories, isVatPayer, paginated,
   popupOpen, setPopupOpen,
@@ -54,9 +79,9 @@ export function ProductTable({
             <ProductFormModal categories={categories} isVatPayer={isVatPayer} onSaved={ep.refresh} onClose={() => setPopupOpen(false)} onRefresh={ep.refresh} />
           </PopupButton>
         </div>
-        <button onClick={() => toggleSort('name')}     className="text-center hover:text-orange-700 transition-colors select-none">Název <SortIcon field="name" sortField={sortField} sortDir={sortDir} /></button>
+        <button onClick={() => toggleSort('name')}     className="text-center hover:text-orange-700 transition-colors select-none">Název <SortIcon field="name"     sortField={sortField} sortDir={sortDir} /></button>
         <button onClick={() => toggleSort('category')} className="text-center hover:text-orange-700 transition-colors select-none">Kategorie <SortIcon field="category" sortField={sortField} sortDir={sortDir} /></button>
-        <button onClick={() => toggleSort('variants')} className="text-center hover:text-orange-700 transition-colors select-none">Varianty <SortIcon field="variants" sortField={sortField} sortDir={sortDir} /></button>
+        <button onClick={() => toggleSort('variants')} className="text-center hover:text-orange-700 transition-colors select-none">Varianty <SortIcon field="variants"  sortField={sortField} sortDir={sortDir} /></button>
         {isVatPayer && <div className="text-center">DPH</div>}
         <div className="text-center">Jednotka</div>
       </div>
@@ -76,6 +101,7 @@ export function ProductTable({
         return (
           <div key={product.id} className={`border rounded-lg transition-all ${isExpanded ? 'ring-2 ring-orange-400 shadow-sm' : 'hover:shadow-sm'}`}>
 
+            {/* ── Collapsed row ─────────────────────────────────────────── */}
             <div className={`grid items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors ${gridCols}`} onClick={() => handleToggleExpand(product.id)}>
               <div className="flex items-center justify-center">
                 {isExpanded ? <ChevronDown className="h-5 w-5 text-gray-400" /> : <ChevronRight className="h-5 w-5 text-gray-400" />}
@@ -112,9 +138,11 @@ export function ProductTable({
               </div>
             </div>
 
+            {/* ── Expanded panel ────────────────────────────────────────── */}
             {isExpanded && (
               <div className="border-t border-gray-100 p-4 bg-gray-50/50 space-y-4">
 
+                {/* Product detail / inline edit form */}
                 {editForm ? (
                   <DetailSection title="Upravit produkt" icon={Edit2}>
                     <div className="grid grid-cols-2 gap-3 py-2">
@@ -182,63 +210,126 @@ export function ProductTable({
                   </DetailSection>
                 )}
 
-                <DetailSection title="Varianty produktu" icon={ShoppingBag} headerRight={<span className="text-xs text-gray-400 font-normal">{variants.length} variant</span>}>
+                {/* ── Variants section ───────────────────────────────────── */}
+                <DetailSection
+                  title="Varianty produktu"
+                  icon={ShoppingBag}
+                  headerRight={<span className="text-xs text-gray-400 font-normal">{variants.length} variant</span>}
+                >
                   {variants.length === 0 ? (
                     <p className="text-xs text-gray-400 text-center py-3">Žádné varianty.</p>
                   ) : (
-                    <table className="w-full text-xs mt-1">
-                      <thead>
-                        <tr className="text-gray-500 border-b border-gray-100">
-                          <th className="py-1.5 text-left font-medium">Název</th>
-                          <th className="py-1.5 text-right font-medium">Cena</th>
-                          <th className="py-1.5 text-right font-medium">Množství</th>
-                          <th className="py-1.5 text-center font-medium">Výchozí</th>
-                          <th className="py-1.5 text-center font-medium">SumUp</th>
-                          <th className="py-1.5 text-center font-medium">E-shop</th>
-                          <th className="py-1.5 text-center font-medium">Akce</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {variants.map(v => (
-                          <tr key={v.id} className="border-t border-gray-100 hover:bg-gray-50">
-                            <td className="py-1.5 font-medium">{v.name}</td>
-                            <td className="py-1.5 text-right">{formatPrice(Number(v.price))}</td>
-                            <td className="py-1.5 text-right">{v.variantValue ? `${v.variantValue} ${v.variantUnit ?? ''}`.trim() : '—'}</td>
-                            <td className="py-1.5 text-center">{v.isDefault ? <span className="text-emerald-600 font-bold">★</span> : <span className="text-gray-300">—</span>}</td>
-                            <td className="py-1.5 text-center">{v.isSumup ? <span className="text-orange-500 font-bold">⚡</span> : <span className="text-gray-300">—</span>}</td>
-                            <td className="py-1.5 text-center">{v.isActive ? <span className="text-emerald-600">✓</span> : <span className="text-red-400">✗</span>}</td>
-                            <td className="py-1.5 text-center">
-                              <div className="flex items-center justify-center gap-1">
-                                <button onClick={() => handleEditVariant(product.id, v)} className="p-1 text-blue-600 hover:bg-blue-50 rounded"><Edit2 className="h-3.5 w-3.5" /></button>
-                                <button onClick={() => handleDeleteVariant(product.id, v.id, v.name)} className="p-1 text-red-500 hover:bg-red-50 rounded"><Trash2 className="h-3.5 w-3.5" /></button>
-                              </div>
-                            </td>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs mt-1 min-w-[640px]">
+                        <thead>
+                          <tr className="text-gray-500 border-b border-gray-100">
+                            <th className="py-1.5 text-left font-semibold">Název</th>
+                            <th className="py-1.5 text-left font-semibold">SKU</th>
+                            <th className="py-1.5 text-left font-semibold">EAN</th>
+                            <th className="py-1.5 text-right font-semibold">Cena</th>
+                            <th className="py-1.5 text-right font-semibold">Množství</th>
+                            <th className="py-1.5 text-center font-semibold">Příznaky</th>
+                            <th className="py-1.5 text-center font-semibold">Akce</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {variants.map(v => (
+                            <tr key={v.id} className="border-t border-gray-100 hover:bg-white/80 transition-colors">
+                              <td className="py-2 font-medium text-gray-900 pr-2">{v.name}</td>
+                              <td className="py-2 pr-2">
+                                <SkuBadge sku={v.sku} />
+                              </td>
+                              <td className="py-2 pr-2">
+                                <EanBadge ean={v.ean} />
+                              </td>
+                              <td className="py-2 text-right font-medium text-gray-700 pr-2">{formatPrice(Number(v.price))}</td>
+                              <td className="py-2 text-right text-gray-500 pr-2">
+                                {v.variantValue ? `${v.variantValue} ${v.variantUnit ?? ''}`.trim() : '—'}
+                              </td>
+                              <td className="py-2 text-center">
+                                <div className="flex items-center justify-center gap-1">
+                                  {v.isDefault && (
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-semibold">★ Výchozí</span>
+                                  )}
+                                  {v.isSumup && (
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700 font-semibold">⚡ SumUp</span>
+                                  )}
+                                  {v.isActive && (
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 font-semibold">🛒 E-shop</span>
+                                  )}
+                                  {!v.isDefault && !v.isSumup && !v.isActive && (
+                                    <span className="text-gray-300">—</span>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="py-2 text-center">
+                                <div className="flex items-center justify-center gap-1">
+                                  <button
+                                    onClick={() => handleEditVariant(product.id, v)}
+                                    className="p-1 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                    title="Upravit variantu"
+                                  >
+                                    <Edit2 className="h-3.5 w-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteVariant(product.id, v.id, v.name)}
+                                    className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors"
+                                    title="Smazat variantu"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   )}
 
+                  {/* Variant add / edit form */}
                   <div className="mt-3 pt-3 border-t border-gray-100" onClick={e => e.stopPropagation()}>
                     <p className="text-xs font-semibold text-gray-500 mb-2 flex items-center gap-1">
-                      {evEditing ? <><Edit2 className="h-3 w-3" />Upravit variantu</> : <><Plus className="h-3 w-3" />Nová varianta</>}
+                      {evEditing
+                        ? <><Edit2 className="h-3 w-3" />Upravit variantu — <span className="font-normal text-gray-400">{evEditing.name}</span></>
+                        : <><Plus className="h-3 w-3" />Nová varianta</>
+                      }
                     </p>
                     <VariantRow
                       v={vForm || emptyVariantForm()}
-                      onChange={patch => setVariantForms(prev => ({ ...prev, [product.id]: { ...(prev[product.id] || emptyVariantForm()), ...patch } }))}
+                      onChange={patch => setVariantForms(prev => ({
+                        ...prev,
+                        [product.id]: { ...(prev[product.id] || emptyVariantForm()), ...patch },
+                      }))}
+                      productId={product.id}
+                      currentVariantId={evEditing?.id}
                     />
                     <div className="flex gap-2 mt-2 justify-end">
                       {evEditing && (
-                        <button onClick={() => handleCancelVariantEdit(product.id)} className="h-8 px-3 text-xs bg-gray-100 text-gray-600 rounded-md hover:bg-gray-200">Zrušit</button>
+                        <button
+                          onClick={() => handleCancelVariantEdit(product.id)}
+                          className="h-8 px-3 text-xs bg-gray-100 text-gray-600 rounded-md hover:bg-gray-200 transition-colors"
+                        >
+                          Zrušit
+                        </button>
                       )}
-                      <button onClick={() => handleVariantSubmit(product.id)} disabled={vLoading}
-                        className="h-8 px-4 text-xs bg-emerald-600 text-white rounded-md hover:bg-emerald-700 disabled:opacity-50 font-medium flex items-center gap-1">
-                        {vLoading ? <span className="animate-pulse">…</span> : evEditing ? 'Uložit změny' : <><Plus className="h-3 w-3" />Přidat</>}
+                      <button
+                        onClick={() => handleVariantSubmit(product.id)}
+                        disabled={vLoading}
+                        className="h-8 px-4 text-xs bg-emerald-600 text-white rounded-md hover:bg-emerald-700 disabled:opacity-50 font-medium flex items-center gap-1 transition-colors"
+                      >
+                        {vLoading
+                          ? <span className="animate-pulse">…</span>
+                          : evEditing
+                            ? 'Uložit změny'
+                            : <><Plus className="h-3 w-3" />Přidat</>
+                        }
                       </button>
                     </div>
                   </div>
                 </DetailSection>
 
+                {/* Action toolbar */}
                 <ActionToolbar
                   right={
                     editForm ? (

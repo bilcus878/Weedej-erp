@@ -127,17 +127,39 @@ export function useProducts() {
     if (!form.name || !form.price) { alert('Vyplň název a cenu varianty'); return }
     setVariantLoading(prev => ({ ...prev, [productId]: true }))
     try {
-      const ev      = editingVariant[productId]
-      const payload = {
-        name: form.name, price: parseFloat(form.price),
+      const ev = editingVariant[productId]
+
+      // Build the base payload shared by both create and update
+      const payload: Record<string, unknown> = {
+        name:         form.name,
+        price:        parseFloat(form.price),
         variantValue: form.variantValue ? parseFloat(form.variantValue) : null,
-        variantUnit: form.variantUnit || null,
-        isDefault: form.isDefault, isActive: form.isActive, isSumup: form.isSumup,
+        variantUnit:  form.variantUnit || null,
+        isDefault:    form.isDefault,
+        isActive:     form.isActive,
+        isSumup:      form.isSumup,
+        // EAN: always include — null means "no EAN" (create) or "clear EAN" (update)
+        ean:          form.ean.trim() || null,
       }
+
+      // SKU: only include when non-empty.
+      //   • On create — omitted → server auto-generates
+      //   • On update — omitted → server keeps the existing value
+      const normSku = form.sku.trim().toUpperCase()
+      if (normSku) payload.sku = normSku
+
       const res = ev
         ? await updateVariant(productId, ev.id, payload)
         : await createVariant(productId, payload)
-      if (!res.ok) throw new Error('Chyba při ukládání varianty')
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: string; errors?: Record<string, string> }
+        const msg  = body.errors
+          ? Object.values(body.errors).join('\n')
+          : body.error ?? 'Chyba při ukládání varianty'
+        throw new Error(msg)
+      }
+
       await loadVariants(productId)
       setVariantForms(prev => ({ ...prev, [productId]: emptyVariantForm() }))
       setEditingVariant(prev => ({ ...prev, [productId]: null }))
@@ -150,10 +172,15 @@ export function useProducts() {
     setVariantForms(prev => ({
       ...prev,
       [productId]: {
-        name: v.name, price: String(v.price),
+        name:         v.name,
+        price:        String(v.price),
         variantValue: v.variantValue ? String(v.variantValue) : '',
-        variantUnit: (v.variantUnit as 'g' | 'ml' | 'ks' | '') ?? '',
-        isDefault: v.isDefault, isActive: v.isActive, isSumup: v.isSumup,
+        variantUnit:  (v.variantUnit as 'g' | 'ml' | 'ks' | '') ?? '',
+        isDefault:    v.isDefault,
+        isActive:     v.isActive,
+        isSumup:      v.isSumup,
+        sku:          v.sku ?? '',
+        ean:          v.ean ?? '',
       },
     }))
   }
