@@ -55,7 +55,7 @@ export interface InvoiceData {
 
 export interface BatchInput {
   batchNumber:    string
-  productionDate: string
-  expiryDate:     string
-  supplierLotRef: string
+  productionDate: string | null
+  expiryDate:     string | null
+  supplierLotRef: string | null
 }

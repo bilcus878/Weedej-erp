@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { fetchPendingOrders, receiveFromOrder } from '../services/receiptService'
-import type { PurchaseOrder, Supplier, ReceiptItem, InvoiceData, BatchInput } from '../types'
-import { emptyBatchFormData } from '@/features/batches/types'
+import type { PurchaseOrder, Supplier, ReceiptItem, InvoiceData } from '../types'
+import { emptyBatchFormData, type BatchFormData } from '@/features/batches/types'
 
 type ShowToast = (type: 'success' | 'error', message: string) => void
 
@@ -19,7 +19,7 @@ export function useReceiptProcessing(
   const [processingOrderId,        setProcessingOrderId]        = useState<string | null>(null)
   const [processingReceiptItems,   setProcessingReceiptItems]   = useState<ReceiptItem[]>([])
   const [receivedQuantities,       setReceivedQuantities]       = useState<Record<string, number>>({})
-  const [batchData,                setBatchData]                = useState<Record<string, BatchInput>>({})
+  const [batchData,                setBatchData]                = useState<Record<string, BatchFormData>>({})
   const [invoiceData,              setInvoiceData]              = useState<InvoiceData>({
     invoiceNumber: '', invoiceDate: new Date().toISOString().split('T')[0], dueDate: '', note: '',
   })
@@ -98,7 +98,7 @@ export function useReceiptProcessing(
           productId:        item.productId!,
           receivedQuantity: receivedQuantities[item.id!] || 0,
           batchData: (bd?.batchNumber?.trim())
-            ? { batchNumber: bd.batchNumber, productionDate: bd.productionDate || null, expiryDate: bd.expiryDate || null, supplierLotRef: bd.supplierLotRef || null }
+            ? { batchNumber: bd.batchNumber.trim(), productionDate: bd.productionDate || null, expiryDate: bd.expiryDate || null, supplierLotRef: bd.supplierLotRef || null }
             : null,
         }
       })

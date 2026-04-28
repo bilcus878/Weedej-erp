@@ -5,8 +5,8 @@ import Input from '@/components/ui/Input'
 import { formatPrice } from '@/lib/utils'
 import { isNonVatPayer, DEFAULT_VAT_RATE } from '@/lib/vatCalculation'
 import { BatchFormFields } from '@/features/batches'
-import { emptyBatchFormData } from '@/features/batches/types'
-import type { ReceiptItem, InvoiceData, BatchInput } from '../types'
+import { emptyBatchFormData, type BatchFormData } from '@/features/batches/types'
+import type { ReceiptItem, InvoiceData } from '../types'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -36,8 +36,8 @@ interface Props {
   processingReceiptItems:   ReceiptItem[]
   receivedQuantities:       Record<string, number>
   setReceivedQuantities:    (q: Record<string, number>) => void
-  batchData:                Record<string, BatchInput>
-  setBatchData:             (d: Record<string, BatchInput>) => void
+  batchData:                Record<string, BatchFormData>
+  setBatchData:             (d: Record<string, BatchFormData>) => void
   invoiceData:              InvoiceData
   setInvoiceData:           (d: InvoiceData) => void
   processReceiptDate:       string
