@@ -14,8 +14,8 @@ interface ProcessReceiptRequest {
   items: Array<{
     id: string // ID ReceiptItem
     receivedQuantity: number
-    batchData?: BatchInput | null
   }>
+  batchData?: BatchInput | null  // Receipt-level — applies to all items
   receiptDate?: string
   invoiceData?: {
     invoiceNumber?: string
@@ -186,13 +186,13 @@ export async function POST(
 
         // Naskladni skutečně přijaté množství
         if (itemData.receivedQuantity > 0) {
-          // Resolve batch — find-or-create within this transaction
+          // Resolve batch — find-or-create within this transaction (receipt-level batch shared by all items)
           const batchId = await findOrCreateBatch(
             tx,
             item.productId,
             receipt.supplierId,
             actualReceiptDate,
-            itemData.batchData ?? null,
+            body.batchData ?? null,
           )
 
           // Vytvoř InventoryItem

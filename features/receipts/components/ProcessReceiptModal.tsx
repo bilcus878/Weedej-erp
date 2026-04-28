@@ -1,13 +1,11 @@
 'use client'
 
-import { useState } from 'react'
 import { Package, Building2, ChevronDown, ChevronRight, FlaskConical } from 'lucide-react'
 import Input from '@/components/ui/Input'
 import { formatPrice } from '@/lib/utils'
 import { isNonVatPayer, DEFAULT_VAT_RATE } from '@/lib/vatCalculation'
-import { BatchFormFields } from '@/features/batches'
-import { emptyBatchFormData, type BatchFormData } from '@/features/batches/types'
 import type { ReceiptItem, InvoiceData } from '../types'
+import type { BatchFormData } from '@/features/batches/types'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -37,8 +35,8 @@ interface Props {
   processingReceiptItems:   ReceiptItem[]
   receivedQuantities:       Record<string, number>
   setReceivedQuantities:    (q: Record<string, number>) => void
-  batchData:                Record<string, BatchFormData>
-  setBatchData:             (d: Record<string, BatchFormData>) => void
+  batchData:                BatchFormData
+  setBatchData:             (d: BatchFormData) => void
   invoiceData:              InvoiceData
   setInvoiceData:           (d: InvoiceData) => void
   processReceiptDate:       string
@@ -64,15 +62,6 @@ export function ProcessReceiptModal({
 }: Props) {
   const o        = processingOrder
   const supplier = o?.supplier
-
-  const [expandedBatchItems, setExpandedBatchItems] = useState<Set<string>>(new Set())
-  function toggleBatchItem(id: string) {
-    setExpandedBatchItems(prev => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id); else next.add(id)
-      return next
-    })
-  }
 
   // Running total across currently entered received quantities
   const total = processingReceiptItems.reduce((sum, item: any) => {
@@ -126,6 +115,50 @@ export function ProcessReceiptModal({
           <div className="flex flex-col overflow-y-auto min-h-0 bg-white border-r border-gray-200">
             <div className="flex-1 px-6 py-6 space-y-8">
 
+              {/* 0. Batch — receipt-level ───────────────────────────────────── */}
+              <section>
+                <div className="flex items-center gap-2 mb-3">
+                  <FlaskConical className="w-3.5 h-3.5 text-amber-500" />
+                  <p className="text-xs font-bold uppercase tracking-widest text-amber-600">Šarže příjemky</p>
+                  <span className="text-xs text-gray-400 font-normal normal-case tracking-normal">(volitelné)</span>
+                </div>
+                <div className="border border-amber-200 rounded-xl bg-amber-50/40 p-4 space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-amber-700 mb-1.5">Interní číslo šarže</label>
+                      <input
+                        type="text"
+                        value={batchData.batchNumber}
+                        onChange={e => setBatchData({ ...batchData, batchNumber: e.target.value })}
+                        placeholder="např. LOT-2026-001"
+                        className="w-full px-3 py-2 text-sm border border-amber-300 bg-white rounded-lg focus:border-amber-500 focus:ring-1 focus:ring-amber-200 focus:outline-none transition-colors"
+                      />
+                      <p className="text-[10px] text-amber-600 mt-1">Přiřadí se ke všem položkám tohoto příjmu</p>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-amber-700 mb-1.5">
+                        Šarže dodavatele <span className="text-gray-400 font-normal">(vol.)</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={batchData.supplierLotRef}
+                        onChange={e => setBatchData({ ...batchData, supplierLotRef: e.target.value })}
+                        placeholder="např. SUP-LOT-9921"
+                        className="w-full px-3 py-2 text-sm border border-amber-300 bg-white rounded-lg focus:border-amber-500 focus:ring-1 focus:ring-amber-200 focus:outline-none transition-colors"
+                      />
+                    </div>
+                  </div>
+                  {batchData.batchNumber.trim() && (
+                    <div className="px-3 py-2 bg-amber-100 rounded-lg border border-amber-200">
+                      <p className="text-xs text-amber-800">
+                        <span className="font-semibold font-mono">{batchData.batchNumber.trim()}</span>
+                        {' '}bude přiřazena ke všem {processingReceiptItems.length} položkám tohoto příjmu.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </section>
+
               {/* 1. Items ────────────────────────────────────────────────────── */}
               <section>
                 <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">
@@ -162,31 +195,16 @@ export function ProcessReceiptModal({
                           const rowTotal        = received * (isVatPayer ? priceWithVat : unitPrice)
                           const maxAllowed      = item.remainingQuantity || Number(item.quantity)
                           const alreadyReceived = item.alreadyReceived || 0
-                          const itemBatch       = batchData[item.id!] ?? emptyBatchFormData()
-                          const hasBatchNumber  = !!itemBatch.batchNumber.trim()
-                          const batchOpen       = expandedBatchItems.has(item.id!) || hasBatchNumber
 
                           return (
                             <tr key={item.id} className="hover:bg-gray-50/60 transition-colors">
                               <td className="px-4 py-3">
                                 <p className="font-medium text-gray-900">{item.product?.name || item.productName || 'Neznámý produkt'}</p>
-                                <button
-                                  type="button"
-                                  onClick={() => toggleBatchItem(item.id!)}
-                                  className={`mt-1.5 inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded border transition-colors ${
-                                    hasBatchNumber
-                                      ? 'bg-amber-100 text-amber-700 border-amber-300 font-semibold'
-                                      : 'text-gray-400 border-gray-200 hover:text-amber-600 hover:border-amber-300 hover:bg-amber-50'
-                                  }`}
-                                >
-                                  <FlaskConical className="w-3 h-3" />
-                                  {hasBatchNumber ? itemBatch.batchNumber : '+ Šarže'}
-                                </button>
-                                {batchOpen && (
-                                  <BatchFormFields
-                                    value={itemBatch}
-                                    onChange={v => setBatchData({ ...batchData, [item.id!]: v })}
-                                  />
+                                {batchData.batchNumber.trim() && (
+                                  <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-200">
+                                    <FlaskConical className="w-2.5 h-2.5 shrink-0" />
+                                    {batchData.batchNumber.trim()}
+                                  </span>
                                 )}
                               </td>
                               <td className="text-right px-3 py-3 text-gray-500 whitespace-nowrap">

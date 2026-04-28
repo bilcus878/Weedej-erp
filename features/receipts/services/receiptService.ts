@@ -44,14 +44,15 @@ export async function stornoReceipt(id: string, reason: string): Promise<void> {
 
 export async function receiveFromOrder(
   orderId:     string,
-  items:       Array<{ productId: string; receivedQuantity: number; batchData?: BatchInput | null }>,
+  items:       Array<{ productId: string; receivedQuantity: number }>,
   invoiceData: InvoiceData,
   receiptDate: string,
+  batchData?:  BatchInput | null,
 ): Promise<void> {
   const res = await fetch(`/api/purchase-orders/${orderId}/receive`, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ items, invoiceData, receiptDate }),
+    body:    JSON.stringify({ items, invoiceData, receiptDate, batchData }),
   })
   if (!res.ok) {
     const err = await res.json()
