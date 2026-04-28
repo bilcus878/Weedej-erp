@@ -182,7 +182,7 @@ export function SupplierOrderDetail({
   const firstReceiptDate = order.receipts?.find(r => r.status !== 'storno')?.receiptDate
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 max-w-4xl">
 
       {/* ══ Top 2-column card grid ══════════════════════════════════════════════ */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -355,7 +355,7 @@ export function SupplierOrderDetail({
                   <span className="font-medium text-gray-800 text-right">{order.note}</span>
                 </div>
               )}
-              <div className="flex justify-between items-center gap-2 pt-1 border-t border-gray-200">
+              <div className={`flex justify-between items-center gap-2${order.note ? ' pt-1 border-t border-gray-200' : ''}`}>
                 <span className="text-gray-500 shrink-0 text-xs uppercase tracking-wide font-bold">Celkem</span>
                 <span className="font-bold text-gray-900 text-right text-base">{formatPrice(Number(order.totalAmount))}</span>
               </div>
