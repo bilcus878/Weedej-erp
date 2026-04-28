@@ -68,6 +68,7 @@ export default function ReceivedInvoicesPage() {
               {inv.status !== 'storno' && (
                 <DetailActionFooter
                   flow="incoming"
+                  showInventory={inv.status !== 'received' && !!inv.purchaseOrder}
                   showStorno={true}
                   onStorno={() => actions.handleStorno(inv.id)}
                   stornoLabel="Stornovat"

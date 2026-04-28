@@ -12,11 +12,23 @@ interface Props {
 }
 
 export function InvoiceActions({ invoice, onPrint, onCreditNote, onStorno }: Props) {
+  // A delivery note exists and is not storno'd → goods already in shipment pipeline
+  const hasActiveDeliveryNote = invoice.deliveryNotes?.some(dn => dn.status !== 'storno') ?? false
+
+  // Show Vyskladnit only when:
+  //  • invoice is paid (customer has paid, goods are owed)
+  //  • there is a linked customer order to ship against
+  //  • no delivery note already covers this invoice
+  const showVyskladnit = invoice.status === 'paid'
+    && !!invoice.customerOrderId
+    && !hasActiveDeliveryNote
+
   return (
     <DetailActionFooter
       flow="outgoing"
       onPrintPdf={onPrint}
       printLabel="Zobrazit fakturu"
+      showInventory={showVyskladnit}
       showStorno={invoice.status !== 'storno'}
       onStorno={onStorno}
       stornoLabel="Stornovat"
