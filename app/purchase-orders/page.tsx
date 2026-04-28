@@ -59,6 +59,7 @@ export default function PurchaseOrdersPage() {
               isVatPayer={isVatPayer}
               onPrintPdf={() => handleDownloadPDF(order.id)}
               onRefresh={ep.refresh}
+              showPaymentSection={false}
             />
           </div>
         )}
