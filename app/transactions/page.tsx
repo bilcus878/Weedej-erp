@@ -1,7 +1,7 @@
 'use client'
 
 import { RefreshCw } from 'lucide-react'
-import { EntityPage, LoadingState, ErrorState, CustomerOrderDetail } from '@/components/erp'
+import { EntityPage, LoadingState, ErrorState, CustomerOrderDetail, DetailActionFooter } from '@/components/erp'
 import { useCompanySettings } from '@/components/erp/hooks/useCompanySettings'
 import {
   useTransactions, useTransactionActions,
@@ -51,6 +51,9 @@ export default function TransactionsPage() {
             <CustomerOrderDetail
               order={mapTransactionToOrderDetail(tx)}
               isVatPayer={isVatPayer}
+            />
+            <DetailActionFooter
+              flow="outgoing"
               onPrintPdf={tx.transactionCode.match(/^\d{7}$/) ? () => handlePrintPDF(tx) : undefined}
             />
           </>
