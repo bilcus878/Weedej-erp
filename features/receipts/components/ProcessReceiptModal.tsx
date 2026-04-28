@@ -1,6 +1,7 @@
 'use client'
 
-import { Package, Building2, ChevronDown, ChevronRight } from 'lucide-react'
+import { useState } from 'react'
+import { Package, Building2, ChevronDown, ChevronRight, FlaskConical } from 'lucide-react'
 import Input from '@/components/ui/Input'
 import { formatPrice } from '@/lib/utils'
 import { isNonVatPayer, DEFAULT_VAT_RATE } from '@/lib/vatCalculation'
@@ -63,6 +64,15 @@ export function ProcessReceiptModal({
 }: Props) {
   const o        = processingOrder
   const supplier = o?.supplier
+
+  const [expandedBatchItems, setExpandedBatchItems] = useState<Set<string>>(new Set())
+  function toggleBatchItem(id: string) {
+    setExpandedBatchItems(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
 
   // Running total across currently entered received quantities
   const total = processingReceiptItems.reduce((sum, item: any) => {
@@ -152,14 +162,27 @@ export function ProcessReceiptModal({
                           const rowTotal        = received * (isVatPayer ? priceWithVat : unitPrice)
                           const maxAllowed      = item.remainingQuantity || Number(item.quantity)
                           const alreadyReceived = item.alreadyReceived || 0
-                          const needsBatch      = item.product?.batchTracking === true
                           const itemBatch       = batchData[item.id!] ?? emptyBatchFormData()
+                          const hasBatchNumber  = !!itemBatch.batchNumber.trim()
+                          const batchOpen       = expandedBatchItems.has(item.id!) || hasBatchNumber
 
                           return (
                             <tr key={item.id} className="hover:bg-gray-50/60 transition-colors">
                               <td className="px-4 py-3">
                                 <p className="font-medium text-gray-900">{item.product?.name || item.productName || 'Neznámý produkt'}</p>
-                                {needsBatch && (
+                                <button
+                                  type="button"
+                                  onClick={() => toggleBatchItem(item.id!)}
+                                  className={`mt-1.5 inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded border transition-colors ${
+                                    hasBatchNumber
+                                      ? 'bg-amber-100 text-amber-700 border-amber-300 font-semibold'
+                                      : 'text-gray-400 border-gray-200 hover:text-amber-600 hover:border-amber-300 hover:bg-amber-50'
+                                  }`}
+                                >
+                                  <FlaskConical className="w-3 h-3" />
+                                  {hasBatchNumber ? itemBatch.batchNumber : '+ Šarže'}
+                                </button>
+                                {batchOpen && (
                                   <BatchFormFields
                                     value={itemBatch}
                                     onChange={v => setBatchData({ ...batchData, [item.id!]: v })}
