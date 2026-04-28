@@ -26,6 +26,7 @@ export interface StockMovement {
   purchasePrice?: number
   supplier?: { id: string; name: string } | null
   note?: string | null
+  batch?: { id: string; batchNumber: string; expiryDate?: string | null; status?: string } | null
   transaction?: { id: string; transactionCode: string; invoiceType?: string; receiptId?: string | null }
   receipt?: { id: string; receiptNumber: string }
   deliveryNote?: { id: string; deliveryNumber: string }

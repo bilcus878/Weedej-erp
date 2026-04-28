@@ -23,6 +23,7 @@ export async function GET(
         inventoryItems: {
           include: {
             supplier: true,
+            batch: { select: { id: true, batchNumber: true, expiryDate: true, status: true } },
             transaction: {
               include: {
                 issuedInvoice: true, // Pro vystavené faktury ze SumUp transakcí

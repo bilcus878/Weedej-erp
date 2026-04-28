@@ -5,6 +5,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getNextDocumentNumber } from '@/lib/documentNumbering'
+import { findOrCreateBatch, type BatchInput } from '@/lib/batchUtils'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,11 +13,12 @@ export const dynamic = 'force-dynamic'
 interface ProcessReceiptRequest {
   items: Array<{
     id: string // ID ReceiptItem
-    receivedQuantity: number // Skutečně přijaté množství
+    receivedQuantity: number
+    batchData?: BatchInput | null
   }>
-  receiptDate?: string // Datum příjmu zboží (kdy fyzicky dorazilo)
+  receiptDate?: string
   invoiceData?: {
-    invoiceNumber?: string // Může být prázdné - vytvoří se dočasná
+    invoiceNumber?: string
     invoiceDate: string
     dueDate?: string
     note?: string
@@ -184,6 +186,15 @@ export async function POST(
 
         // Naskladni skutečně přijaté množství
         if (itemData.receivedQuantity > 0) {
+          // Resolve batch — find-or-create within this transaction
+          const batchId = await findOrCreateBatch(
+            tx,
+            item.productId,
+            receipt.supplierId,
+            actualReceiptDate,
+            itemData.batchData ?? null,
+          )
+
           // Vytvoř InventoryItem
           const inventoryItem = await tx.inventoryItem.create({
             data: {
@@ -194,16 +205,18 @@ export async function POST(
               vatRate: item.vatRate || 21,
               supplierId: receipt.supplierId,
               receiptId: receipt.id,
+              batchId,
               date: actualReceiptDate,
-              note: null // Poznámka se nevyplňuje automaticky - jen pokud ji uživatel zadá
+              note: null
             }
           })
 
-          // ✅ Propoj ReceiptItem s InventoryItem
+          // Propoj ReceiptItem s InventoryItem + zapiš batchId
           await tx.receiptItem.update({
             where: { id: itemData.id },
             data: {
-              inventoryItemId: inventoryItem.id
+              inventoryItemId: inventoryItem.id,
+              batchId,
             }
           })
         }

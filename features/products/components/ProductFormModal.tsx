@@ -35,8 +35,9 @@ export function ProductFormModal({ categories, isVatPayer, onClose, onSaved, onR
   const [addingVariant, setAddingVariant] = useState(false)
   const [variantDraft,  setVariantDraft]  = useState<EshopVariantForm>(emptyVariantForm())
 
-  const [showCatMgr, setShowCatMgr] = useState(false)
-  const [saving,     setSaving]     = useState(false)
+  const [batchTracking, setBatchTracking] = useState(false)
+  const [showCatMgr,    setShowCatMgr]    = useState(false)
+  const [saving,        setSaving]        = useState(false)
 
   function patchVariantDraft(patch: Partial<EshopVariantForm>) {
     setVariantDraft(prev => ({ ...prev, ...patch }))
@@ -82,6 +83,7 @@ export function ProductFormModal({ categories, isVatPayer, onClose, onSaved, onR
         purchasePrice: purchasePrice ? parseFloat(purchasePrice) : null,
         vatRate: isVatPayer ? parseFloat(vatRate) : 0,
         unit, categoryId: categoryId || null,
+        batchTracking,
       })
       for (const v of draftVariants) {
         await createVariant(id, {
@@ -142,6 +144,19 @@ export function ProductFormModal({ categories, isVatPayer, onClose, onSaved, onR
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Nákupní cena (Kč)</label>
             <Input type="number" step="0.01" value={purchasePrice} onChange={e => setPurchasePrice(e.target.value)} placeholder="0.00" />
+          </div>
+          <div className="col-span-2">
+            <label className="flex items-center gap-3 cursor-pointer select-none">
+              <div
+                onClick={() => setBatchTracking(v => !v)}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${batchTracking ? 'bg-amber-500' : 'bg-gray-300'}`}
+              >
+                <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${batchTracking ? 'translate-x-4' : 'translate-x-1'}`} />
+              </div>
+              <span className="text-sm font-medium text-gray-700">Sledovat šarže (batch tracking)</span>
+              {batchTracking && <span className="text-xs text-amber-600 font-medium">— aktivní</span>}
+            </label>
+            <p className="text-xs text-gray-400 mt-1 ml-12">Zapni pro produkty, u kterých potřebuješ sledovat čísla šarží, expiraci nebo původ.</p>
           </div>
         </div>
       </div>

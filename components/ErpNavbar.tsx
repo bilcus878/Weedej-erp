@@ -7,7 +7,7 @@ import {
   Menu, X, LogOut, Settings, ChevronDown, LayoutDashboard,
   Warehouse, ShoppingCart, Receipt, Users, Package,
   PackageCheck, PackageMinus, ClipboardList,
-  FileText, CreditCard, Globe, FileOutput, Truck,
+  FileText, CreditCard, Globe, FileOutput, Truck, FlaskConical,
 } from 'lucide-react'
 import { useSession, signOut } from 'next-auth/react'
 import { Logo } from '@/components/ui/Logo'
@@ -30,6 +30,7 @@ const navGroups: NavGroup[] = [
       { label: 'Příjemky',          href: '/receipts',            icon: PackageCheck  },
       { label: 'Výdejky',           href: '/delivery-notes',      icon: PackageMinus  },
       { label: 'Inventura',         href: '/inventory/inventura', icon: ClipboardList },
+      { label: 'Šarže',             href: '/batches',             icon: FlaskConical  },
     ],
   },
   {

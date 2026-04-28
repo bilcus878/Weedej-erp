@@ -110,6 +110,8 @@ export default function ReceiptsPage() {
           processingReceiptItems={processing.processingReceiptItems}
           receivedQuantities={processing.receivedQuantities}
           setReceivedQuantities={processing.setReceivedQuantities}
+          batchData={processing.batchData}
+          setBatchData={processing.setBatchData}
           invoiceData={processing.invoiceData}
           setInvoiceData={processing.setInvoiceData}
           processReceiptDate={processing.processReceiptDate}

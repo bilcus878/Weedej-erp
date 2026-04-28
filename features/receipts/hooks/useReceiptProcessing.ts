@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { fetchPendingOrders, receiveFromOrder } from '../services/receiptService'
-import type { PurchaseOrder, Supplier, ReceiptItem, InvoiceData } from '../types'
+import type { PurchaseOrder, Supplier, ReceiptItem, InvoiceData, BatchInput } from '../types'
+import { emptyBatchFormData } from '@/features/batches/types'
 
 type ShowToast = (type: 'success' | 'error', message: string) => void
 
@@ -18,6 +19,7 @@ export function useReceiptProcessing(
   const [processingOrderId,        setProcessingOrderId]        = useState<string | null>(null)
   const [processingReceiptItems,   setProcessingReceiptItems]   = useState<ReceiptItem[]>([])
   const [receivedQuantities,       setReceivedQuantities]       = useState<Record<string, number>>({})
+  const [batchData,                setBatchData]                = useState<Record<string, BatchInput>>({})
   const [invoiceData,              setInvoiceData]              = useState<InvoiceData>({
     invoiceNumber: '', invoiceDate: new Date().toISOString().split('T')[0], dueDate: '', note: '',
   })
@@ -90,9 +92,16 @@ export function useReceiptProcessing(
     if (!processingOrderId || isProcessing) return
     setIsProcessing(true)
     try {
-      const items = processingReceiptItems.map((item: any) => ({
-        productId: item.productId!, receivedQuantity: receivedQuantities[item.id!] || 0,
-      }))
+      const items = processingReceiptItems.map((item: any) => {
+        const bd = batchData[item.id!]
+        return {
+          productId:        item.productId!,
+          receivedQuantity: receivedQuantities[item.id!] || 0,
+          batchData: (bd?.batchNumber?.trim())
+            ? { batchNumber: bd.batchNumber, productionDate: bd.productionDate || null, expiryDate: bd.expiryDate || null, supplierLotRef: bd.supplierLotRef || null }
+            : null,
+        }
+      })
       await receiveFromOrder(processingOrderId, items, invoiceData, processReceiptDate)
       closeProcessModal()
       await Promise.all([onRefreshRef.current(), loadPendingOrders()])
@@ -109,6 +118,7 @@ export function useReceiptProcessing(
     setProcessingOrderId(null)
     setProcessingReceiptItems([])
     setReceivedQuantities({})
+    setBatchData({})
     setProcessReceiptDate(new Date().toISOString().split('T')[0])
   }
 
@@ -116,6 +126,7 @@ export function useReceiptProcessing(
     suppliers, pendingOrders, pendingOrdersError,
     showProcessModal, processingOrderId, processingReceiptItems,
     receivedQuantities, setReceivedQuantities,
+    batchData, setBatchData,
     invoiceData, setInvoiceData,
     processReceiptDate, setProcessReceiptDate,
     hasExistingInvoice, isInvoiceSectionExpanded, setIsInvoiceSectionExpanded,

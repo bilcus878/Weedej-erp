@@ -7,6 +7,34 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Batch {
+  id              String         @id @default(uuid())
+  batchNumber     String
+  productId       String
+  productionDate  DateTime?
+  expiryDate      DateTime?
+  supplierLotRef  String?
+  supplierId      String?
+  receivedDate    DateTime       @default(now())
+  status          String         @default("active")
+  // active | quarantine | recalled | expired | consumed
+  notes           String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  product         Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  supplier        Supplier?      @relation(fields: [supplierId], references: [id])
+  receiptItems    ReceiptItem[]
+  inventoryItems  InventoryItem[]
+
+  @@unique([batchNumber, productId])
+  @@index([productId])
+  @@index([status])
+  @@index([expiryDate])
+  @@index([batchNumber])
+  @@index([receivedDate])
+}
+
 model Category {
   id        String    @id @default(uuid())
   sumupId   String?   @unique
@@ -29,6 +57,7 @@ model Product {
   unit               String              @default("ks")
   categoryId         String?
   active             Boolean             @default(true)
+  batchTracking      Boolean             @default(false)
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
   vatRate            Decimal             @default(21) @db.Decimal(5, 2)
@@ -43,6 +72,7 @@ model Product {
   EshopCartItem      EshopCartItem[]
   inventoryItems     InventoryItem[]
   issuedInvoiceItems IssuedInvoiceItem[]
+  batches            Batch[]
   category           Category?           @relation(fields: [categoryId], references: [id])
   purchaseOrderItems PurchaseOrderItem[]
   receiptItems       ReceiptItem[]
@@ -65,11 +95,13 @@ model InventoryItem {
   purchasePrice     Decimal            @db.Decimal(10, 2)
   receiptId         String?
   transactionId     String?
+  batchId           String?
   date              DateTime           @default(now())
   note              String?
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   vatRate           Decimal            @default(21) @db.Decimal(5, 2)
+  batch             Batch?             @relation(fields: [batchId], references: [id])
   deliveryNoteItems DeliveryNoteItem[]
   product           Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
   receipt           Receipt?           @relation(fields: [receiptId], references: [id])
@@ -78,6 +110,7 @@ model InventoryItem {
   receiptItems      ReceiptItem[]
 
   @@index([productId])
+  @@index([batchId])
   @@index([date])
   @@index([receiptId])
   @@index([transactionId])
@@ -98,6 +131,7 @@ model Supplier {
   updatedAt      DateTime        @updatedAt
   website        String?
   entityType     String          @default("company")
+  batches        Batch[]
   inventoryItems InventoryItem[]
   purchaseOrders PurchaseOrder[]
   receipts       Receipt[]
@@ -322,16 +356,19 @@ model ReceiptItem {
   unit             String
   purchasePrice    Decimal        @db.Decimal(10, 2)
   inventoryItemId  String?
+  batchId          String?
   createdAt        DateTime       @default(now())
   priceWithVat     Decimal        @default(0) @db.Decimal(10, 2)
   vatAmount        Decimal        @default(0) @db.Decimal(10, 2)
   vatRate          Decimal        @default(21) @db.Decimal(5, 2)
+  batch            Batch?         @relation(fields: [batchId], references: [id])
   inventoryItem    InventoryItem? @relation(fields: [inventoryItemId], references: [id])
   product          Product?       @relation(fields: [productId], references: [id])
   receipt          Receipt        @relation(fields: [receiptId], references: [id], onDelete: Cascade)
 
   @@index([receiptId])
   @@index([productId])
+  @@index([batchId])
   @@index([inventoryItemId])
 }
 

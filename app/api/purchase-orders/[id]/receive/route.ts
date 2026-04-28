@@ -5,6 +5,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getNextDocumentNumber } from '@/lib/documentNumbering'
+import { findOrCreateBatch, type BatchInput } from '@/lib/batchUtils'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,11 +13,12 @@ export const dynamic = 'force-dynamic'
 interface ReceiveOrderRequest {
   items: Array<{
     productId: string
-    receivedQuantity: number // Skutečně přijaté množství
+    receivedQuantity: number
+    batchData?: BatchInput | null
   }>
-  receiptDate?: string // Datum příjmu zboží (kdy fyzicky dorazilo)
+  receiptDate?: string
   invoiceData?: {
-    invoiceNumber?: string // Může být prázdné - vytvoří se dočasná
+    invoiceNumber?: string
     invoiceDate: string
     dueDate?: string
     note?: string
@@ -169,6 +171,15 @@ export async function POST(
         const receiptItem = receipt.items.find(ri => ri.productId === itemData.productId)
         if (!receiptItem) continue
 
+        // Resolve batch — find-or-create within this transaction
+        const batchId = await findOrCreateBatch(
+          tx,
+          itemData.productId,
+          order.supplierId,
+          actualReceiptDate,
+          itemData.batchData ?? null,
+        )
+
         // Vytvoř InventoryItem
         const inventoryItem = await tx.inventoryItem.create({
           data: {
@@ -178,16 +189,18 @@ export async function POST(
             purchasePrice: orderItem.expectedPrice || 0,
             supplierId: order.supplierId,
             receiptId: receipt.id,
+            batchId,
             date: actualReceiptDate,
             note: null
           }
         })
 
-        // Propoj ReceiptItem s InventoryItem
+        // Propoj ReceiptItem s InventoryItem + zapiš batchId
         await tx.receiptItem.update({
           where: { id: receiptItem.id },
           data: {
-            inventoryItemId: inventoryItem.id
+            inventoryItemId: inventoryItem.id,
+            batchId,
           }
         })
       }

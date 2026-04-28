@@ -1,4 +1,4 @@
-import type { Receipt, PurchaseOrder, Supplier, InvoiceData } from '../types'
+import type { Receipt, PurchaseOrder, Supplier, InvoiceData, BatchInput } from '../types'
 
 export async function fetchReceipts(): Promise<Receipt[]> {
   const res  = await fetch('/api/receipts', { cache: 'no-store' })
@@ -44,7 +44,7 @@ export async function stornoReceipt(id: string, reason: string): Promise<void> {
 
 export async function receiveFromOrder(
   orderId:     string,
-  items:       Array<{ productId: string; receivedQuantity: number }>,
+  items:       Array<{ productId: string; receivedQuantity: number; batchData?: BatchInput | null }>,
   invoiceData: InvoiceData,
   receiptDate: string,
 ): Promise<void> {

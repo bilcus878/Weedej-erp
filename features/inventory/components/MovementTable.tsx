@@ -63,7 +63,7 @@ export function MovementTable({
   const s = filters.set
 
   const header = (
-    <div className="grid grid-cols-[auto_1fr_1fr_1fr_1fr] items-center gap-3 px-4 py-3 bg-gray-100 border-b rounded-t-lg">
+    <div className="grid grid-cols-[auto_1fr_1fr_1fr_1fr_1fr] items-center gap-3 px-4 py-3 bg-gray-100 border-b rounded-t-lg">
       <div className="flex items-center gap-1.5">
         <button
           onClick={filters.clear}
@@ -82,6 +82,8 @@ export function MovementTable({
       <FilterSelect value={v['type'] ?? ''} onChange={val => s('type', val)} options={MOVEMENT_TYPE_OPTIONS} className="w-full" />
 
       <FilterInput type="number" value={v['minQuantity'] ?? ''} onChange={val => s('minQuantity', val)} placeholder="Min. mn." className="w-full text-center" />
+
+      <FilterInput value={v['batch'] ?? ''} onChange={val => s('batch', val)} placeholder="Šarže..." className="w-full text-center" />
 
       <FilterInput value={v['note'] ?? ''} onChange={val => s('note', val)} placeholder="Poznámka..." className="w-full text-center" />
     </div>
@@ -105,7 +107,7 @@ export function MovementTable({
       <div className="divide-y divide-gray-100">
         {paginatedMovements.map(movement => (
           <div key={movement.id} id={`movement-${movement.id}`} className={`${highlightMovementId === movement.id ? 'border-2 border-purple-500 bg-purple-50' : expandedMovements.has(movement.id) ? 'bg-gray-50' : ''}`}>
-            <div className="p-4 grid grid-cols-[auto_1fr_1fr_1fr_1fr] items-center gap-4 cursor-pointer hover:bg-gray-50" onClick={() => onToggle(movement.id)}>
+            <div className="p-4 grid grid-cols-[auto_1fr_1fr_1fr_1fr_1fr] items-center gap-4 cursor-pointer hover:bg-gray-50" onClick={() => onToggle(movement.id)}>
               <button className="w-8">
                 {expandedMovements.has(movement.id) ? <ChevronDown className="h-5 w-5 text-gray-400" /> : <ChevronRight className="h-5 w-5 text-gray-400" />}
               </button>
@@ -118,11 +120,39 @@ export function MovementTable({
               <div className="text-center text-sm font-medium" style={{ color: movement.type === 'stock_out' ? '#dc2626' : '#111827' }}>
                 {formatQuantity(Math.abs(movement.quantity), movement.unit)}
               </div>
+              <div className="text-center">
+                {movement.batch ? (
+                  <button
+                    onClick={e => { e.stopPropagation(); router.push(`/batches/${movement.batch!.id}`) }}
+                    className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-semibold bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors"
+                  >
+                    {movement.batch.batchNumber}
+                  </button>
+                ) : (
+                  <span className="text-gray-300 text-xs">—</span>
+                )}
+              </div>
               <div className="text-center text-sm text-gray-600 truncate">{movement.note || '-'}</div>
             </div>
 
             {expandedMovements.has(movement.id) && (
               <div className="border-t p-4 bg-gray-50 space-y-3">
+                {movement.batch && (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded">
+                    <div className="text-sm flex items-center justify-center gap-4 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-600">Šarže:</span>
+                        <button onClick={() => router.push(`/batches/${movement.batch!.id}`)} className="font-mono font-semibold text-amber-700 hover:underline">{movement.batch.batchNumber}</button>
+                      </div>
+                      {movement.batch.expiryDate && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-600">Expirace:</span>
+                          <span className="font-medium">{new Date(movement.batch.expiryDate).toLocaleDateString('cs-CZ')}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
                 <div className="p-3 bg-blue-50 border border-blue-200 rounded">
                   <div className="text-sm flex items-center justify-center gap-4 flex-wrap">
                     {movement.receipt && (

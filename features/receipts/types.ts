@@ -1,5 +1,5 @@
 export interface Supplier { id: string; name: string }
-export interface Product  { id: string; name: string; unit: string; purchasePrice?: number; vatRate?: number }
+export interface Product  { id: string; name: string; unit: string; purchasePrice?: number; vatRate?: number; batchTracking?: boolean }
 
 export interface PurchaseOrder {
   id: string
@@ -25,6 +25,8 @@ export interface ReceiptItem {
   priceWithVat?: number
   product?: Product
   inventoryItemId?: string
+  batchId?: string | null
+  batch?: { id: string; batchNumber: string } | null
 }
 
 export interface ReceivedInvoice { id: string; invoiceNumber: string }
@@ -49,4 +51,11 @@ export interface InvoiceData {
   invoiceDate: string
   dueDate: string
   note: string
+}
+
+export interface BatchInput {
+  batchNumber:    string
+  productionDate: string
+  expiryDate:     string
+  supplierLotRef: string
 }

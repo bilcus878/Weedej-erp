@@ -74,6 +74,9 @@ export function mapInventoryItemsToMovements(inventoryItems: any[]): StockMoveme
       supplier:      item.supplier,
       note:          item.note,
       createdAt:     item.createdAt || item.date,
+      batch: item.batch
+        ? { id: item.batch.id, batchNumber: item.batch.batchNumber, expiryDate: item.batch.expiryDate ?? null, status: item.batch.status }
+        : null,
       transaction:   item.transaction
         ? { id: item.transaction.id, transactionCode: item.transaction.transactionCode, receiptId: item.transaction.receiptId, invoiceType: item.transaction.invoiceType }
         : undefined,

@@ -40,6 +40,7 @@ export function useProductMovements(
     { key: 'date',        type: 'date',                                     match: (r, v) => new Date(r.date).toISOString().split('T')[0] === v },
     { key: 'type',        type: 'select', options: MOVEMENT_TYPE_OPTIONS,   match: (r, v) => !v || (v === 'in' ? r.quantity > 0 : r.quantity < 0) },
     { key: 'minQuantity', type: 'number', placeholder: 'Min. mn.',          match: (r, v) => Math.abs(r.quantity) >= v },
+    { key: 'batch',       type: 'text',   placeholder: 'Šarže...',          match: (r, v) => (r.batch?.batchNumber || '').toLowerCase().includes(v.toLowerCase()) },
     { key: 'note',        type: 'text',   placeholder: 'Poznámka...',       match: (r, v) => (r.note || '').toLowerCase().includes(v.toLowerCase()) },
   ], () => setMovementsPage(1))
 

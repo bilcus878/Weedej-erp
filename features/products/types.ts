@@ -1,6 +1,7 @@
 export interface Product {
   id: string; name: string; price: number | string; purchasePrice?: number | string | null
   vatRate: number | string; unit: string; categoryId?: string | null
+  batchTracking?: boolean
   category?: { id: string; name: string } | null
   stockQuantity: number; eshopVariants?: ProductVariantSummary[]
 }

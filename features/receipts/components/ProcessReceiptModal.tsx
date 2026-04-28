@@ -4,7 +4,9 @@ import { Package, Building2, ChevronDown, ChevronRight } from 'lucide-react'
 import Input from '@/components/ui/Input'
 import { formatPrice } from '@/lib/utils'
 import { isNonVatPayer, DEFAULT_VAT_RATE } from '@/lib/vatCalculation'
-import type { ReceiptItem, InvoiceData } from '../types'
+import { BatchFormFields } from '@/features/batches'
+import { emptyBatchFormData } from '@/features/batches/types'
+import type { ReceiptItem, InvoiceData, BatchInput } from '../types'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -34,6 +36,8 @@ interface Props {
   processingReceiptItems:   ReceiptItem[]
   receivedQuantities:       Record<string, number>
   setReceivedQuantities:    (q: Record<string, number>) => void
+  batchData:                Record<string, BatchInput>
+  setBatchData:             (d: Record<string, BatchInput>) => void
   invoiceData:              InvoiceData
   setInvoiceData:           (d: InvoiceData) => void
   processReceiptDate:       string
@@ -51,6 +55,7 @@ interface Props {
 export function ProcessReceiptModal({
   isVatPayer, processingOrderId, processingOrder,
   processingReceiptItems, receivedQuantities, setReceivedQuantities,
+  batchData, setBatchData,
   invoiceData, setInvoiceData,
   processReceiptDate, setProcessReceiptDate,
   hasExistingInvoice, isInvoiceSectionExpanded, setIsInvoiceSectionExpanded,
@@ -147,11 +152,19 @@ export function ProcessReceiptModal({
                           const rowTotal        = received * (isVatPayer ? priceWithVat : unitPrice)
                           const maxAllowed      = item.remainingQuantity || Number(item.quantity)
                           const alreadyReceived = item.alreadyReceived || 0
+                          const needsBatch      = item.product?.batchTracking === true
+                          const itemBatch       = batchData[item.id!] ?? emptyBatchFormData()
 
                           return (
                             <tr key={item.id} className="hover:bg-gray-50/60 transition-colors">
                               <td className="px-4 py-3">
                                 <p className="font-medium text-gray-900">{item.product?.name || item.productName || 'Neznámý produkt'}</p>
+                                {needsBatch && (
+                                  <BatchFormFields
+                                    value={itemBatch}
+                                    onChange={v => setBatchData({ ...batchData, [item.id!]: v })}
+                                  />
+                                )}
                               </td>
                               <td className="text-right px-3 py-3 text-gray-500 whitespace-nowrap">
                                 {Number(item.quantity)} {item.unit}
