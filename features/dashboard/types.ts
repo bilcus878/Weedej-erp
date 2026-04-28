@@ -53,6 +53,7 @@ export interface DashboardData {
   receivedInvoices:  ReceivedInvoice[]
   issuedInvoices:    IssuedInvoice[]
   customerOrders:    CustomerOrder[]
+  inventorySummary:  InventorySummaryItem[]
 }
 
 export interface NormalizedInvoice {
@@ -76,4 +77,13 @@ export interface OrderStats {
   newCount:        number
   processingCount: number
   totalValue:      number
+}
+
+export interface InventorySummaryItem {
+  productId:     string
+  productName:   string
+  unit:          string
+  physicalStock: number
+  availableStock: number
+  stockStatus:   'empty' | 'low' | 'ok'
 }

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useMemo } from 'react'
-import type { DashboardStats, ReceivedInvoice, IssuedInvoice, CustomerOrder } from '../types'
+import type { DashboardStats, ReceivedInvoice, IssuedInvoice, CustomerOrder, InventorySummaryItem } from '../types'
 import { fetchDashboardData } from '../services/dashboardService'
 import {
   computeInvoiceBalance, computeOverdueInvoices, computeUpcomingDue,
@@ -13,6 +13,7 @@ export function useDashboard() {
   const [receivedInvoices, setReceivedInvoices] = useState<ReceivedInvoice[]>([])
   const [issuedInvoices,   setIssuedInvoices]   = useState<IssuedInvoice[]>([])
   const [customerOrders,   setCustomerOrders]   = useState<CustomerOrder[]>([])
+  const [inventorySummary, setInventorySummary] = useState<InventorySummaryItem[]>([])
   const [loading,          setLoading]          = useState(true)
 
   useEffect(() => {
@@ -22,6 +23,7 @@ export function useDashboard() {
         setReceivedInvoices(data.receivedInvoices)
         setIssuedInvoices(data.issuedInvoices)
         setCustomerOrders(data.customerOrders)
+        setInventorySummary(data.inventorySummary)
       })
       .catch(err => console.error('Chyba při načítání dat:', err))
       .finally(() => setLoading(false))
@@ -35,9 +37,18 @@ export function useDashboard() {
   const recentInvoices  = useMemo(() => computeRecentInvoices(receivedInvoices, issuedInvoices),  [receivedInvoices, issuedInvoices])
   const paymentBar      = useMemo(() => stats ? computePaymentBar(stats.cashRevenue, stats.cardRevenue) : { cash: 50, card: 50 }, [stats])
 
+  const lowStockItems = useMemo(() =>
+    inventorySummary
+      .filter(i => i.stockStatus !== 'ok')
+      .sort((a, b) => a.physicalStock - b.physicalStock)
+      .slice(0, 8),
+    [inventorySummary]
+  )
+
   return {
     stats, loading,
     invoiceBalance, overdueInvoices, upcomingDue,
     orderStats, recentOrders, recentInvoices, paymentBar,
+    lowStockItems,
   }
 }
