@@ -182,7 +182,7 @@ export function SupplierOrderDetail({
   const firstReceiptDate = order.receipts?.find(r => r.status !== 'storno')?.receiptDate
 
   return (
-    <div className="space-y-4 max-w-4xl">
+    <div className="space-y-4">
 
       {/* ══ Top 2-column card grid ══════════════════════════════════════════════ */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
