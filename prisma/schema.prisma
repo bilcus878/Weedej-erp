@@ -911,12 +911,19 @@ model EshopVariant {
   isDefault    Boolean  @default(false)
   isActive     Boolean  @default(true)
   isSumup      Boolean  @default(false) // true = tato varianta je napojena na SumUp sync
+  // ── Product identification (SKU/EAN) ────────────────────────────────────────
+  // sku: required per variant in business logic; nullable at DB level so existing rows
+  //      remain valid without migration back-fill — API layer enforces the constraint.
+  sku          String?  @unique // SKU (Stock Keeping Unit) — unique across all variants
+  ean          String?  @unique // EAN/GTIN barcode — optional, validated as EAN-8/13/14
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@index([productId])
+  @@index([sku])
+  @@index([ean])
 }
 
 model ApiKey {
