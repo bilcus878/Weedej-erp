@@ -212,7 +212,7 @@ function wrapDoc(content: any[], header: any[], accentColor: string): TDocumentD
 let _printer: any = null
 function getPrinter() {
   if (_printer) return _printer
-  /* eslint-disable @typescript-eslint/no-require-imports */
+  /* eslint-disable */
   const PdfPrinter = require('pdfmake')
   const vfs        = require('pdfmake/build/vfs_fonts').pdfMake.vfs as Record<string, string>
   /* eslint-enable */
