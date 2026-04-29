@@ -1,26 +1,26 @@
 'use client'
 
 import { useState, useCallback, useEffect } from 'react'
-import { fetchBatches } from '../services/batchService'
-import type { Batch } from '../types'
+import { fetchLots } from '../services/batchService'
+import type { Lot } from '../types'
 
 export function useBatches() {
-  const [batches,  setBatches]  = useState<Batch[]>([])
-  const [total,    setTotal]    = useState(0)
-  const [loading,  setLoading]  = useState(true)
-  const [error,    setError]    = useState<string | null>(null)
+  const [lots,    setLots]    = useState<Lot[]>([])
+  const [total,   setTotal]   = useState(0)
+  const [loading, setLoading] = useState(true)
+  const [error,   setError]   = useState<string | null>(null)
 
-  const [search,   setSearch]   = useState('')
-  const [status,   setStatus]   = useState('')
-  const [page,     setPage]     = useState(1)
+  const [search, setSearch] = useState('')
+  const [status, setStatus] = useState('')
+  const [page,   setPage]   = useState(1)
   const limit = 50
 
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const result = await fetchBatches({ search: search || undefined, status: status || undefined, page, limit })
-      setBatches(result.batches)
+      const result = await fetchLots({ search: search || undefined, status: status || undefined, page, limit })
+      setLots(result.lots)
       setTotal(result.total)
     } catch (e: any) {
       setError(e.message)
@@ -34,7 +34,7 @@ export function useBatches() {
   const totalPages = Math.max(1, Math.ceil(total / limit))
 
   return {
-    batches, total, loading, error,
+    lots, total, loading, error,
     search, setSearch,
     status, setStatus,
     page, setPage, totalPages,
