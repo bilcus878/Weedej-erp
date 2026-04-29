@@ -8,13 +8,16 @@ const PUBLIC_API_PREFIXES = [
   '/api/cron/',
 ]
 
-// Routes that require the ADMIN role
+// API routes that require the ADMIN role.
+// Page routes (/users, /roles) are intentionally excluded: the Edge runtime
+// can only read the JWT, which may not have a roles field (sessions created
+// before RBAC was deployed) or may have roles: [] (no seed yet). Both cases
+// produce a false redirect. Security for data is enforced at the API layer
+// via requireAdmin() which always performs a live DB check.
 const ADMIN_ONLY_PREFIXES = [
   '/api/users',
   '/api/roles',
   '/api/permissions',
-  '/users',
-  '/roles',
 ]
 
 export default withAuth(

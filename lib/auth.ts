@@ -15,19 +15,9 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials, req) {
         if (!credentials?.email || !credentials?.password) return null
 
+        // Step 1: verify credentials against the base User table (always safe)
         const user = await prisma.user.findUnique({
           where: { email: credentials.email.toLowerCase().trim() },
-          include: {
-            userRoles: {
-              include: {
-                role: {
-                  include: {
-                    rolePermissions: { include: { permission: true } },
-                  },
-                },
-              },
-            },
-          },
         })
 
         if (!user || !user.isActive) return null
@@ -35,14 +25,37 @@ export const authOptions: NextAuthOptions = {
         const valid = await bcrypt.compare(credentials.password, user.passwordHash)
         if (!valid) return null
 
-        const roles = user.userRoles.map(ur => ur.role.name)
-        const permissions = [
-          ...new Set(
-            user.userRoles.flatMap(ur =>
-              ur.role.rolePermissions.map(rp => rp.permission.name)
-            )
-          ),
-        ]
+        // Step 2: load RBAC data — guarded separately so login survives missing tables
+        let roles: string[]       = []
+        let permissions: string[] = []
+        try {
+          const userWithRoles = await prisma.user.findUnique({
+            where: { id: user.id },
+            include: {
+              userRoles: {
+                include: {
+                  role: {
+                    include: {
+                      rolePermissions: { include: { permission: true } },
+                    },
+                  },
+                },
+              },
+            },
+          })
+          if (userWithRoles) {
+            roles = userWithRoles.userRoles.map(ur => ur.role.name)
+            permissions = [
+              ...new Set(
+                userWithRoles.userRoles.flatMap(ur =>
+                  ur.role.rolePermissions.map(rp => rp.permission.name)
+                )
+              ),
+            ]
+          }
+        } catch {
+          // RBAC tables not yet migrated — login still succeeds with empty roles/permissions
+        }
 
         // Audit: successful login (fire-and-forget)
         const ip =

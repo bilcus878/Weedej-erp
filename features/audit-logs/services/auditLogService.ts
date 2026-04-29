@@ -20,6 +20,10 @@ export async function fetchAuditLogs(
   if (dateTo)     params.set('dateTo',     dateTo)
 
   const res = await fetch(`/api/audit-logs?${params.toString()}`, { cache: 'no-store' })
-  if (!res.ok) throw new Error('Nepodařilo se načíst audit log')
+  if (!res.ok) {
+    if (res.status === 401) throw new Error('Pro zobrazení audit logu musíte být přihlášeni.')
+    if (res.status === 403) throw new Error('Nemáte oprávnění zobrazit audit log.')
+    throw new Error('Nepodařilo se načíst audit log (chyba serveru).')
+  }
   return res.json()
 }
