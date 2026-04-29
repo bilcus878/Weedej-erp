@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { generateEshopOrderPDF } from '@/lib/generateEshopOrderPDF'
 import { updateEshopOrderStatus } from '../services/eshopOrderService'
 import type { EshopOrder } from '../types'
 
@@ -20,12 +19,13 @@ export function useEshopOrderActions(onRefresh: () => Promise<void>) {
     }
   }
 
-  async function handlePrintPDF(order: EshopOrder) {
-    try {
-      const settings = await fetch('/api/settings').then(r => r.json())
-      await generateEshopOrderPDF(order, settings)
-    } catch {
-      alert('Nepodařilo se vygenerovat PDF')
+  function handlePrintPDF(order: EshopOrder) {
+    if (order.issuedInvoice?.id) {
+      // Issued invoice exists — serve the authoritative invoice PDF
+      window.open(`/api/invoices/${order.issuedInvoice.id}/pdf`, '_blank')
+    } else {
+      // No invoice yet — serve the customer order PDF
+      window.open(`/api/customer-orders/${order.id}/pdf`, '_blank')
     }
   }
 

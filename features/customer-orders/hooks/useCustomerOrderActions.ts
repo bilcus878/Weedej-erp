@@ -1,6 +1,5 @@
 'use client'
 
-import { generateInvoicePDF } from '@/lib/generateInvoicePDF'
 import { markOrderPaid, cancelCustomerOrder, updateCustomerOrderStatus } from '../services/customerOrderService'
 import type { CustomerOrder } from '../types'
 
@@ -39,37 +38,13 @@ export function useCustomerOrderActions(onRefresh: () => Promise<void>) {
     }
   }
 
-  async function handlePrintPDF(order: CustomerOrder) {
-    try {
-      const settings = await fetch('/api/settings').then(r => r.json())
-      const fakeTransaction = {
-        id:                    order.id,
-        transactionCode:       order.issuedInvoice?.invoiceNumber || order.orderNumber,
-        totalAmount:           Number(order.totalAmount),
-        totalAmountWithoutVat: Number(order.totalAmountWithoutVat ?? 0),
-        totalVatAmount:        Number(order.totalVatAmount ?? 0),
-        paymentType:           order.issuedInvoice?.paymentType || 'transfer',
-        status:                order.status,
-        transactionDate:       order.orderDate,
-        customer:              order.customer || null,
-        customerName:          order.customerName || null,
-        customerAddress:       order.customerAddress,
-        customerPhone:         order.customerPhone,
-        customerEmail:         order.customerEmail,
-        items: order.items.map(item => ({
-          id:           item.id || '',
-          quantity:     Number(item.quantity),
-          unit:         item.unit,
-          price:        Number(item.price),
-          vatRate:      Number(item.vatRate ?? 0),
-          vatAmount:    Number(item.vatAmount ?? 0),
-          priceWithVat: Number(item.priceWithVat ?? item.price),
-          product:      item.product || { id: '', name: item.productName || '' },
-        })),
-      }
-      await generateInvoicePDF(fakeTransaction as any, settings)
-    } catch {
-      alert('Nepodařilo se vygenerovat PDF')
+  function handlePrintPDF(order: CustomerOrder) {
+    if (order.issuedInvoice?.id) {
+      // Prefer the issued invoice PDF (legally authoritative)
+      window.open(`/api/invoices/${order.issuedInvoice.id}/pdf`, '_blank')
+    } else {
+      // No invoice yet — serve the order PDF
+      window.open(`/api/customer-orders/${order.id}/pdf`, '_blank')
     }
   }
 

@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { generateInvoicePDF } from '@/lib/generateInvoicePDF'
 import { syncTransactions } from '../services/transactionService'
 import type { Transaction } from '../types'
 
@@ -21,12 +20,11 @@ export function useTransactionActions(onRefresh: () => Promise<void>) {
     }
   }
 
-  async function handlePrintPDF(tx: Transaction) {
-    try {
-      const settings = await fetch('/api/settings').then(r => r.json())
-      await generateInvoicePDF(tx as any, settings)
-    } catch {
-      alert('Nepodařilo se vygenerovat PDF faktury')
+  function handlePrintPDF(tx: Transaction) {
+    if (tx.issuedInvoice?.id) {
+      window.open(`/api/invoices/${tx.issuedInvoice.id}/pdf`, '_blank')
+    } else {
+      alert('Tato transakce nemá přiřazenou fakturu.')
     }
   }
 

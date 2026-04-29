@@ -14,7 +14,7 @@ export const dynamic = 'force-dynamic'
 export default function PurchaseOrdersPage() {
   const { ep, filters, suppliers, products } = usePurchaseOrders()
   const { isVatPayer }                        = useCompanySettings()
-  const { handleDownloadPDF }                 = usePurchaseOrderActions(ep.rows)
+  const { handleDownloadPDF }                 = usePurchaseOrderActions()
   const openCreateRef = useRef<() => void>(() => {})
 
   const supplierSuggestions = useMemo(() => {

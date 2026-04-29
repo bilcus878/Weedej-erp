@@ -1,6 +1,5 @@
 'use client'
 
-import { generateInvoicePDF } from '@/lib/generateInvoicePDF'
 import { stornoInvoice } from '../services/issuedInvoiceService'
 import type { IssuedInvoice } from '../types'
 
@@ -19,17 +18,8 @@ export function useInvoiceActions(onRefresh: () => Promise<void>) {
     }
   }
 
-  async function handlePrintPDF(invoice: IssuedInvoice) {
-    try {
-      const sRes = await fetch('/api/settings')
-      await generateInvoicePDF({ ...invoice, dueDate: invoice.dueDate ?? undefined }, await sRes.json())
-    } catch (e) {
-      alert(
-        e instanceof Error
-          ? `Nepodařilo se vygenerovat PDF: ${e.message}`
-          : 'Nepodařilo se vygenerovat PDF',
-      )
-    }
+  function handlePrintPDF(invoice: IssuedInvoice) {
+    window.open(`/api/invoices/${invoice.id}/pdf`, '_blank')
   }
 
   return { handleStorno, handlePrintPDF }
