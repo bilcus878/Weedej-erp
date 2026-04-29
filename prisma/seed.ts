@@ -178,31 +178,37 @@ async function seedRbac() {
 async function seedAdminUser() {
   console.log('👤 Seeding default admin user...')
 
-  const existing = await prisma.user.findUnique({ where: { email: 'admin@weedej.cz' } })
-  if (existing) {
-    console.log('   ℹ️  Admin user already exists — skipping')
-    return
+  let user = await prisma.user.findUnique({ where: { email: 'admin@weedej.cz' } })
+
+  if (!user) {
+    const hash = await bcrypt.hash('Admin123!', 12)
+    user = await prisma.user.create({
+      data: {
+        email:        'admin@weedej.cz',
+        name:         'Administrátor',
+        passwordHash: hash,
+        isActive:     true,
+      },
+    })
+    console.log('   ✅ Admin user created: admin@weedej.cz / Admin123!')
+    console.log('   ⚠️  Change this password immediately after first login!')
+  } else {
+    console.log('   ℹ️  Admin user already exists — ensuring ADMIN role is assigned...')
   }
 
-  const hash = await bcrypt.hash('Admin123!', 12)
-  const user = await prisma.user.create({
-    data: {
-      email:        'admin@weedej.cz',
-      name:         'Administrátor',
-      passwordHash: hash,
-      isActive:     true,
-    },
-  })
-
+  // Always ensure the ADMIN role is assigned — idempotent upsert.
+  // This covers existing users created before RBAC was introduced.
   const adminRole = await prisma.role.findUnique({ where: { name: 'ADMIN' } })
   if (adminRole) {
-    await prisma.userRole.create({
-      data: { userId: user.id, roleId: adminRole.id },
+    await prisma.userRole.upsert({
+      where:  { userId_roleId: { userId: user.id, roleId: adminRole.id } },
+      update: {},
+      create: { userId: user.id, roleId: adminRole.id },
     })
+    console.log('   ✅ ADMIN role assigned to admin@weedej.cz')
+  } else {
+    console.error('   ❌ ADMIN role not found — run seedRbac() first')
   }
-
-  console.log('   ✅ Admin user created: admin@weedej.cz / Admin123!')
-  console.log('   ⚠️  Change this password immediately after first login!')
 }
 
 async function main() {
