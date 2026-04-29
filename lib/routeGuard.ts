@@ -68,13 +68,16 @@ export async function requireAuth(req?: NextRequest): Promise<GuardResult> {
   }
 
   const u = session.user as any
+  // NOTE: roles/permissions are intentionally empty — requireAuth() only
+  // guarantees a valid session, NOT validated permissions. Use
+  // requirePermission() or requireAdmin() for any access-control decision.
   return {
     ok:  true,
     ctx: {
       userId:      u.id    ?? '',
       username:    u.email ?? u.name ?? '',
-      roles:       u.roles       ?? [],
-      permissions: u.permissions ?? [],
+      roles:       [] as string[],
+      permissions: [] as string[],
       ipAddress:   extractIp(req),
     },
     error: null,
