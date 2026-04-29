@@ -81,20 +81,27 @@ export default function ReceivedInvoicesPage() {
                         <FileEdit className="w-3.5 h-3.5" />
                         Doplnit fakturu
                       </button>
+                      <button
+                        onClick={() => actions.handleDownloadPDF(inv.id)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-medium rounded-lg transition-colors"
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                        Stáhnout PDF
+                      </button>
                       {inv.attachmentUrl ? (
                         <a
-                          href={inv.attachmentUrl}
+                          href={`/api/received-invoices/${inv.id}/attachment`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-lg transition-colors"
                         >
                           <FileText className="w-3.5 h-3.5" />
-                          Zobrazit fakturu
+                          Zobrazit přílohu
                         </a>
                       ) : (
                         <label className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white text-xs font-medium rounded-lg transition-colors cursor-pointer">
                           <FileText className="w-3.5 h-3.5" />
-                          Nahrát soubor
+                          Nahrát přílohu
                           <input
                             type="file"
                             accept="image/*,application/pdf"

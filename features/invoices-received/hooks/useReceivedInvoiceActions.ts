@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import {
-  stornoInvoice, uploadFile, updateAttachmentUrl, applyDiscount,
+  stornoInvoice, uploadAttachment, applyDiscount,
 } from '../services/receivedInvoiceService'
 import type { ReceivedInvoice } from '../types'
 
@@ -42,13 +42,16 @@ export function useReceivedInvoiceActions(rows: ReceivedInvoice[], onRefresh: ()
     if (!allowedTypes.some(t => file.type.startsWith(t))) { alert('Prosím nahrajte obrázek nebo PDF'); return }
     if (file.size > 10 * 1024 * 1024) { alert('Soubor je příliš velký. Maximum je 10MB.'); return }
     try {
-      const url = await uploadFile(file)
-      await updateAttachmentUrl(invoiceId, url)
+      await uploadAttachment(invoiceId, file)
       await onRefresh()
       alert('Soubor byl úspěšně nahrán!')
     } catch {
       alert('Nepodařilo se nahrát soubor')
     }
+  }
+
+  function handleDownloadPDF(invoiceId: string) {
+    window.open(`/api/received-invoices/${invoiceId}/pdf`, '_blank')
   }
 
   async function handleApplyDiscount(invoiceId: string, discountType: string, discountValue: string) {
@@ -66,6 +69,6 @@ export function useReceivedInvoiceActions(rows: ReceivedInvoice[], onRefresh: ()
   return {
     selectedInvoice, showDetailsModal,
     handleOpenDetailsModal, handleCloseDetailsModal,
-    handleStorno, handleFileUpload, handleApplyDiscount,
+    handleStorno, handleFileUpload, handleDownloadPDF, handleApplyDiscount,
   }
 }
