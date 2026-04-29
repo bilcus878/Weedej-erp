@@ -2,6 +2,7 @@
 import { prisma } from '@/lib/prisma'
 import { getNextDocumentNumber } from './documentNumbering'
 import { getOrderLineItems } from './getOrderLineItems'
+import { archiveIssuedInvoice, archiveAsync } from './documents/DocumentArchiveService'
 
 /**
  * Vytvoří vystavenou fakturu automaticky z SumUp transakce
@@ -73,6 +74,7 @@ export async function createIssuedInvoiceFromTransaction(
   })
 
   console.log(`✓ Vytvořena vystavená faktura ${invoice.invoiceNumber} pro SumUp transakci ${transaction.transactionCode}`)
+  archiveAsync(() => archiveIssuedInvoice(invoice.id), `IssuedInvoice ${invoice.invoiceNumber}`)
 
   return invoice
 }
@@ -197,6 +199,7 @@ export async function createIssuedInvoiceFromCustomerOrder(
   })
 
   console.log(`✓ Vytvořena vystavená faktura ${invoice.invoiceNumber} pro objednávku ${order.orderNumber}`)
+  archiveAsync(() => archiveIssuedInvoice(invoice.id), `IssuedInvoice ${invoice.invoiceNumber}`)
 
   return invoice
 }

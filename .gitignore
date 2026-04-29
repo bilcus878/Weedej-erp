@@ -36,6 +36,10 @@ next-env.d.ts
 # uploads
 /public/uploads/
 
+# Document archive — binary files, never commit
+# On production: back this up separately or point DOCUMENT_STORAGE_PATH at a network mount / S3
+/storage/
+
 # Eshop - má vlastní repo (DEK4DENCE/weedej-eshop)
 /weedej-eshop-master/
 

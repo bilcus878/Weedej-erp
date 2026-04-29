@@ -6,6 +6,7 @@ import { prisma } from '@/lib/prisma'
 import { getNextDocumentNumber } from '@/lib/documentNumbering'
 import { createReservations, canReserveQuantity } from '@/lib/reservationManagement'
 import { applyDiscountAndCalculateVat, calculateVatFromGross, round2 } from '@/lib/vatCalculation'
+import { archiveCustomerOrder, archiveAsync } from '@/lib/documents/DocumentArchiveService'
 
 export const dynamic = 'force-dynamic'
 
@@ -301,6 +302,7 @@ export async function POST(request: Request) {
     })
 
     console.log(`✓ Vytvořena objednávka ${order.orderNumber}, vytvořeny rezervace`)
+    archiveAsync(() => archiveCustomerOrder(order.id), `CustomerOrder ${order.orderNumber} v1`)
 
     // Automaticky vytvoř vystavenou fakturu (nezaplacenou) pro tuto objednávku
     try {

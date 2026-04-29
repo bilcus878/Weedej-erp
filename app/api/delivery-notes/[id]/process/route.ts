@@ -5,6 +5,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { selectBatchForOutbound } from '@/lib/batchUtils'
+import { archiveDeliveryNote, archiveAsync } from '@/lib/documents/DocumentArchiveService'
 
 export const dynamic = 'force-dynamic'
 
@@ -276,6 +277,7 @@ export async function POST(
     })
 
     console.log(`✓ Výdejka ${deliveryNote.deliveryNumber} byla zpracována a vyskladněna`)
+    archiveAsync(() => archiveDeliveryNote(params.id), `DeliveryNote ${deliveryNote.deliveryNumber} processed`)
 
     // ── Webhook: notifikuj e-shop pokud je objednávka z e-shopu ────────────
     // Fire-and-forget — nesmí blokovat odpověď skladu

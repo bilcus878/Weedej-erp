@@ -3,6 +3,7 @@
 
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { archiveCustomerOrder, archiveAsync } from '@/lib/documents/DocumentArchiveService'
 
 export const dynamic = 'force-dynamic'
 
@@ -59,6 +60,7 @@ export async function POST(
     })
 
     console.log(`✓ Objednávka ${order.orderNumber} označena jako zaplacená`)
+    archiveAsync(() => archiveCustomerOrder(params.id), `CustomerOrder ${order.orderNumber} paid`)
 
     return NextResponse.json(updated)
   } catch (error) {

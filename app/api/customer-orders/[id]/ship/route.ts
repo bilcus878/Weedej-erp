@@ -4,6 +4,7 @@
 
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { archiveCustomerOrder, archiveAsync } from '@/lib/documents/DocumentArchiveService'
 
 export const dynamic = 'force-dynamic'
 
@@ -92,6 +93,7 @@ export async function POST(
       }
     })
 
+    archiveAsync(() => archiveCustomerOrder(params.id), `CustomerOrder ${order.orderNumber} ship`)
     return NextResponse.json({
       success: true,
       message: `Výdejka ${deliveryNote.deliveryNumber} připravena k vyskladnění`,

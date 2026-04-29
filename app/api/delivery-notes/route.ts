@@ -3,6 +3,7 @@
 
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { archiveDeliveryNote, archiveAsync } from '@/lib/documents/DocumentArchiveService'
 
 export const dynamic = 'force-dynamic'
 
@@ -121,6 +122,7 @@ export async function POST(request: Request) {
       }
     })
 
+    archiveAsync(() => archiveDeliveryNote(deliveryNote.id), `DeliveryNote ${deliveryNote.deliveryNumber} draft`)
     return NextResponse.json(deliveryNote, { status: 201 })
   } catch (error) {
     console.error('Chyba při vytváření výdejky:', error)

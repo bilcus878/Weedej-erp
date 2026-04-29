@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getNextDocumentNumber } from '@/lib/documentNumbering'
 import { calculateVatFromNet, calculateVatFromGross, calculateLineVat, calculateVatSummary, DEFAULT_VAT_RATE } from '@/lib/vatCalculation'
+import { archivePurchaseOrder, archiveAsync } from '@/lib/documents/DocumentArchiveService'
 
 export const dynamic = 'force-dynamic'
 
@@ -288,6 +289,7 @@ export async function POST(request: Request) {
       return createdOrder
     })
 
+    archiveAsync(() => archivePurchaseOrder(order.id), `PurchaseOrder ${order.orderNumber}`)
     return NextResponse.json(order, { status: 201 })
   } catch (error) {
     console.error('Chyba při vytváření objednávky:', error)

@@ -265,6 +265,7 @@ model PurchaseOrder {
   expectedDate          DateTime?
   note                  String?
   status                String              @default("pending")
+  pdfPath               String?
   stornoReason          String?
   stornoAt              DateTime?
   stornoBy              String?
@@ -325,6 +326,7 @@ model Receipt {
   receiptDate       DateTime         @default(now())
   note              String?
   status            String           @default("draft")
+  pdfPath           String?
   processedAt       DateTime?
   stornoReason      String?
   stornoAt          DateTime?
@@ -384,6 +386,7 @@ model ReceivedInvoice {
   attachmentUrl         String?
   note                  String?
   status                String         @default("active")
+  pdfPath               String?
   stornoReason          String?
   stornoAt              DateTime?
   stornoBy              String?
@@ -427,6 +430,7 @@ model DeliveryNote {
   deliveryDate    DateTime           @default(now())
   note            String?
   status          String             @default("draft")
+  pdfPath         String?
   processedAt     DateTime?
   stornoReason    String?
   stornoAt        DateTime?
@@ -487,6 +491,8 @@ model CustomerOrder {
   totalAmount           Decimal             @db.Decimal(10, 2)
   note                  String?
   status                String              @default("new")
+  pdfPath               String?
+  pdfVersionCount       Int                 @default(0)
   paidAt                DateTime?
   shippedAt             DateTime?
   sumupTransactionId    String?
@@ -605,6 +611,7 @@ model IssuedInvoice {
   paymentStatus         String              @default("paid")
   note                  String?
   status                String              @default("active")
+  pdfPath               String?
   stornoReason          String?
   stornoAt              DateTime?
   stornoBy              String?
@@ -681,6 +688,7 @@ model CreditNote {
   reason                String?
   note                  String?
   status                String           @default("active")
+  pdfPath               String?
   stornoReason          String?
   stornoAt              DateTime?
   stornoBy              String?

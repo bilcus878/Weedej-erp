@@ -6,6 +6,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getNextDocumentNumber } from '@/lib/documentNumbering'
 import { findOrCreateBatch, type BatchInput } from '@/lib/batchUtils'
+import { archiveReceipt, archiveAsync } from '@/lib/documents/DocumentArchiveService'
 
 export const dynamic = 'force-dynamic'
 
@@ -427,6 +428,7 @@ export async function POST(
     })
 
     console.log(`✓ Příjemka ${receipt.receiptNumber} byla zpracována a naskladněna`)
+    archiveAsync(() => archiveReceipt(params.id), `Receipt ${receipt.receiptNumber} processed`)
 
     // Vrať příjemku I s aktualizovanou objednávkou
     return NextResponse.json({

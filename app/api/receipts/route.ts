@@ -4,6 +4,7 @@
 import { NextResponse } from 'next/server'
 import { getNextDocumentNumber } from '@/lib/documentNumbering'
 import { prisma } from '@/lib/prisma'
+import { archiveReceipt, archiveAsync } from '@/lib/documents/DocumentArchiveService'
 
 export const dynamic = 'force-dynamic'
 
@@ -130,6 +131,7 @@ export async function POST(request: Request) {
       })
     })
 
+    archiveAsync(() => archiveReceipt(receipt.id), `Receipt ${receipt.receiptNumber} draft`)
     return NextResponse.json(receipt, { status: 201 })
   } catch (error) {
     console.error('Chyba při vytváření příjemky:', error)
