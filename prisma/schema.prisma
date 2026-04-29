@@ -896,15 +896,96 @@ model ShippingMethod {
 
 // ========== UŽIVATELÉ (PŘIHLÁŠENÍ DO ERP) ==========
 model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
+  id           String     @id @default(uuid())
+  email        String     @unique
   name         String
   passwordHash String
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  isActive     Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  userRoles    UserRole[]
+  auditLogs    AuditLog[]
 
   @@index([email])
+}
+
+// ========== RBAC — ROLE, OPRÁVNĚNÍ ==========
+
+model Role {
+  id              String           @id @default(uuid())
+  name            String           @unique  // ADMIN | ACCOUNTANT | WAREHOUSE | MANAGER
+  displayName     String
+  description     String?
+  isSystem        Boolean          @default(false)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  userRoles       UserRole[]
+  rolePermissions RolePermission[]
+
+  @@index([name])
+}
+
+model Permission {
+  id              String           @id @default(uuid())
+  name            String           @unique
+  displayName     String
+  module          String
+  description     String?
+  createdAt       DateTime         @default(now())
+  rolePermissions RolePermission[]
+
+  @@index([name])
+  @@index([module])
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+}
+
+model UserRole {
+  userId     String
+  roleId     String
+  assignedAt DateTime @default(now())
+  assignedBy String?
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@index([userId])
+  @@index([roleId])
+}
+
+// ========== AUDIT LOG ==========
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  username   String?
+  role       String?
+  actionType String   // CREATE | UPDATE | DELETE | LOGIN | LOGOUT | EXPORT
+  entityName String?
+  entityId   String?
+  fieldName  String?
+  oldValue   String?
+  newValue   String?
+  module     String?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([actionType])
+  @@index([entityName])
+  @@index([entityId])
+  @@index([module])
+  @@index([createdAt])
 }
 
 // ========== API KLÍČE PRO EXTERNÍ PŘÍSTUP (E-SHOP) ==========

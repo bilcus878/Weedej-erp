@@ -56,3 +56,6 @@ export type { PartyFormData, PartyFormConfig } from './PartyFormModal'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 export type { ColumnDef, AccentColor, SelectOption } from './table/ColumnDef'
+
+// ── Security ─────────────────────────────────────────────────────────────────
+export { PermissionGate }       from './PermissionGate'

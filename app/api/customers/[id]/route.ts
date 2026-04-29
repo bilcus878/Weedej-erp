@@ -1,17 +1,32 @@
-import { NextResponse } from 'next/server'
+// PATCH  /api/customers/[id]  — update customer  (EDIT_CUSTOMERS)
+// DELETE /api/customers/[id]  — delete customer   (DELETE_CUSTOMERS)
+
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requirePermission } from '@/lib/routeGuard'
+import { createAuditLog, diffAndLog } from '@/lib/auditService'
+import { Permission } from '@/lib/permissions'
 
 export const dynamic = 'force-dynamic'
 
 export async function PATCH(
-  request: Request,
-  { params }: { params: { id: string } }
+  req: NextRequest,
+  { params }: { params: { id: string } },
 ) {
+  const guard = await requirePermission(Permission.EDIT_CUSTOMERS, req)
+  if (!guard.ok) return guard.error
+
   try {
-    const body = await request.json()
+    const body = await req.json()
 
     if (!body.name?.trim()) {
       return NextResponse.json({ error: 'Jméno odběratele je povinné' }, { status: 400 })
+    }
+
+    // Snapshot before update for field-level audit diff
+    const before = await prisma.customer.findUnique({ where: { id: params.id } })
+    if (!before) {
+      return NextResponse.json({ error: 'Odběratel nebyl nalezen' }, { status: 404 })
     }
 
     const customer = await prisma.customer.update({
@@ -30,6 +45,22 @@ export async function PATCH(
       },
     })
 
+    await Promise.all(
+      diffAndLog(
+        {
+          userId:    guard.ctx.userId,
+          username:  guard.ctx.username,
+          role:      guard.ctx.roles[0] ?? null,
+          entityName: 'Customer',
+          entityId:  params.id,
+          module:    'customers',
+          ipAddress: guard.ctx.ipAddress,
+        },
+        before as any,
+        customer as any,
+      )
+    )
+
     return NextResponse.json(customer)
   } catch (error: any) {
     console.error('Chyba při aktualizaci odběratele:', error)
@@ -44,9 +75,12 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  request: Request,
-  { params }: { params: { id: string } }
+  req: NextRequest,
+  { params }: { params: { id: string } },
 ) {
+  const guard = await requirePermission(Permission.DELETE_CUSTOMERS, req)
+  if (!guard.ok) return guard.error
+
   try {
     const customer = await prisma.customer.findUnique({ where: { id: params.id } })
     if (!customer) {
@@ -54,6 +88,19 @@ export async function DELETE(
     }
 
     await prisma.customer.delete({ where: { id: params.id } })
+
+    await createAuditLog({
+      userId:     guard.ctx.userId,
+      username:   guard.ctx.username,
+      role:       guard.ctx.roles[0] ?? null,
+      actionType: 'DELETE',
+      entityName: 'Customer',
+      entityId:   params.id,
+      oldValue:   JSON.stringify({ name: customer.name }),
+      module:     'customers',
+      ipAddress:  guard.ctx.ipAddress,
+    })
+
     return NextResponse.json({ message: 'Odběratel byl smazán' })
   } catch (error: any) {
     console.error('Chyba při mazání odběratele:', error)

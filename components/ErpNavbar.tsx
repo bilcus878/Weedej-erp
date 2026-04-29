@@ -8,6 +8,7 @@ import {
   Warehouse, ShoppingCart, Receipt, Users, Package,
   PackageCheck, PackageMinus, ClipboardList,
   FileText, CreditCard, Globe, FileOutput, Truck, FlaskConical,
+  ShieldCheck,
 } from 'lucide-react'
 import { useSession, signOut } from 'next-auth/react'
 import { Logo } from '@/components/ui/Logo'
@@ -66,6 +67,15 @@ const navGroups: NavGroup[] = [
     children: [
       { label: 'Katalog zboží', href: '/products', icon: Package  },
       { label: 'Obecné',        href: '/settings',  icon: Settings },
+    ],
+  },
+  {
+    label: 'Administrace',
+    icon: ShieldCheck,
+    children: [
+      { label: 'Uživatelé', href: '/users',      icon: Users       },
+      { label: 'Role',      href: '/roles',      icon: ShieldCheck },
+      { label: 'Audit log', href: '/audit-logs', icon: ClipboardList },
     ],
   },
 ]

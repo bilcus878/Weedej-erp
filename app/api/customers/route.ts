@@ -1,9 +1,22 @@
-import { NextResponse } from 'next/server'
+// GET  /api/customers  — list all customers  (VIEW_CUSTOMERS)
+// POST /api/customers  — create customer     (CREATE_CUSTOMERS)
+//
+// Reference implementation: shows the standard RBAC + audit pattern.
+// Apply the same pattern to other modules by replacing the Permission constant
+// and entity name.
+
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requirePermission } from '@/lib/routeGuard'
+import { createAuditLog } from '@/lib/auditService'
+import { Permission } from '@/lib/permissions'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const guard = await requirePermission(Permission.VIEW_CUSTOMERS, req)
+  if (!guard.ok) return guard.error
+
   try {
     const customers = await prisma.customer.findMany({ orderBy: { name: 'asc' } })
     return NextResponse.json(customers)
@@ -13,9 +26,12 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(req: NextRequest) {
+  const guard = await requirePermission(Permission.CREATE_CUSTOMERS, req)
+  if (!guard.ok) return guard.error
+
   try {
-    const body = await request.json()
+    const body = await req.json()
     const { name, entityType, contact, email, phone, ico, dic, bankAccount, address, note } = body
 
     if (!name?.trim()) {
@@ -35,6 +51,18 @@ export async function POST(request: Request) {
         address:     address     || null,
         note:        note        || null,
       },
+    })
+
+    await createAuditLog({
+      userId:     guard.ctx.userId,
+      username:   guard.ctx.username,
+      role:       guard.ctx.roles[0] ?? null,
+      actionType: 'CREATE',
+      entityName: 'Customer',
+      entityId:   customer.id,
+      newValue:   JSON.stringify({ name: customer.name, entityType: customer.entityType }),
+      module:     'customers',
+      ipAddress:  guard.ctx.ipAddress,
     })
 
     return NextResponse.json(customer, { status: 201 })
