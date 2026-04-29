@@ -26,16 +26,16 @@ export async function GET(req: NextRequest) {
 
     const where: Record<string, unknown> = {}
 
-    const userId     = sp.get('userId')
-    const module     = sp.get('module')
-    const actionType = sp.get('actionType')
-    const entityName = sp.get('entityName')
-    const entityId   = sp.get('entityId')
-    const dateFrom   = sp.get('dateFrom')
-    const dateTo     = sp.get('dateTo')
+    const userId      = sp.get('userId')
+    const moduleName  = sp.get('module')
+    const actionType  = sp.get('actionType')
+    const entityName  = sp.get('entityName')
+    const entityId    = sp.get('entityId')
+    const dateFrom    = sp.get('dateFrom')
+    const dateTo      = sp.get('dateTo')
 
-    if (userId)     where.userId     = userId
-    if (module)     where.module     = module
+    if (userId)      where.userId     = userId
+    if (moduleName)  where.module     = moduleName
     if (actionType) where.actionType = actionType
     if (entityName) where.entityName = entityName
     if (entityId)   where.entityId   = entityId
