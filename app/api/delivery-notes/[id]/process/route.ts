@@ -4,6 +4,7 @@
 
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { selectBatchForOutbound } from '@/lib/batchUtils'
 
 export const dynamic = 'force-dynamic'
 
@@ -126,6 +127,7 @@ export async function POST(
 
         // Vytvoř záporný inventoryItem pro vyskladnění (jen pro položky z katalogu)
         if (deliveryItem?.productId) {
+          const batchId = await selectBatchForOutbound(tx, deliveryItem.productId)
           const inventoryItem = await tx.inventoryItem.create({
             data: {
               productId: deliveryItem.productId,
@@ -133,7 +135,8 @@ export async function POST(
               unit: deliveryItem.unit,
               purchasePrice: 0, // Při vyskladnění neřešíme nákupní cenu
               date: new Date(),
-              note: null // Poznámka není potřeba - výdejka se zobrazuje v detailu
+              note: null, // Poznámka není potřeba - výdejka se zobrazuje v detailu
+              batchId: batchId ?? undefined,
             }
           })
 

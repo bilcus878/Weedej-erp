@@ -79,14 +79,15 @@ export async function stornoReceipt(
       // 4b. Vytvoř zápornou skladovou položku (inverzní záznam = protipohyb)
       await tx.inventoryItem.create({
         data: {
-          productId: invItem.productId,
-          quantity: -Number(invItem.quantity), // ZÁPORNÉ množství!
-          unit: invItem.unit,
+          productId:     invItem.productId,
+          quantity:      -Number(invItem.quantity), // ZÁPORNÉ množství!
+          unit:          invItem.unit,
           purchasePrice: invItem.purchasePrice,
-          supplierId: invItem.supplierId,
-          receiptId: receipt.id,
-          date: new Date(),
-          note: `STORNO ${receipt.receiptNumber} - ${reason}`,
+          supplierId:    invItem.supplierId,
+          receiptId:     receipt.id,
+          date:          new Date(),
+          note:          `STORNO ${receipt.receiptNumber} - ${reason}`,
+          batchId:       invItem.batchId ?? undefined,
         },
       })
     }
@@ -234,12 +235,15 @@ export async function stornoDeliveryNote(
     for (const item of deliveryNote.items) {
       if (item.productId) {
         // 4a. Pokud existuje původní inventoryItem (záporný pohyb z vyskladnění), označ ho jako STORNO
+        let originalBatchId: string | null = null
         if ((item as any).inventoryItemId) {
           const originalInventoryItem = await tx.inventoryItem.findUnique({
-            where: { id: (item as any).inventoryItemId }
+            where:  { id: (item as any).inventoryItemId },
+            select: { batchId: true, note: true },
           })
 
           if (originalInventoryItem) {
+            originalBatchId = originalInventoryItem.batchId
             await tx.inventoryItem.update({
               where: { id: (item as any).inventoryItemId },
               data: {
@@ -252,12 +256,13 @@ export async function stornoDeliveryNote(
         // 4b. Vytvoř KLADNOU skladovou položku (vrácení zpět = protipohyb)
         await tx.inventoryItem.create({
           data: {
-            productId: item.productId,
-            quantity: Number(item.quantity), // KLADNÉ množství (vrácení)
-            unit: item.unit,
+            productId:     item.productId,
+            quantity:      Number(item.quantity), // KLADNÉ množství (vrácení)
+            unit:          item.unit,
             purchasePrice: item.product?.purchasePrice || 0,
-            date: new Date(),
-            note: `STORNO ${deliveryNote.deliveryNumber} - ${reason}`,
+            date:          new Date(),
+            note:          `STORNO ${deliveryNote.deliveryNumber} - ${reason}`,
+            batchId:       originalBatchId ?? undefined,
           },
         })
       }

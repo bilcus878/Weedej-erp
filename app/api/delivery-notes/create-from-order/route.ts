@@ -9,6 +9,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getNextDocumentNumber } from '@/lib/documentNumbering'
 import { isItemFullyShipped } from '@/lib/variantConversion'
+import { selectBatchForOutbound } from '@/lib/batchUtils'
 
 export const dynamic = 'force-dynamic'
 
@@ -176,6 +177,7 @@ export async function POST(request: Request) {
       // Vytvoř záporné InventoryItems a propoj s DeliveryNoteItems
       for (const deliveryItem of deliveryNote.items) {
         if (deliveryItem.productId) {
+          const batchId = await selectBatchForOutbound(tx, deliveryItem.productId)
           const inventoryItem = await tx.inventoryItem.create({
             data: {
               productId:     deliveryItem.productId,
@@ -184,6 +186,7 @@ export async function POST(request: Request) {
               purchasePrice: 0,
               date:          new Date(),
               note:          null,
+              batchId:       batchId ?? undefined,
             },
           })
           await tx.deliveryNoteItem.update({
