@@ -8,7 +8,7 @@ import {
   Warehouse, ShoppingCart, Receipt, Users, Package,
   PackageCheck, PackageMinus, ClipboardList,
   FileText, CreditCard, Globe, FileOutput, Truck, FlaskConical,
-  ShieldCheck, BarChart2, Calculator,
+  ShieldCheck, BarChart2, Calculator, RotateCcw,
 } from 'lucide-react'
 import { useSession, signOut } from 'next-auth/react'
 import { Logo } from '@/components/ui/Logo'
@@ -38,10 +38,11 @@ const navGroups: NavGroup[] = [
     label: 'Objednávky',
     icon: ShoppingCart,
     children: [
-      { label: 'Vydané',    href: '/purchase-orders', icon: FileText     },
+      { label: 'Vydané',     href: '/purchase-orders', icon: FileText     },
       { label: 'Vystavené', href: '/customer-orders', icon: ShoppingCart },
       { label: 'Sumup',     href: '/transactions',    icon: CreditCard   },
       { label: 'Eshop',     href: '/eshop-orders',    icon: Globe        },
+      { label: 'Reklamace', href: '/returns',         icon: RotateCcw    },
     ],
   },
   {
@@ -93,6 +94,7 @@ function getPageTitle(pathname: string): string {
   if (pathname === '/') return 'Dashboard'
   if (pathname.startsWith('/analytics'))        return 'Analytika'
   if (pathname.startsWith('/accounting-export')) return 'Účetní export'
+  if (pathname.startsWith('/returns'))          return 'Reklamace'
   for (const group of navGroups) {
     for (const child of group.children) {
       if (pathname === child.href || pathname.startsWith(child.href + '/')) {

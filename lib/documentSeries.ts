@@ -32,6 +32,7 @@ const DOCUMENT_PREFIXES: Record<string, string> = {
   'credit_note': 'DOB',      // Dobropisy (snake_case)
   'transaction': 'FAK',      // Vystavené faktury (DEPRECATED - používej issued-invoice)
   'inventura': 'INV',        // Inventury
+  'return-request': 'RET',   // Reklamace / vrácení zboží
 }
 
 export type DocumentType =
@@ -52,6 +53,7 @@ export type DocumentType =
   | 'credit_note'
   | 'transaction'
   | 'inventura'
+  | 'return-request'
 
 /**
  * Atomicky získá další číslo dokumentu a zvýší počítadlo

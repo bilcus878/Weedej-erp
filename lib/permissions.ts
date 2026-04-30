@@ -71,6 +71,12 @@ export const Permission = {
   VIEW_ESHOP_ORDERS:      'VIEW_ESHOP_ORDERS',
   MANAGE_ESHOP:           'MANAGE_ESHOP',
 
+  // ── Returns / Claims ──────────────────────────────────────────────────────
+  VIEW_RETURNS:           'VIEW_RETURNS',
+  CREATE_RETURNS:         'CREATE_RETURNS',
+  EDIT_RETURNS:           'EDIT_RETURNS',
+  PROCESS_RETURNS:        'PROCESS_RETURNS',   // approve / reject / restock / refund
+
   // ── CRM ───────────────────────────────────────────────────────────────────
   CRM_VIEW_CONTACTS:         'CRM_VIEW_CONTACTS',
   CRM_MANAGE_CONTACTS:       'CRM_MANAGE_CONTACTS',

@@ -7,6 +7,169 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ========== REKLAMACE / VRÁCENÍ ZBOŽÍ ==========
+
+model ReturnRequest {
+  id           String   @id @default(uuid())
+  returnNumber String   @unique  // RET20260001
+
+  // Source document (at least one should be set)
+  customerOrderId String?
+  transactionId   String?
+
+  // Customer snapshot — immutable after creation
+  customerId    String?
+  eshopUserId   String?
+  customerName  String?
+  customerEmail String?
+  customerPhone String?
+  customerAddress String?
+
+  // Classification
+  // type: return | warranty_claim | complaint | exchange
+  type         String  @default("return")
+  // reason: wrong_product | damaged_on_arrival | defective | not_as_described | changed_mind | other
+  reason       String
+  reasonDetail String? @db.Text
+
+  // Workflow state
+  // submitted | under_review | waiting_for_goods | goods_received
+  // inspecting | approved | partially_approved | rejected | resolved | closed | cancelled
+  status       String  @default("submitted")
+
+  // Key dates
+  requestDate    DateTime  @default(now())
+  returnDeadline DateTime?
+  warrantyExpiry DateTime?
+
+  // Return shipping
+  returnShippingPaidBy  String?           // customer | seller
+  returnTrackingNumber  String?
+  returnCarrier         String?
+  returnShippingCost    Decimal?          @db.Decimal(10, 2)
+
+  // Resolution
+  // resolutionType: refund | store_credit | exchange | repair | rejected
+  resolutionType    String?
+  refundAmount      Decimal?  @db.Decimal(10, 2)
+  // refundMethod: original_payment | store_credit | bank_transfer
+  refundMethod      String?
+  refundReference   String?
+  refundProcessedAt DateTime?
+
+  // Internal admin
+  adminNote       String?  @db.Text
+  rejectionReason String?  @db.Text
+  handledById     String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  closedAt  DateTime?
+
+  // Relations
+  customerOrder    CustomerOrder? @relation("OrderReturnRequests", fields: [customerOrderId], references: [id])
+  customer         Customer?      @relation(fields: [customerId], references: [id])
+  eshopUser        EshopUser?     @relation(fields: [eshopUserId], references: [id])
+  handledBy        User?          @relation("ReturnHandledBy", fields: [handledById], references: [id])
+  exchangeOrder    CustomerOrder? @relation("ExchangeOrder", fields: [exchangeOrderId], references: [id])
+  exchangeOrderId  String?        @unique
+
+  items         ReturnRequestItem[]
+  statusHistory ReturnStatusHistory[]
+  attachments   ReturnAttachment[]
+  creditNotes   CreditNote[]
+
+  @@index([returnNumber])
+  @@index([customerOrderId])
+  @@index([customerId])
+  @@index([status])
+  @@index([requestDate])
+  @@index([type])
+}
+
+model ReturnRequestItem {
+  id              String @id @default(uuid())
+  returnRequestId String
+
+  // Product snapshot
+  productId   String?
+  productName String?
+  unit        String
+
+  // Quantities
+  originalQuantity Decimal  @db.Decimal(10, 3)
+  returnedQuantity Decimal  @db.Decimal(10, 3)
+  approvedQuantity Decimal? @db.Decimal(10, 3)
+
+  // Price snapshot from original order
+  unitPrice        Decimal @db.Decimal(10, 2)
+  unitPriceWithVat Decimal @db.Decimal(10, 2)
+  vatRate          Decimal @default(21) @db.Decimal(5, 2)
+
+  // Condition on return
+  // condition: good | damaged | defective | opened | wrong_item
+  condition     String?
+  conditionNote String?
+
+  // Item-level decision
+  // itemStatus: pending | approved | rejected | partial
+  itemStatus          String  @default("pending")
+  itemRejectionReason String?
+
+  // Stock traceability — set when item is restocked
+  restockInventoryItemId String? @unique
+
+  createdAt DateTime @default(now())
+
+  returnRequest        ReturnRequest  @relation(fields: [returnRequestId], references: [id], onDelete: Cascade)
+  product              Product?       @relation(fields: [productId], references: [id])
+  restockInventoryItem InventoryItem? @relation("ReturnRestock", fields: [restockInventoryItemId], references: [id])
+
+  @@index([returnRequestId])
+  @@index([productId])
+}
+
+model ReturnStatusHistory {
+  id              String @id @default(uuid())
+  returnRequestId String
+
+  fromStatus    String?
+  toStatus      String
+  changedBy     String?
+  changedByName String?
+  note          String?
+
+  createdAt DateTime @default(now())
+
+  returnRequest ReturnRequest @relation(fields: [returnRequestId], references: [id], onDelete: Cascade)
+
+  @@index([returnRequestId])
+  @@index([createdAt])
+}
+
+model ReturnAttachment {
+  id              String @id @default(uuid())
+  returnRequestId String
+
+  url       String
+  filename  String
+  mimeType  String?
+  sizeBytes Int?
+  // type: photo_damage | photo_product | invoice_copy | warranty_card | other
+  type String @default("other")
+
+  uploadedBy     String?
+  uploadedByName String?
+
+  createdAt DateTime @default(now())
+
+  returnRequest ReturnRequest @relation(fields: [returnRequestId], references: [id], onDelete: Cascade)
+
+  @@index([returnRequestId])
+}
+
+// ========== END REKLAMACE ==========
+
 model Batch {
   id              String         @id @default(uuid())
   batchNumber     String
@@ -79,6 +242,7 @@ model Product {
   reservations       Reservation[]
   transactionItems   TransactionItem[]
   eshopVariants      EshopVariant[]
+  returnRequestItems ReturnRequestItem[]
 
   @@index([name])
   @@index([categoryId])
@@ -108,6 +272,7 @@ model InventoryItem {
   supplier          Supplier?          @relation(fields: [supplierId], references: [id])
   transaction       Transaction?       @relation(fields: [transactionId], references: [id])
   receiptItems      ReceiptItem[]
+  returnRequestItem ReturnRequestItem? @relation("ReturnRestock")
 
   @@index([productId])
   @@index([batchId])
@@ -158,6 +323,7 @@ model Customer {
   deliveryNotes  DeliveryNote[]
   issuedInvoices IssuedInvoice[]
   transactions   Transaction[]
+  returnRequests ReturnRequest[]
 
   // CRM relations
   crmContacts           CrmContact[]
@@ -549,6 +715,8 @@ model CustomerOrder {
   issuedInvoice         IssuedInvoice?
   reservations          Reservation[]
   webhookLogs           EshopWebhookLog[]
+  returnRequests        ReturnRequest[]     @relation("OrderReturnRequests")
+  exchangeForReturn     ReturnRequest?      @relation("ExchangeOrder")
 
   @@index([orderNumber])
   @@index([customerId])
@@ -708,9 +876,11 @@ model CreditNote {
   stornoReason          String?
   stornoAt              DateTime?
   stornoBy              String?
+  returnRequestId       String?          @unique
   createdAt             DateTime         @default(now())
   updatedAt             DateTime         @updatedAt
   issuedInvoice         IssuedInvoice    @relation(fields: [issuedInvoiceId], references: [id], onDelete: Cascade)
+  returnRequest         ReturnRequest?   @relation(fields: [returnRequestId], references: [id])
   items                 CreditNoteItem[]
 
   @@index([creditNoteNumber])
@@ -890,6 +1060,7 @@ model EshopUser {
   EshopCart                   EshopCart?
   EshopEmailVerificationToken EshopEmailVerificationToken[]
   EshopPasswordResetToken     EshopPasswordResetToken[]
+  returnRequests              ReturnRequest[]
 
   @@index([email])
 }
@@ -932,6 +1103,7 @@ model User {
   crmOpportunitiesCreated  CrmOpportunity[]        @relation("CrmOpportunityCreatedBy")
 
   accountingExportJobs     AccountingExportJob[]
+  handledReturnRequests    ReturnRequest[]      @relation("ReturnHandledBy")
 
   @@index([email])
 }
