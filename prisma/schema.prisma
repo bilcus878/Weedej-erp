@@ -931,6 +931,8 @@ model User {
   crmOpportunitiesOwned    CrmOpportunity[]        @relation("CrmOpportunityOwner")
   crmOpportunitiesCreated  CrmOpportunity[]        @relation("CrmOpportunityCreatedBy")
 
+  accountingExportJobs     AccountingExportJob[]
+
   @@index([email])
 }
 
@@ -1302,6 +1304,35 @@ model CrmTask {
 }
 
 // ========== CRM — PIPELINE CONTEXT ==========
+
+// ========== ÚČETNÍ EXPORT ==========
+
+model AccountingExportJob {
+  id            String    @id @default(uuid())
+  createdBy     String
+  createdByName String    @default("")
+  dateFrom      DateTime
+  dateTo        DateTime
+  documentTypes String    // JSON array: ["issued_invoice","payment",...]
+  exportFormat  String    // csv | xlsx | zip | pohoda_xml | money_xml | generic_csv
+  status        String    @default("completed")
+  // pending | processing | completed | failed
+  fileName      String?
+  filePath      String?   // relative path under storage/accounting-exports/
+  fileMimeType  String?
+  fileSize      Int?
+  rowCount      Int?
+  errorMessage  String?
+  completedAt   DateTime?
+  expiresAt     DateTime?
+  createdAt     DateTime  @default(now())
+
+  user          User      @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+
+  @@index([createdBy])
+  @@index([status])
+  @@index([createdAt])
+}
 
 model CrmOpportunity {
   id          String   @id @default(uuid())

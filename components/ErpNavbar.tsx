@@ -8,7 +8,7 @@ import {
   Warehouse, ShoppingCart, Receipt, Users, Package,
   PackageCheck, PackageMinus, ClipboardList,
   FileText, CreditCard, Globe, FileOutput, Truck, FlaskConical,
-  ShieldCheck, BarChart2,
+  ShieldCheck, BarChart2, Calculator,
 } from 'lucide-react'
 import { useSession, signOut } from 'next-auth/react'
 import { Logo } from '@/components/ui/Logo'
@@ -70,6 +70,13 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
+    label: 'Účetnictví',
+    icon: Calculator,
+    children: [
+      { label: 'Účetní export', href: '/accounting-export', icon: Calculator },
+    ],
+  },
+  {
     label: 'Administrace',
     icon: ShieldCheck,
     children: [
@@ -84,7 +91,8 @@ const navGroups: NavGroup[] = [
 
 function getPageTitle(pathname: string): string {
   if (pathname === '/') return 'Dashboard'
-  if (pathname.startsWith('/analytics')) return 'Analytika'
+  if (pathname.startsWith('/analytics'))        return 'Analytika'
+  if (pathname.startsWith('/accounting-export')) return 'Účetní export'
   for (const group of navGroups) {
     for (const child of group.children) {
       if (pathname === child.href || pathname.startsWith(child.href + '/')) {
