@@ -3,7 +3,8 @@ import {
   PackageCheck, PackageMinus, ClipboardList,
   FileText, CreditCard, Globe, FileOutput, Truck, FlaskConical,
   ShieldCheck, BarChart2, Calculator, RotateCcw, Settings,
-  LayoutDashboard, TrendingUp, Building2, Key,
+  LayoutDashboard, TrendingUp, Building2, Key, Tag,
+  Activity, Megaphone,
 } from 'lucide-react'
 
 export interface NavChild {
@@ -42,11 +43,12 @@ export const navGroups: NavGroup[] = [
     icon: ShoppingCart,
     triggerMode: 'hover',
     children: [
-      { label: 'Od zákazníků',  href: '/customer-orders', icon: ShoppingCart },
-      { label: 'K dodavatelům', href: '/purchase-orders', icon: FileText     },
-      { label: 'E-shop',        href: '/eshop-orders',    icon: Globe        },
-      { label: 'SumUp',         href: '/transactions',    icon: CreditCard   },
-      { label: 'Reklamace',     href: '/returns',         icon: RotateCcw    },
+      // Supply-chain order: procurement (inbound) → customer fulfillment (outbound)
+      { label: 'K dodavatelům', href: '/purchase-orders',  icon: FileText     },
+      { label: 'Od zákazníků',  href: '/customer-orders',  icon: ShoppingCart },
+      { label: 'E-shop',        href: '/eshop-orders',     icon: Globe        },
+      { label: 'SumUp',         href: '/transactions',     icon: CreditCard   },
+      { label: 'Reklamace',     href: '/returns',          icon: RotateCcw    },
     ],
   },
   {
@@ -81,30 +83,33 @@ export const navGroups: NavGroup[] = [
     icon: BarChart2,
     triggerMode: 'hover',
     children: [
-      // All hrefs use ?tab=X so the analytics page can deep-link to the correct section.
-      // TabId values match AnalyticsDashboard: overview|sales|customers|products|financial
-      { label: 'Přehled',   href: '/analytics?tab=overview',  icon: LayoutDashboard },
-      { label: 'Prodeje',   href: '/analytics?tab=sales',     icon: TrendingUp      },
-      { label: 'Zákazníci', href: '/analytics?tab=customers', icon: Users           },
-      { label: 'Produkty',  href: '/analytics?tab=products',  icon: Package         },
-      { label: 'Finance',   href: '/analytics?tab=financial', icon: Calculator      },
+      // All 7 tabs that AnalyticsDashboard exposes — TabId must match exactly.
+      { label: 'Přehled',   href: '/analytics?tab=overview',   icon: LayoutDashboard },
+      { label: 'Prodeje',   href: '/analytics?tab=sales',      icon: TrendingUp      },
+      { label: 'Zákazníci', href: '/analytics?tab=customers',  icon: Users           },
+      { label: 'Produkty',  href: '/analytics?tab=products',   icon: Package         },
+      { label: 'Finance',   href: '/analytics?tab=financial',  icon: Calculator      },
+      { label: 'Operace',   href: '/analytics?tab=operations', icon: Activity        },
+      { label: 'Marketing', href: '/analytics?tab=marketing',  icon: Megaphone       },
     ],
   },
   {
     label: 'Nastavení',
     icon: Settings,
     triggerMode: 'hover',
-    dropdownWidth: 'w-60',
+    dropdownWidth: 'w-64',
     children: [
-      { label: 'Produkty',  href: '/products', icon: Package },
-      // ── Nastavení section ─────────────────────────────────────────────────────
-      // Links use ?tab=X so the settings page opens on the correct tab.
-      // TabId values match useSettings / SettingsPage: company|invoicing|system|api
-      { label: 'Firma',     href: '/settings?tab=company',   icon: Building2, sectionLabel: 'Nastavení' },
-      { label: 'Fakturace', href: '/settings?tab=invoicing', icon: FileText                             },
-      { label: 'Systém',    href: '/settings?tab=system',    icon: Settings                             },
-      { label: 'API klíče', href: '/settings?tab=api',       icon: Key                                  },
-      // ── Administrace section (ADMIN role only) ────────────────────────────────
+      // ── Katalog — master data for what you sell and how you ship it ───────────
+      { label: 'Produkty',  href: '/products',   icon: Package, sectionLabel: 'Katalog' },
+      { label: 'Kategorie', href: '/categories', icon: Tag                               },
+      { label: 'Doprava',   href: '/shipping',   icon: Truck                             },
+      // ── Firma & Fakturace — legal identity and invoicing rules ────────────────
+      { label: 'Firma',     href: '/settings?tab=company',   icon: Building2, sectionLabel: 'Firma & Fakturace' },
+      { label: 'Fakturace', href: '/settings?tab=invoicing', icon: FileText                                     },
+      // ── Systém & Integrace — runtime config and external API access ───────────
+      { label: 'Systém',    href: '/settings?tab=system', icon: Settings, sectionLabel: 'Systém & Integrace' },
+      { label: 'API klíče', href: '/settings?tab=api',    icon: Key                                          },
+      // ── Administrace — identity, roles, tamper-evident trail (ADMIN only) ─────
       { label: 'Uživatelé', href: '/users',      icon: Users,         permission: 'MANAGE_USERS',  sectionLabel: 'Administrace' },
       { label: 'Role',      href: '/roles',      icon: ShieldCheck,   permission: 'MANAGE_ROLES'                               },
       { label: 'Audit log', href: '/audit-logs', icon: ClipboardList, permission: 'VIEW_AUDIT_LOG'                             },
