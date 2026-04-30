@@ -1061,6 +1061,15 @@ model AnalyticsEvent {
   ipAddress        String?
   userAgent        String?
 
+  // UTM / attribution context — denormalised from AnalyticsSession for fast aggregations
+  utmSource        String?
+  utmMedium        String?
+  utmCampaign      String?
+  utmContent       String?
+  utmTerm          String?
+  referrer         String?
+  landingPage      String?
+
   clientTimestamp  DateTime // when the event occurred on the e-shop (sent by client)
   createdAt        DateTime @default(now()) // when ERP received it
 
@@ -1072,6 +1081,9 @@ model AnalyticsEvent {
   @@index([erpCustomerId, createdAt])
   @@index([erpOrderId])
   @@index([createdAt])
+  @@index([utmSource, createdAt])
+  @@index([utmCampaign, createdAt])
+  @@index([sessionId, eventType])
 }
 
 model AnalyticsEventDelivery {
@@ -1094,6 +1106,43 @@ model AnalyticsEventDelivery {
   @@index([provider, status])
   @@index([status, createdAt])
   @@index([status, attempts, lastAttemptAt])
+}
+
+// ========== ANALYTICS SESSION ==========
+// One record per browser session. Created on session_start event.
+// UTMs are stored here (source of truth) and denormalised to AnalyticsEvent for fast querying.
+model AnalyticsSession {
+  id           String    @id @default(uuid())
+  sessionId    String    @unique  // matches AnalyticsEvent.sessionId
+
+  // Attribution UTMs
+  utmSource    String?
+  utmMedium    String?
+  utmCampaign  String?
+  utmContent   String?
+  utmTerm      String?
+  referrer     String?
+  landingPage  String?
+
+  // Browser identifiers
+  gaClientId   String?
+  fbp          String?
+  fbc          String?
+  ipAddress    String?
+  userAgent    String?
+
+  // ERP enrichment
+  erpCustomerId String?  // set when purchase is matched to a customer
+  userId        String?  // e-shop user ID
+
+  firstSeen    DateTime  @default(now())
+  lastSeen     DateTime  @updatedAt
+
+  @@index([utmSource, firstSeen])
+  @@index([utmCampaign, firstSeen])
+  @@index([erpCustomerId])
+  @@index([userId])
+  @@index([firstSeen])
 }
 
 // ========== WEBHOOK LOGY (ERP → E-SHOP) ==========

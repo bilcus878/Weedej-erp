@@ -106,6 +106,16 @@ const propertiesSchema = z.union([
   z.object({
     method: z.string(),
   }),
+  // session_start — fired once per browser session when UTMs are detected
+  z.object({
+    utmSource:   z.string().max(100).optional(),
+    utmMedium:   z.string().max(100).optional(),
+    utmCampaign: z.string().max(100).optional(),
+    utmContent:  z.string().max(100).optional(),
+    utmTerm:     z.string().max(100).optional(),
+    referrer:    z.string().max(500).optional(),
+    landingPage: z.string().max(500).optional(),
+  }),
 ])
 
 const ingressSchema = z.object({
@@ -118,6 +128,14 @@ const ingressSchema = z.object({
   gaClientId:      z.string().optional(),
   fbp:             z.string().optional(),
   fbc:             z.string().optional(),
+  // UTM attribution fields — present on session_start and forwarded on subsequent events
+  utmSource:       z.string().max(100).optional(),
+  utmMedium:       z.string().max(100).optional(),
+  utmCampaign:     z.string().max(100).optional(),
+  utmContent:      z.string().max(100).optional(),
+  utmTerm:         z.string().max(100).optional(),
+  referrer:        z.string().max(500).optional(),
+  landingPage:     z.string().max(500).optional(),
   source:          z.literal('eshop'),
   properties:      propertiesSchema,
   ipAddress:       z.string().optional(),

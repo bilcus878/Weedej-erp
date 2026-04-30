@@ -1,5 +1,5 @@
 import type { AnalyticsFilters }  from '../types'
-import type { OverviewReport, SalesReport, CustomersReport, ProductsReport, FinancialReport, OperationsReport } from '../types'
+import type { OverviewReport, SalesReport, CustomersReport, ProductsReport, FinancialReport, OperationsReport, MarketingReport } from '../types'
 
 function buildQs(filters: AnalyticsFilters): string {
   const p = new URLSearchParams({
@@ -24,6 +24,7 @@ export const analyticsService = {
   products:   (f: AnalyticsFilters) => get<ProductsReport>   ('/api/reports/products',   f),
   financial:  (f: AnalyticsFilters) => get<FinancialReport>  ('/api/reports/financial',  f),
   operations: (f: AnalyticsFilters) => get<OperationsReport> ('/api/reports/operations', f),
+  marketing:  (f: AnalyticsFilters) => get<MarketingReport>  ('/api/reports/marketing',  f),
 
   exportUrl(section: string, filters: AnalyticsFilters, format: 'csv' | 'excel' | 'pdf'): string {
     const p = new URLSearchParams({

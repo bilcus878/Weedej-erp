@@ -37,6 +37,51 @@ export async function storeEvent(
     }
   }
 
+  // Resolve UTMs: top-level fields take priority; session_start mirrors them in properties
+  const utmSource   = incoming.utmSource   ?? undefined
+  const utmMedium   = incoming.utmMedium   ?? undefined
+  const utmCampaign = incoming.utmCampaign ?? undefined
+  const utmContent  = incoming.utmContent  ?? undefined
+  const utmTerm     = incoming.utmTerm     ?? undefined
+  const referrer    = incoming.referrer    ?? undefined
+  const landingPage = incoming.landingPage ?? undefined
+
+  // Upsert session record whenever we have a sessionId (create-or-update lastSeen)
+  if (incoming.sessionId) {
+    await prisma.analyticsSession.upsert({
+      where:  { sessionId: incoming.sessionId },
+      create: {
+        sessionId:    incoming.sessionId,
+        userId:       incoming.userId     ?? null,
+        erpCustomerId: erpCustomerId      ?? null,
+        utmSource:    utmSource           ?? null,
+        utmMedium:    utmMedium           ?? null,
+        utmCampaign:  utmCampaign         ?? null,
+        utmContent:   utmContent          ?? null,
+        utmTerm:      utmTerm             ?? null,
+        referrer:     referrer            ?? null,
+        landingPage:  landingPage         ?? null,
+        gaClientId:   incoming.gaClientId ?? null,
+        fbp:          incoming.fbp        ?? null,
+        fbc:          incoming.fbc        ?? null,
+        ipAddress:    incoming.ipAddress  ?? null,
+        userAgent:    incoming.userAgent  ?? null,
+      },
+      update: {
+        lastSeen:     new Date(),
+        // Only overwrite UTMs if we have new values (session_start sends them all)
+        ...(utmSource   ? { utmSource }   : {}),
+        ...(utmMedium   ? { utmMedium }   : {}),
+        ...(utmCampaign ? { utmCampaign } : {}),
+        ...(utmContent  ? { utmContent }  : {}),
+        ...(utmTerm     ? { utmTerm }     : {}),
+        ...(referrer    ? { referrer }    : {}),
+        ...(landingPage ? { landingPage } : {}),
+        ...(erpCustomerId ? { erpCustomerId } : {}),
+      },
+    }).catch(() => {}) // non-blocking — session linking is best-effort
+  }
+
   try {
     const stored = await prisma.analyticsEvent.create({
       data: {
@@ -51,6 +96,13 @@ export async function storeEvent(
         fbc:             incoming.fbc        ?? null,
         erpCustomerId:   erpCustomerId       ?? null,
         erpOrderId:      erpOrderId          ?? null,
+        utmSource:       utmSource           ?? null,
+        utmMedium:       utmMedium           ?? null,
+        utmCampaign:     utmCampaign         ?? null,
+        utmContent:      utmContent          ?? null,
+        utmTerm:         utmTerm             ?? null,
+        referrer:        referrer            ?? null,
+        landingPage:     landingPage         ?? null,
         source:          incoming.source,
         properties:      incoming.properties as object,
         ipAddress:       incoming.ipAddress  ?? null,
@@ -64,6 +116,13 @@ export async function storeEvent(
       id:           stored.id,
       erpCustomerId,
       erpOrderId,
+      utmSource,
+      utmMedium,
+      utmCampaign,
+      utmContent,
+      utmTerm,
+      referrer,
+      landingPage,
       createdAt:    stored.createdAt,
     }
   } catch (err: unknown) {

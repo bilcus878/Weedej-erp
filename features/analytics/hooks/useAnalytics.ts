@@ -6,7 +6,7 @@ import { analyticsService }      from '../services/analyticsService'
 import type { AnalyticsFilters } from '../types'
 import type {
   OverviewReport, SalesReport, CustomersReport,
-  ProductsReport, FinancialReport, OperationsReport,
+  ProductsReport, FinancialReport, OperationsReport, MarketingReport,
 } from '../types'
 
 function defaultFilters(): AnalyticsFilters {
@@ -29,9 +29,10 @@ export interface AnalyticsState {
   products:   ProductsReport   | null
   financial:  FinancialReport  | null
   operations: OperationsReport | null
+  marketing:  MarketingReport  | null
 }
 
-type Section = 'overview' | 'sales' | 'customers' | 'products' | 'financial' | 'operations'
+type Section = 'overview' | 'sales' | 'customers' | 'products' | 'financial' | 'operations' | 'marketing'
 
 export function useAnalytics() {
   const [filters,    setFilters]    = useState<AnalyticsFilters>(defaultFilters)
@@ -43,6 +44,7 @@ export function useAnalytics() {
   const [products,   setProducts]   = useState<ProductsReport   | null>(null)
   const [financial,  setFinancial]  = useState<FinancialReport  | null>(null)
   const [operations, setOperations] = useState<OperationsReport | null>(null)
+  const [marketing,  setMarketing]  = useState<MarketingReport  | null>(null)
 
   const fetchSection = useCallback(async (section: Section, f: AnalyticsFilters) => {
     setLoading(prev => ({ ...prev, [section]: true }))
@@ -56,6 +58,7 @@ export function useAnalytics() {
         case 'products':   setProducts(data);   break
         case 'financial':  setFinancial(data);  break
         case 'operations': setOperations(data); break
+        case 'marketing':  setMarketing(data);  break
       }
     } catch (e: any) {
       setError(prev => ({ ...prev, [section]: e.message ?? 'Chyba načítání' }))
@@ -65,7 +68,7 @@ export function useAnalytics() {
   }, [])
 
   const fetchAll = useCallback((f: AnalyticsFilters) => {
-    const sections: Section[] = ['overview', 'sales', 'customers', 'products', 'financial', 'operations']
+    const sections: Section[] = ['overview', 'sales', 'customers', 'products', 'financial', 'operations', 'marketing']
     sections.forEach(s => fetchSection(s, f))
   }, [fetchSection])
 
@@ -82,7 +85,7 @@ export function useAnalytics() {
   return {
     filters, applyFilters, refresh,
     loading, error,
-    overview, sales, customers, products, financial, operations,
+    overview, sales, customers, products, financial, operations, marketing,
     fetchSection: (section: Section) => fetchSection(section, filters),
   }
 }

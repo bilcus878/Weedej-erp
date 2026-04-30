@@ -89,3 +89,47 @@ export interface OperationsReport {
   ordersByStatus:  { status: string; count: number }[]
   fulfillmentChart: TimeSeriesPoint[]
 }
+
+// ── Marketing ─────────────────────────────────────────────────────────────────
+
+export interface FunnelStep {
+  step:        string
+  sessions:    number
+  dropoffPct?: number
+}
+
+export interface TrafficSource {
+  source:    string    // utmSource or "direct" or "organic"
+  sessions:  number
+  purchases: number
+  revenue:   number
+  convRate:  number
+}
+
+export interface CampaignRow {
+  campaign:  string
+  medium:    string
+  sessions:  number
+  purchases: number
+  revenue:   number
+  convRate:  number
+}
+
+export interface AttributionRow {
+  source:         string
+  firstTouchRev:  number
+  lastTouchRev:   number
+  firstTouchOrds: number
+  lastTouchOrds:  number
+}
+
+export interface MarketingReport {
+  totalSessions:  KpiMetric
+  totalPageViews: KpiMetric
+  purchaseSessions: KpiMetric
+  overallConvRate:  KpiMetric
+  funnel:           FunnelStep[]
+  trafficSources:   TrafficSource[]
+  campaigns:        CampaignRow[]
+  attribution:      AttributionRow[]
+}

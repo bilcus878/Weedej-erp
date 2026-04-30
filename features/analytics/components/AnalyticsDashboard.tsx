@@ -8,9 +8,10 @@ import { CustomersSection }    from './sections/CustomersSection'
 import { ProductsSection }     from './sections/ProductsSection'
 import { FinancialSection }    from './sections/FinancialSection'
 import { OperationsSection }   from './sections/OperationsSection'
+import { MarketingSection }    from './sections/MarketingSection'
 import { useAnalytics }        from '../hooks/useAnalytics'
 
-type TabId = 'overview' | 'sales' | 'customers' | 'products' | 'financial' | 'operations'
+type TabId = 'overview' | 'sales' | 'customers' | 'products' | 'financial' | 'operations' | 'marketing'
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'overview',   label: 'Přehled'   },
@@ -19,6 +20,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'products',   label: 'Produkty'  },
   { id: 'financial',  label: 'Finance'   },
   { id: 'operations', label: 'Operace'   },
+  { id: 'marketing',  label: 'Marketing' },
 ]
 
 export function AnalyticsDashboard() {
@@ -26,7 +28,7 @@ export function AnalyticsDashboard() {
   const {
     filters, applyFilters, refresh,
     loading, error,
-    overview, sales, customers, products, financial, operations,
+    overview, sales, customers, products, financial, operations, marketing,
     fetchSection,
   } = useAnalytics()
 
@@ -91,6 +93,7 @@ export function AnalyticsDashboard() {
         {activeTab === 'products'   && <ProductsSection   report={products}   filters={filters} loading={!!loading.products}   />}
         {activeTab === 'financial'  && <FinancialSection  report={financial}  filters={filters} loading={!!loading.financial}  />}
         {activeTab === 'operations' && <OperationsSection report={operations} filters={filters} loading={!!loading.operations} />}
+        {activeTab === 'marketing'  && <MarketingSection  report={marketing}  filters={filters} loading={!!loading.marketing}  />}
       </div>
     </div>
   )

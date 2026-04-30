@@ -16,6 +16,7 @@ const META_EVENT_NAME: Record<AnalyticsEventType, string | null> = {
   purchase:       'Purchase',
   refund:         null,   // no standard Meta event
   signup:         'CompleteRegistration',
+  session_start:  null,   // not sent to Meta
 }
 
 export interface MetaCapiPayload {

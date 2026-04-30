@@ -7,6 +7,7 @@ export const ANALYTICS_EVENT_TYPES = [
   'purchase',
   'refund',
   'signup',
+  'session_start',
 ] as const
 
 export type AnalyticsEventType = typeof ANALYTICS_EVENT_TYPES[number]
@@ -63,6 +64,16 @@ export interface SignupProperties {
   method: string  // "email" | "google" | etc.
 }
 
+export interface SessionStartProperties {
+  utmSource?:   string
+  utmMedium?:   string
+  utmCampaign?: string
+  utmContent?:  string
+  utmTerm?:     string
+  referrer?:    string
+  landingPage?: string
+}
+
 export interface CheckoutItem {
   productId:   string
   productName: string
@@ -79,6 +90,7 @@ export type AnalyticsEventProperties =
   | PurchaseProperties
   | RefundProperties
   | SignupProperties
+  | SessionStartProperties
 
 // ── Ingress payload (what the e-shop sends to ERP) ───────────────────────────
 
@@ -92,6 +104,14 @@ export interface IngressAnalyticsEvent {
   gaClientId?:     string            // GA4 _ga cookie value
   fbp?:            string            // Meta _fbp cookie
   fbc?:            string            // Meta _fbc click-ID cookie
+  // UTM attribution — passed at top-level for indexing; also echoed in SessionStartProperties
+  utmSource?:      string
+  utmMedium?:      string
+  utmCampaign?:    string
+  utmContent?:     string
+  utmTerm?:        string
+  referrer?:       string
+  landingPage?:    string
   source:          string            // always "eshop" from the e-shop emitter
   properties:      AnalyticsEventProperties
   ipAddress?:      string

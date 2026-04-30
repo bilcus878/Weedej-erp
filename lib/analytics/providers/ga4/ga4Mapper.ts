@@ -10,6 +10,7 @@ const GA4_EVENT_NAME: Record<AnalyticsEventType, string> = {
   purchase:        'purchase',
   refund:          'refund',
   signup:          'sign_up',
+  session_start:   'session_start',
 }
 
 export interface Ga4Payload {
