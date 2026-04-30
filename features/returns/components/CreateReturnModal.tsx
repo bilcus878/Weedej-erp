@@ -3,7 +3,7 @@
 import { XCircle, Search, Loader2, AlertCircle, ChevronRight, ChevronLeft, CheckSquare, Square } from 'lucide-react'
 import { useCreateReturn } from '../hooks/useCreateReturn'
 import { RETURN_TYPE_LABELS, RETURN_REASON_LABELS } from '@/lib/returns/returnWorkflow'
-import type { ReturnType, ReturnReason } from '../types'
+import type { ReturnType as ReturnRequestType, ReturnReason } from '../types'
 
 const inp = 'w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-400'
 const sel = `${inp} bg-white`
@@ -183,8 +183,8 @@ function Step3({ s }: { s: ReturnType<typeof useCreateReturn> }) {
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-xs font-semibold text-gray-600 mb-1.5">Typ reklamace</label>
-          <select value={s.type} onChange={e => s.setType(e.target.value as ReturnType)} className={sel}>
-            {(Object.entries(RETURN_TYPE_LABELS) as [ReturnType, string][]).map(([k, v]) => (
+          <select value={s.type} onChange={e => s.setType(e.target.value as ReturnRequestType)} className={sel}>
+            {(Object.entries(RETURN_TYPE_LABELS) as [ReturnRequestType, string][]).map(([k, v]) => (
               <option key={k} value={k}>{v}</option>
             ))}
           </select>
