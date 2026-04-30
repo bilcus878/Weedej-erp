@@ -57,7 +57,11 @@ export function AnalyticsDashboard({ initialParams }: Props) {
 
   const initialFilters = useMemo(() => parseInitialFilters(initialParams), []) // eslint-disable-line
 
-  const [activeTab, setActiveTab] = useState<TabId>('overview')
+  const VALID_TABS: TabId[] = ['overview', 'sales', 'customers', 'products', 'financial', 'operations', 'marketing']
+  const [activeTab, setActiveTab] = useState<TabId>(() => {
+    const t = initialParams?.['tab'] as TabId
+    return VALID_TABS.includes(t) ? t : 'overview'
+  })
   const {
     filters, applyFilters, refresh,
     loading, error,
@@ -73,15 +77,16 @@ export function AnalyticsDashboard({ initialParams }: Props) {
     if (activeTab !== 'overview') fetchSection(activeTab)
   }, [activeTab]) // eslint-disable-line
 
-  // Sync filters → URL (router.replace to avoid polluting history)
+  // Sync filters + active tab → URL (replace to avoid polluting history)
   useEffect(() => {
     const p = new URLSearchParams()
     p.set('preset', filters.preset)
     p.set('from',   filters.from)
     p.set('to',     filters.to)
     if (filters.compare !== 'none') p.set('compare', '1')
+    if (activeTab !== 'overview') p.set('tab', activeTab)
     router.replace(`${pathname}?${p.toString()}`, { scroll: false })
-  }, [filters.preset, filters.from, filters.to, filters.compare]) // eslint-disable-line
+  }, [filters.preset, filters.from, filters.to, filters.compare, activeTab]) // eslint-disable-line
 
   const anyLoading = Object.values(loading).some(Boolean)
 

@@ -1,5 +1,7 @@
 'use client'
 
+import { useEffect } from 'react'
+import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { Building2, FileText, Settings as SettingsIcon, Key } from 'lucide-react'
 import {
   useSettings, ToastContainer,
@@ -16,8 +18,24 @@ const TABS: { id: SettingsTab; label: string; icon: typeof Building2; descriptio
   { id: 'api',       label: 'API klíče', icon: Key,           description: 'Přístup e-shopu' },
 ]
 
+const VALID_TABS: SettingsTab[] = ['company', 'invoicing', 'system', 'api']
+
 export default function SettingsPage() {
-  const s = useSettings()
+  const router       = useRouter()
+  const pathname     = usePathname()
+  const searchParams = useSearchParams()
+  const s            = useSettings()
+
+  // On mount: read ?tab=X from URL and activate the matching tab
+  useEffect(() => {
+    const t = searchParams.get('tab') as SettingsTab | null
+    if (t && VALID_TABS.includes(t)) s.setActiveTab(t)
+  }, []) // eslint-disable-line
+
+  // Whenever the active tab changes: write it back to the URL
+  useEffect(() => {
+    router.replace(`${pathname}?tab=${s.activeTab}`, { scroll: false })
+  }, [s.activeTab]) // eslint-disable-line
 
   if (s.loading) {
     return (
