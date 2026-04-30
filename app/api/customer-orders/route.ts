@@ -15,10 +15,12 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const customerId = searchParams.get('customerId')
+    const search     = searchParams.get('search')?.trim()
     const orders = await prisma.customerOrder.findMany({
       where: {
         source: { not: 'eshop' },
         ...(customerId ? { customerId } : {}),
+        ...(search ? { orderNumber: { contains: search } } : {}),
       },
       include: {
         customer: true,
