@@ -70,6 +70,22 @@ export const Permission = {
   // ── E-shop ────────────────────────────────────────────────────────────────
   VIEW_ESHOP_ORDERS:      'VIEW_ESHOP_ORDERS',
   MANAGE_ESHOP:           'MANAGE_ESHOP',
+
+  // ── CRM ───────────────────────────────────────────────────────────────────
+  CRM_VIEW_CONTACTS:         'CRM_VIEW_CONTACTS',
+  CRM_MANAGE_CONTACTS:       'CRM_MANAGE_CONTACTS',
+  CRM_VIEW_INTERACTIONS:     'CRM_VIEW_INTERACTIONS',
+  CRM_CREATE_INTERACTIONS:   'CRM_CREATE_INTERACTIONS',
+  CRM_EDIT_INTERACTIONS:     'CRM_EDIT_INTERACTIONS',
+  CRM_DELETE_INTERACTIONS:   'CRM_DELETE_INTERACTIONS',
+  CRM_VIEW_TASKS:            'CRM_VIEW_TASKS',
+  CRM_CREATE_TASKS:          'CRM_CREATE_TASKS',
+  CRM_EDIT_TASKS:            'CRM_EDIT_TASKS',
+  CRM_DELETE_TASKS:          'CRM_DELETE_TASKS',
+  CRM_VIEW_OPPORTUNITIES:    'CRM_VIEW_OPPORTUNITIES',
+  CRM_CREATE_OPPORTUNITIES:  'CRM_CREATE_OPPORTUNITIES',
+  CRM_EDIT_OPPORTUNITIES:    'CRM_EDIT_OPPORTUNITIES',
+  CRM_DELETE_OPPORTUNITIES:  'CRM_DELETE_OPPORTUNITIES',
 } as const
 
 export type Permission = typeof Permission[keyof typeof Permission]

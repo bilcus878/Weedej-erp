@@ -159,6 +159,13 @@ model Customer {
   issuedInvoices IssuedInvoice[]
   transactions   Transaction[]
 
+  // CRM relations
+  crmContacts           CrmContact[]
+  crmRelationshipStatus CrmRelationshipStatus?
+  crmInteractions       CrmInteraction[]
+  crmTasks              CrmTask[]
+  crmOpportunities      CrmOpportunity[]
+
   @@index([name])
 }
 
@@ -915,6 +922,15 @@ model User {
   userRoles    UserRole[]
   auditLogs    AuditLog[]
 
+  // CRM back-relations
+  crmContactsCreated       CrmContact[]            @relation("CrmContactCreatedBy")
+  crmRelationshipsOwned    CrmRelationshipStatus[] @relation("CrmAccountOwner")
+  crmInteractionsCreated   CrmInteraction[]        @relation("CrmInteractionCreatedBy")
+  crmTasksAssigned         CrmTask[]               @relation("CrmTaskAssignee")
+  crmTasksCreated          CrmTask[]               @relation("CrmTaskCreatedBy")
+  crmOpportunitiesOwned    CrmOpportunity[]        @relation("CrmOpportunityOwner")
+  crmOpportunitiesCreated  CrmOpportunity[]        @relation("CrmOpportunityCreatedBy")
+
   @@index([email])
 }
 
@@ -1171,4 +1187,152 @@ model EshopWebhookLog {
   @@index([eshopOrderId])
   @@index([status])
   @@index([nextRetryAt])
+}
+
+// ========== CRM — RELATIONSHIP CONTEXT ==========
+
+model CrmContact {
+  id          String    @id @default(uuid())
+  customerId  String
+  customer    Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  firstName   String
+  lastName    String?
+  role        String?   // e.g. "CEO", "Procurement Manager"
+  email       String?
+  phone       String?
+  isPrimary   Boolean   @default(false)
+  note        String?
+  isActive    Boolean   @default(true)
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  createdById String?
+  createdBy   User?     @relation("CrmContactCreatedBy", fields: [createdById], references: [id])
+
+  interactions CrmInteraction[]
+  tasks        CrmTask[]
+
+  @@index([customerId])
+  @@map("crm_contacts")
+}
+
+model CrmRelationshipStatus {
+  id         String   @id @default(uuid())
+  customerId String   @unique
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  // lead | prospect | active | at_risk | churned | inactive
+  stage          String    @default("prospect")
+  healthScore    Int?
+  ownerId        String?
+  owner          User?     @relation("CrmAccountOwner", fields: [ownerId], references: [id])
+
+  lastContactedAt DateTime?
+  nextFollowUpAt  DateTime?
+  updatedAt       DateTime  @updatedAt
+
+  @@map("crm_relationship_status")
+}
+
+// ========== CRM — ACTIVITY CONTEXT ==========
+
+model CrmInteraction {
+  id            String      @id @default(uuid())
+  customerId    String
+  customer      Customer    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  contactId     String?
+  contact       CrmContact? @relation(fields: [contactId], references: [id])
+
+  // call | email | meeting | note | visit | demo | other
+  type          String
+  // inbound | outbound — null for notes/meetings
+  direction     String?
+  subject       String
+  body          String?     @db.Text
+  outcome       String?
+  occurredAt    DateTime
+  durationMin   Int?
+
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  createdById   String?
+  createdBy     User?       @relation("CrmInteractionCreatedBy", fields: [createdById], references: [id])
+
+  opportunityId String?
+  opportunity   CrmOpportunity? @relation(fields: [opportunityId], references: [id])
+
+  @@index([customerId, occurredAt(sort: Desc)])
+  @@index([opportunityId])
+  @@map("crm_interactions")
+}
+
+model CrmTask {
+  id          String      @id @default(uuid())
+  customerId  String
+  customer    Customer    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  contactId   String?
+  contact     CrmContact? @relation(fields: [contactId], references: [id])
+
+  title       String
+  description String?   @db.Text
+  // call_back | send_email | follow_up | demo | send_quote | other
+  type        String    @default("follow_up")
+  // open | in_progress | done | cancelled
+  status      String    @default("open")
+  // low | normal | high | urgent
+  priority    String    @default("normal")
+  dueAt       DateTime?
+  completedAt DateTime?
+
+  assignedToId String?
+  assignedTo   User?    @relation("CrmTaskAssignee", fields: [assignedToId], references: [id])
+  createdById  String?
+  createdBy    User?    @relation("CrmTaskCreatedBy", fields: [createdById], references: [id])
+
+  opportunityId String?
+  opportunity   CrmOpportunity? @relation(fields: [opportunityId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([customerId, dueAt])
+  @@index([assignedToId, status])
+  @@map("crm_tasks")
+}
+
+// ========== CRM — PIPELINE CONTEXT ==========
+
+model CrmOpportunity {
+  id          String   @id @default(uuid())
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  title           String
+  description     String?   @db.Text
+  value           Decimal?  @db.Decimal(12, 2)
+  currency        String    @default("CZK")
+  probability     Int?
+
+  // lead | qualified | proposal | negotiation | won | lost
+  stage           String    @default("lead")
+  lostReason      String?
+
+  expectedCloseAt DateTime?
+  closedAt        DateTime?
+
+  ownerId     String?
+  owner       User?    @relation("CrmOpportunityOwner", fields: [ownerId], references: [id])
+  createdById String?
+  createdBy   User?    @relation("CrmOpportunityCreatedBy", fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  interactions CrmInteraction[]
+  tasks        CrmTask[]
+
+  @@index([customerId])
+  @@index([stage, expectedCloseAt])
+  @@map("crm_opportunities")
 }

@@ -7,6 +7,7 @@ import {
   useCustomers, useCustomerForm, createCustomerColumns,
   CustomerFormPopup, CustomerOrdersFetcher,
 } from '@/features/customers'
+import { CustomerCrmPanel } from '@/features/crm'
 
 export const dynamic = 'force-dynamic'
 
@@ -73,6 +74,7 @@ export default function CustomersPage() {
                 </>
               }
             />
+            <CustomerCrmPanel customerId={customer.id} customerName={customer.name} />
           </>
         )}
       />

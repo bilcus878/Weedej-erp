@@ -51,8 +51,22 @@ const PERMISSIONS = [
   { name: 'VIEW_TRANSACTIONS',      displayName: 'Zobrazit transakce',     module: 'transactions'    },
   { name: 'VIEW_REPORTS',           displayName: 'Zobrazit reporty',       module: 'reports'         },
   { name: 'EXPORT_DATA',            displayName: 'Exportovat data',        module: 'reports'         },
-  { name: 'VIEW_ESHOP_ORDERS',      displayName: 'Zobrazit eshop obj.',    module: 'eshop'           },
-  { name: 'MANAGE_ESHOP',           displayName: 'Spravovat eshop',        module: 'eshop'           },
+  { name: 'VIEW_ESHOP_ORDERS',         displayName: 'Zobrazit eshop obj.',      module: 'eshop'  },
+  { name: 'MANAGE_ESHOP',             displayName: 'Spravovat eshop',          module: 'eshop'  },
+  { name: 'CRM_VIEW_CONTACTS',        displayName: 'CRM: Zobrazit kontakty',   module: 'crm'    },
+  { name: 'CRM_MANAGE_CONTACTS',      displayName: 'CRM: Spravovat kontakty',  module: 'crm'    },
+  { name: 'CRM_VIEW_INTERACTIONS',    displayName: 'CRM: Zobrazit interakce',  module: 'crm'    },
+  { name: 'CRM_CREATE_INTERACTIONS',  displayName: 'CRM: Přidat interakci',    module: 'crm'    },
+  { name: 'CRM_EDIT_INTERACTIONS',    displayName: 'CRM: Upravit interakci',   module: 'crm'    },
+  { name: 'CRM_DELETE_INTERACTIONS',  displayName: 'CRM: Smazat interakci',    module: 'crm'    },
+  { name: 'CRM_VIEW_TASKS',           displayName: 'CRM: Zobrazit úkoly',      module: 'crm'    },
+  { name: 'CRM_CREATE_TASKS',         displayName: 'CRM: Přidat úkol',         module: 'crm'    },
+  { name: 'CRM_EDIT_TASKS',           displayName: 'CRM: Upravit úkol',        module: 'crm'    },
+  { name: 'CRM_DELETE_TASKS',         displayName: 'CRM: Smazat úkol',         module: 'crm'    },
+  { name: 'CRM_VIEW_OPPORTUNITIES',   displayName: 'CRM: Zobrazit příležitosti', module: 'crm'  },
+  { name: 'CRM_CREATE_OPPORTUNITIES', displayName: 'CRM: Přidat příležitost',  module: 'crm'    },
+  { name: 'CRM_EDIT_OPPORTUNITIES',   displayName: 'CRM: Upravit příležitost', module: 'crm'    },
+  { name: 'CRM_DELETE_OPPORTUNITIES', displayName: 'CRM: Smazat příležitost',  module: 'crm'    },
 ] as const
 
 type PermName = typeof PERMISSIONS[number]['name']
@@ -80,6 +94,10 @@ const ROLES: { name: string; displayName: string; description: string; isSystem:
       'VIEW_DELIVERY_NOTES', 'CREATE_DELIVERY_NOTES', 'PROCESS_DELIVERY_NOTES',
       'VIEW_TRANSACTIONS', 'VIEW_REPORTS', 'EXPORT_DATA',
       'VIEW_ESHOP_ORDERS', 'VIEW_AUDIT_LOG',
+      'CRM_VIEW_CONTACTS', 'CRM_MANAGE_CONTACTS',
+      'CRM_VIEW_INTERACTIONS', 'CRM_CREATE_INTERACTIONS', 'CRM_EDIT_INTERACTIONS', 'CRM_DELETE_INTERACTIONS',
+      'CRM_VIEW_TASKS', 'CRM_CREATE_TASKS', 'CRM_EDIT_TASKS', 'CRM_DELETE_TASKS',
+      'CRM_VIEW_OPPORTUNITIES', 'CRM_CREATE_OPPORTUNITIES', 'CRM_EDIT_OPPORTUNITIES', 'CRM_DELETE_OPPORTUNITIES',
     ],
   },
   {
@@ -90,6 +108,7 @@ const ROLES: { name: string; displayName: string; description: string; isSystem:
       'VIEW_INVOICES', 'CREATE_INVOICE', 'EDIT_INVOICE', 'DELETE_INVOICE', 'STORNO_INVOICE',
       'VIEW_PURCHASE_ORDERS', 'VIEW_RECEIPTS', 'VIEW_TRANSACTIONS',
       'VIEW_REPORTS', 'EXPORT_DATA',
+      'CRM_VIEW_CONTACTS', 'CRM_VIEW_INTERACTIONS', 'CRM_VIEW_TASKS', 'CRM_VIEW_OPPORTUNITIES',
     ],
   },
   {
