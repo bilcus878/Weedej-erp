@@ -62,7 +62,7 @@ export function mapToGa4Payload(event: InternalAnalyticsEvent): Ga4Payload | nul
 }
 
 function buildEventParams(event: InternalAnalyticsEvent): Record<string, unknown> {
-  const p = event.properties as Record<string, unknown>
+  const p = event.properties as unknown as Record<string, unknown>
 
   switch (event.eventType) {
     case 'product_view':

@@ -8,7 +8,7 @@ import {
   Warehouse, ShoppingCart, Receipt, Users, Package,
   PackageCheck, PackageMinus, ClipboardList,
   FileText, CreditCard, Globe, FileOutput, Truck, FlaskConical,
-  ShieldCheck,
+  ShieldCheck, BarChart2,
 } from 'lucide-react'
 import { useSession, signOut } from 'next-auth/react'
 import { Logo } from '@/components/ui/Logo'
@@ -84,6 +84,7 @@ const navGroups: NavGroup[] = [
 
 function getPageTitle(pathname: string): string {
   if (pathname === '/') return 'Dashboard'
+  if (pathname.startsWith('/analytics')) return 'Analytika'
   for (const group of navGroups) {
     for (const child of group.children) {
       if (pathname === child.href || pathname.startsWith(child.href + '/')) {
@@ -259,6 +260,15 @@ export function ErpNavbar() {
             <LayoutDashboard className="w-3.5 h-3.5" />
             Dashboard
           </Link>
+          <Link
+            href="/analytics"
+            className={`flex items-center gap-1.5 text-sm font-medium transition-colors duration-150 py-1 ${
+              pathname.startsWith('/analytics') ? 'text-violet-600' : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <BarChart2 className="w-3.5 h-3.5" />
+            Analytika
+          </Link>
           {navGroups.map(group => (
             <NavDropdown key={group.label} group={group} pathname={pathname} />
           ))}
@@ -297,6 +307,16 @@ export function ErpNavbar() {
             >
               <LayoutDashboard className={`w-4 h-4 ${pathname === '/' ? 'text-violet-500' : 'text-gray-400'}`} />
               Dashboard
+            </Link>
+            <Link
+              href="/analytics"
+              onClick={() => setMobileOpen(false)}
+              className={`flex items-center gap-2.5 text-sm font-medium px-3 py-2.5 rounded-lg transition-colors ${
+                pathname.startsWith('/analytics') ? 'text-violet-700 bg-violet-50' : 'text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              <BarChart2 className={`w-4 h-4 ${pathname.startsWith('/analytics') ? 'text-violet-500' : 'text-gray-400'}`} />
+              Analytika
             </Link>
             {navGroups.map(group => {
               const isGroupOpen = mobileOpenGroup === group.label

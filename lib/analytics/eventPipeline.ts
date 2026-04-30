@@ -23,7 +23,7 @@ export async function storeEvent(
 ): Promise<InternalAnalyticsEvent | null> {
   // Attempt ERP enrichment: match eshop userId → ERP customer by email is not
   // feasible here (no email in the event). We match erpOrderId from properties.
-  const props = incoming.properties as Record<string, unknown>
+  const props = incoming.properties as unknown as Record<string, unknown>
   const erpOrderId = (props['erpOrderId'] as string | undefined) ?? undefined
 
   let erpCustomerId: string | undefined
@@ -131,7 +131,7 @@ async function dispatchOne(
         attempts:     { increment: 1 },
         lastAttemptAt: new Date(),
         httpStatus:    result.httpStatus   ?? null,
-        responseBody:  result.responseBody ? (result.responseBody as object) : null,
+        responseBody:  result.responseBody ? (result.responseBody as object) : undefined,
         errorMessage:  result.errorMessage ?? null,
       },
     })
@@ -196,7 +196,7 @@ export async function retryFailedDeliveries(): Promise<{ retried: number; perman
       erpCustomerId:   delivery.event.erpCustomerId ?? undefined,
       erpOrderId:      delivery.event.erpOrderId  ?? undefined,
       source:          delivery.event.source,
-      properties:      delivery.event.properties  as InternalAnalyticsEvent['properties'],
+      properties:      delivery.event.properties  as unknown as InternalAnalyticsEvent['properties'],
       ipAddress:       delivery.event.ipAddress   ?? undefined,
       userAgent:       delivery.event.userAgent   ?? undefined,
       clientTimestamp: delivery.event.clientTimestamp.toISOString(),
@@ -215,7 +215,7 @@ export async function retryFailedDeliveries(): Promise<{ retried: number; perman
           attempts:      { increment: 1 },
           lastAttemptAt: new Date(),
           httpStatus:    result.httpStatus   ?? null,
-          responseBody:  result.responseBody ? (result.responseBody as object) : null,
+          responseBody:  result.responseBody ? (result.responseBody as object) : undefined,
           errorMessage:  result.errorMessage ?? null,
         },
       })

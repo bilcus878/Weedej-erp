@@ -5,7 +5,7 @@
  * Protected by CRON_SECRET (same as the webhook-retry cron).
  *
  * Vercel Cron config (vercel.json):
- *   { "path": "/api/cron/analytics-retry", "schedule": "*/5 * * * *" }
+ *   { "path": "/api/cron/analytics-retry", "schedule": "every 5 minutes" }
  *
  * Retry policy:
  *   - Max 3 attempts per delivery

@@ -70,7 +70,7 @@ export function mapToMetaPayload(event: InternalAnalyticsEvent): MetaCapiPayload
   const metaEventName = META_EVENT_NAME[event.eventType]
   if (!metaEventName) return null
 
-  const p = event.properties as Record<string, unknown>
+  const p = event.properties as unknown as Record<string, unknown>
 
   const userData: MetaUserData = {
     em:                 hashIfPresent(p['email'] as string),
@@ -104,7 +104,7 @@ export function mapToMetaPayload(event: InternalAnalyticsEvent): MetaCapiPayload
 }
 
 function buildCustomData(event: InternalAnalyticsEvent): Record<string, unknown> | null {
-  const p = event.properties as Record<string, unknown>
+  const p = event.properties as unknown as Record<string, unknown>
 
   switch (event.eventType) {
     case 'product_view':
