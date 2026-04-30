@@ -6,17 +6,20 @@ import {
 } from 'recharts'
 import { KpiCard }    from '../KpiCard'
 import { KpiGrid }    from '../KpiGrid'
+import { ExportMenu } from '../ExportMenu'
 import { formatPrice } from '@/lib/utils'
 import type { OverviewReport }   from '../../types'
+import type { AnalyticsFilters } from '../../types'
 
 interface Props {
   report:  OverviewReport | null
+  filters: AnalyticsFilters
   loading: boolean
 }
 
 function EmptyKpi(label: string) { return { label, value: 0, formatted: '—' } }
 
-export function OverviewSection({ report, loading }: Props) {
+export function OverviewSection({ report, filters, loading }: Props) {
   const r = report
   const chartData = (r?.revenueChart ?? []).map((pt, i) => ({
     date:    pt.date,
@@ -26,6 +29,11 @@ export function OverviewSection({ report, loading }: Props) {
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-base font-semibold text-gray-900">Přehled</h2>
+        <ExportMenu section="overview" filters={filters} disabled={loading} />
+      </div>
+
       <KpiGrid cols={4}>
         <KpiCard metric={r?.revenue       ?? EmptyKpi('Tržby')}              icon={<TrendingUp   className="h-5 w-5 text-emerald-600" />} accent="border-l-emerald-400" iconBg="bg-emerald-50" loading={loading} />
         <KpiCard metric={r?.orders        ?? EmptyKpi('Objednávky')}         icon={<ShoppingCart className="h-5 w-5 text-blue-600"    />} accent="border-l-blue-400"    iconBg="bg-blue-50"    loading={loading} />

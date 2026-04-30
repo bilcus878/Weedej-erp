@@ -3,10 +3,21 @@ import { AnalyticsDashboard } from '@/features/analytics/components/AnalyticsDas
 
 export const metadata: Metadata = { title: 'Analytika — Weedej ERP' }
 
-export default function AnalyticsPage() {
+interface Props {
+  searchParams?: Record<string, string | string[] | undefined>
+}
+
+export default function AnalyticsPage({ searchParams }: Props) {
+  // Normalise to plain string values for the client component
+  const params: Record<string, string> = {}
+  for (const [k, v] of Object.entries(searchParams ?? {})) {
+    if (typeof v === 'string') params[k] = v
+    else if (Array.isArray(v) && v[0]) params[k] = v[0]
+  }
+
   return (
     <div className="p-6 max-w-screen-2xl mx-auto">
-      <AnalyticsDashboard />
+      <AnalyticsDashboard initialParams={params} />
     </div>
   )
 }

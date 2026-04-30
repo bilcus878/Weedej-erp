@@ -9,7 +9,7 @@ import type {
   ProductsReport, FinancialReport, OperationsReport, MarketingReport,
 } from '../types'
 
-function defaultFilters(): AnalyticsFilters {
+export function defaultFilters(): AnalyticsFilters {
   const range = buildPreset('last30')
   return {
     preset:  'last30',
@@ -34,8 +34,8 @@ export interface AnalyticsState {
 
 type Section = 'overview' | 'sales' | 'customers' | 'products' | 'financial' | 'operations' | 'marketing'
 
-export function useAnalytics() {
-  const [filters,    setFilters]    = useState<AnalyticsFilters>(defaultFilters)
+export function useAnalytics(initialFilters?: AnalyticsFilters) {
+  const [filters,    setFilters]    = useState<AnalyticsFilters>(() => initialFilters ?? defaultFilters())
   const [loading,    setLoading]    = useState<Record<string, boolean>>({})
   const [error,      setError]      = useState<Record<string, string | null>>({})
   const [overview,   setOverview]   = useState<OverviewReport   | null>(null)

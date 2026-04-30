@@ -9,11 +9,16 @@ import type { ExportFormat }              from '@/lib/analytics/exportEngine'
 export const dynamic = 'force-dynamic'
 
 const TRAFFIC_COLUMNS = [
-  { header: 'Zdroj',             key: 'source'    },
-  { header: 'Sessions',          key: 'sessions'  },
-  { header: 'Nákupy',           key: 'purchases' },
-  { header: 'Tržby (Kč)',       key: 'revenue'   },
-  { header: 'Konverzní poměr',  key: 'convRate'  },
+  { header: 'Zdroj',            key: 'source'    },
+  { header: 'Sessions',         key: 'sessions'  },
+  { header: 'Nákupy',          key: 'purchases' },
+  { header: 'Tržby (Kč)',      key: 'revenue'   },
+  { header: 'Konverzní poměr', key: 'convRate'  },
+]
+
+const KPI_COLUMNS = [
+  { header: 'Metrika', key: 'label'     },
+  { header: 'Hodnota', key: 'formatted' },
 ]
 
 export async function GET(req: NextRequest) {
@@ -43,6 +48,15 @@ export async function GET(req: NextRequest) {
   const report = await getMarketingReport({ range, prevRange })
 
   if (exportFmt) {
+    // Export: KPI summary + traffic sources
+    const kpiRows = [
+      { label: report.totalSessions.label,    formatted: report.totalSessions.formatted    },
+      { label: report.totalPageViews.label,   formatted: report.totalPageViews.formatted   },
+      { label: report.purchaseSessions.label, formatted: report.purchaseSessions.formatted },
+      { label: report.overallConvRate.label,  formatted: report.overallConvRate.formatted  },
+      { label: report.avgOrderValue.label,    formatted: report.avgOrderValue.formatted    },
+      { label: report.totalRevenue.label,     formatted: report.totalRevenue.formatted     },
+    ]
     const rows = report.trafficSources.map(ts => ({
       source:    ts.source,
       sessions:  ts.sessions,

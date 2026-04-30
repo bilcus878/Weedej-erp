@@ -93,13 +93,13 @@ export interface OperationsReport {
 // ── Marketing ─────────────────────────────────────────────────────────────────
 
 export interface FunnelStep {
-  step:        string
-  sessions:    number
-  dropoffPct?: number
+  step:         string
+  sessions:     number
+  stepConvPct?: number  // % conversion from previous step; 100 for first step
 }
 
 export interface TrafficSource {
-  source:    string    // utmSource or "direct" or "organic"
+  source:    string
   sessions:  number
   purchases: number
   revenue:   number
@@ -124,10 +124,12 @@ export interface AttributionRow {
 }
 
 export interface MarketingReport {
-  totalSessions:  KpiMetric
-  totalPageViews: KpiMetric
+  totalSessions:    KpiMetric
+  totalPageViews:   KpiMetric
   purchaseSessions: KpiMetric
   overallConvRate:  KpiMetric
+  avgOrderValue:    KpiMetric
+  totalRevenue:     KpiMetric
   funnel:           FunnelStep[]
   trafficSources:   TrafficSource[]
   campaigns:        CampaignRow[]
