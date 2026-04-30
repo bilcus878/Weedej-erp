@@ -100,15 +100,15 @@ export const navGroups: NavGroup[] = [
     dropdownWidth: 'w-64',
     children: [
       // ── Katalog — master data for what you sell and how you ship it ───────────
+      { label: 'Produkty',  href: '/products',   icon: Package, sectionLabel: 'Katalog' },
       { label: 'Kategorie', href: '/categories', icon: Tag,     sectionLabel: 'Katalog' },
-      { label: 'Doprava',   href: '/shipping',   icon: Truck                            },
-      { label: 'Produkty',  href: '/products',   icon: Package                          },
+      { label: 'Doprava',   href: '/shipping',   icon: Truck,   sectionLabel: 'Katalog' },
       // ── Firma & Fakturace — legal identity and invoicing rules ────────────────
+      { label: 'Firma',     href: '/settings?tab=company',   icon: Building2, sectionLabel: 'Firma & Fakturace' },
       { label: 'Fakturace', href: '/settings?tab=invoicing', icon: FileText,  sectionLabel: 'Firma & Fakturace' },
-      { label: 'Firma',     href: '/settings?tab=company',   icon: Building2                                    },
       // ── Systém & Integrace — runtime config and external API access ───────────
       { label: 'API klíče', href: '/settings?tab=api',    icon: Key,      sectionLabel: 'Systém & Integrace' },
-      { label: 'Systém',    href: '/settings?tab=system', icon: Settings                                     },
+      { label: 'Systém',    href: '/settings?tab=system', icon: Settings, sectionLabel: 'Systém & Integrace' },
       // ── Administrace — identity, roles, tamper-evident trail (ADMIN only) ─────
       { label: 'Uživatelé', href: '/users',      icon: Users,         permission: 'MANAGE_USERS',  sectionLabel: 'Administrace' },
       { label: 'Role',      href: '/roles',      icon: ShieldCheck,   permission: 'MANAGE_ROLES'                               },
