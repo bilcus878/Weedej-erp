@@ -4,106 +4,13 @@ import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  Menu, X, LogOut, Settings, ChevronDown, LayoutDashboard,
-  Warehouse, ShoppingCart, Receipt, Users, Package,
-  PackageCheck, PackageMinus, ClipboardList,
-  FileText, CreditCard, Globe, FileOutput, Truck, FlaskConical,
-  ShieldCheck, BarChart2, Calculator, RotateCcw,
+  Menu, X, LogOut, ChevronDown, LayoutDashboard,
 } from 'lucide-react'
 import { useSession, signOut } from 'next-auth/react'
 import { Logo } from '@/components/ui/Logo'
 import { useNavbarMeta } from '@/components/NavbarMetaContext'
-
-// ─── Nav struktura ────────────────────────────────────────────────────────────
-
-interface NavGroup {
-  label: string
-  icon: any
-  children: { label: string; href: string; icon: any }[]
-}
-
-const navGroups: NavGroup[] = [
-  {
-    label: 'Skladová evidence',
-    icon: Warehouse,
-    children: [
-      { label: 'Skladová evidence', href: '/inventory',           icon: Warehouse     },
-      { label: 'Příjemky',          href: '/receipts',            icon: PackageCheck  },
-      { label: 'Výdejky',           href: '/delivery-notes',      icon: PackageMinus  },
-      { label: 'Inventura',         href: '/inventory/inventura', icon: ClipboardList },
-      { label: 'Šarže',             href: '/batches',             icon: FlaskConical  },
-    ],
-  },
-  {
-    label: 'Objednávky',
-    icon: ShoppingCart,
-    children: [
-      { label: 'Vydané',     href: '/purchase-orders', icon: FileText     },
-      { label: 'Vystavené', href: '/customer-orders', icon: ShoppingCart },
-      { label: 'Sumup',     href: '/transactions',    icon: CreditCard   },
-      { label: 'Eshop',     href: '/eshop-orders',    icon: Globe        },
-      { label: 'Reklamace', href: '/returns',         icon: RotateCcw    },
-    ],
-  },
-  {
-    label: 'Faktury',
-    icon: Receipt,
-    children: [
-      { label: 'Přijaté',   href: '/invoices/received', icon: Receipt    },
-      { label: 'Vystavené', href: '/invoices/issued',   icon: FileText   },
-      { label: 'Dobropisy', href: '/credit-notes',      icon: FileOutput },
-    ],
-  },
-  {
-    label: 'Zákazníci',
-    icon: Users,
-    children: [
-      { label: 'Dodavatelé', href: '/suppliers', icon: Truck },
-      { label: 'Odběratelé', href: '/customers', icon: Users },
-    ],
-  },
-  {
-    label: 'Nastavení',
-    icon: Settings,
-    children: [
-      { label: 'Katalog zboží', href: '/products', icon: Package  },
-      { label: 'Obecné',        href: '/settings',  icon: Settings },
-    ],
-  },
-  {
-    label: 'Účetnictví',
-    icon: Calculator,
-    children: [
-      { label: 'Účetní export', href: '/accounting-export', icon: Calculator },
-    ],
-  },
-  {
-    label: 'Administrace',
-    icon: ShieldCheck,
-    children: [
-      { label: 'Uživatelé', href: '/users',      icon: Users       },
-      { label: 'Role',      href: '/roles',      icon: ShieldCheck },
-      { label: 'Audit log', href: '/audit-logs', icon: ClipboardList },
-    ],
-  },
-]
-
-// ─── Page title (odvozeno z navGroups — vždy synchronní) ──────────────────────
-
-function getPageTitle(pathname: string): string {
-  if (pathname === '/') return 'Dashboard'
-  if (pathname.startsWith('/analytics'))        return 'Analytika'
-  if (pathname.startsWith('/accounting-export')) return 'Účetní export'
-  if (pathname.startsWith('/returns'))          return 'Reklamace'
-  for (const group of navGroups) {
-    for (const child of group.children) {
-      if (pathname === child.href || pathname.startsWith(child.href + '/')) {
-        return child.label
-      }
-    }
-  }
-  return ''
-}
+import { PermissionGate } from '@/components/erp/PermissionGate'
+import { navGroups, getPageTitle, type NavChild, type NavGroup } from '@/lib/navConfig'
 
 // ─── User menu ────────────────────────────────────────────────────────────────
 
@@ -155,30 +62,68 @@ function UserMenu() {
   )
 }
 
+// ─── Dropdown child item ───────────────────────────────────────────────────────
+
+function DropdownItem({ child, pathname }: { child: NavChild; pathname: string }) {
+  const Icon = child.icon
+  const isActive = pathname === child.href || pathname.startsWith(child.href + '/')
+  return (
+    <Link
+      href={child.href}
+      className={`flex items-center gap-2.5 px-3.5 py-2.5 text-sm transition-colors ${
+        isActive
+          ? 'text-violet-700 bg-violet-50 font-medium'
+          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+      }`}
+    >
+      <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-violet-500' : 'text-gray-400'}`} />
+      {child.label}
+    </Link>
+  )
+}
+
 // ─── Desktop dropdown ─────────────────────────────────────────────────────────
 //
-// Dropdown gap fix:
-// The dropdown wrapper uses pt-2 as visual spacing. Since the padded area is still
-// a DOM child of the onMouseLeave parent, moving the mouse through the gap never
-// triggers a leave event — the hover region is continuous.
+// Hover mode: pt-2 wrapper keeps the mouse within the hover zone so the gap
+// between the trigger and the panel doesn't fire onMouseLeave.
+// Click mode: closes on outside click via a mousedown listener.
 
 function NavDropdown({ group, pathname }: { group: NavGroup; pathname: string }) {
   const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const isClick = group.triggerMode === 'click'
+
+  useEffect(() => {
+    if (!isClick) return
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [isClick])
+
   const isActive = group.children.some(
     c => pathname === c.href || pathname.startsWith(c.href + '/')
   )
 
+  const dividerIdx   = group.children.findIndex(c => c.dividerBefore)
+  const mainChildren = dividerIdx === -1 ? group.children : group.children.slice(0, dividerIdx)
+  const adminChildren = dividerIdx === -1 ? [] : group.children.slice(dividerIdx)
+  const adminPermissions = adminChildren.map(c => c.permission).filter(Boolean) as string[]
+
   return (
     <div
+      ref={ref}
       className="relative"
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
+      {...(!isClick ? {
+        onMouseEnter: () => setOpen(true),
+        onMouseLeave: () => setOpen(false),
+      } : {})}
     >
       <button
+        onClick={isClick ? () => setOpen(o => !o) : undefined}
         className={`flex items-center gap-1 text-sm font-medium transition-colors duration-150 py-1 ${
-          isActive
-            ? 'text-violet-600'
-            : 'text-gray-600 hover:text-gray-900'
+          isActive ? 'text-violet-600' : 'text-gray-600 hover:text-gray-900'
         }`}
       >
         {group.label}
@@ -189,27 +134,22 @@ function NavDropdown({ group, pathname }: { group: NavGroup; pathname: string })
 
       {open && (
         <div className="absolute top-full left-1/2 -translate-x-1/2 z-50">
-          {/* pt-2 creates visual gap while keeping mouse within the hover zone */}
           <div className="pt-2">
             <div className="bg-white border border-gray-200 rounded-xl shadow-xl py-1.5 w-52 ring-1 ring-black/5">
-              {group.children.map(child => {
-                const Icon = child.icon
-                const isChildActive = pathname === child.href || pathname.startsWith(child.href + '/')
-                return (
-                  <Link
-                    key={child.href}
-                    href={child.href}
-                    className={`flex items-center gap-2.5 px-3.5 py-2.5 text-sm transition-colors ${
-                      isChildActive
-                        ? 'text-violet-700 bg-violet-50 font-medium'
-                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                    }`}
-                  >
-                    <Icon className={`w-4 h-4 flex-shrink-0 ${isChildActive ? 'text-violet-500' : 'text-gray-400'}`} />
-                    {child.label}
-                  </Link>
-                )
-              })}
+              {mainChildren.map(child => (
+                <DropdownItem key={child.href} child={child} pathname={pathname} />
+              ))}
+
+              {adminChildren.length > 0 && (
+                <PermissionGate permission={adminPermissions}>
+                  <div className="border-t border-gray-100 my-1 mx-2" />
+                  {adminChildren.map(child => (
+                    <PermissionGate key={child.href} permission={child.permission!}>
+                      <DropdownItem child={child} pathname={pathname} />
+                    </PermissionGate>
+                  ))}
+                </PermissionGate>
+              )}
             </div>
           </div>
         </div>
@@ -221,9 +161,9 @@ function NavDropdown({ group, pathname }: { group: NavGroup; pathname: string })
 // ─── Hlavní komponenta ────────────────────────────────────────────────────────
 
 export function ErpNavbar() {
-  const pathname = usePathname()
+  const pathname  = usePathname()
   const { data: session } = useSession()
-  const [mobileOpen, setMobileOpen]       = useState(false)
+  const [mobileOpen, setMobileOpen]         = useState(false)
   const [mobileOpenGroup, setMobileOpenGroup] = useState<string | null>(null)
 
   const displayName = session?.user?.name ?? session?.user?.email?.split('@')[0] ?? 'Účet'
@@ -236,7 +176,7 @@ export function ErpNavbar() {
     <>
       <nav className="fixed top-0 left-0 right-0 z-[60] flex items-center justify-between px-6 md:px-10 h-[57px] bg-white border-b border-gray-200 shadow-sm">
 
-        {/* Left: Logo + page title + optional breadcrumb */}
+        {/* Left: Logo + breadcrumb */}
         <div className="flex-1 flex items-center gap-3 min-w-0">
           <Logo variant="dark" size="md" />
           {pageTitle && (
@@ -259,7 +199,7 @@ export function ErpNavbar() {
           )}
         </div>
 
-        {/* Center: nav groups — desktop only */}
+        {/* Center: nav — desktop only */}
         <div className="hidden md:flex items-center gap-7">
           <Link
             href="/"
@@ -269,15 +209,6 @@ export function ErpNavbar() {
           >
             <LayoutDashboard className="w-3.5 h-3.5" />
             Dashboard
-          </Link>
-          <Link
-            href="/analytics"
-            className={`flex items-center gap-1.5 text-sm font-medium transition-colors duration-150 py-1 ${
-              pathname.startsWith('/analytics') ? 'text-violet-600' : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            <BarChart2 className="w-3.5 h-3.5" />
-            Analytika
           </Link>
           {navGroups.map(group => (
             <NavDropdown key={group.label} group={group} pathname={pathname} />
@@ -293,7 +224,6 @@ export function ErpNavbar() {
           )}
           <UserMenu />
 
-          {/* Hamburger — mobile only */}
           <button
             className="md:hidden w-9 h-9 rounded-lg border border-gray-200 flex items-center justify-center text-gray-500 hover:text-gray-800 hover:bg-gray-50 transition-colors"
             onClick={() => setMobileOpen(o => !o)}
@@ -308,6 +238,8 @@ export function ErpNavbar() {
       {mobileOpen && (
         <div className="fixed top-[57px] left-0 right-0 z-40 bg-white border-b border-gray-200 shadow-lg overflow-y-auto max-h-[calc(100vh-57px)] md:hidden">
           <div className="px-4 py-3 flex flex-col gap-0.5">
+
+            {/* Dashboard */}
             <Link
               href="/"
               onClick={() => setMobileOpen(false)}
@@ -318,28 +250,24 @@ export function ErpNavbar() {
               <LayoutDashboard className={`w-4 h-4 ${pathname === '/' ? 'text-violet-500' : 'text-gray-400'}`} />
               Dashboard
             </Link>
-            <Link
-              href="/analytics"
-              onClick={() => setMobileOpen(false)}
-              className={`flex items-center gap-2.5 text-sm font-medium px-3 py-2.5 rounded-lg transition-colors ${
-                pathname.startsWith('/analytics') ? 'text-violet-700 bg-violet-50' : 'text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              <BarChart2 className={`w-4 h-4 ${pathname.startsWith('/analytics') ? 'text-violet-500' : 'text-gray-400'}`} />
-              Analytika
-            </Link>
+
+            {/* Nav groups */}
             {navGroups.map(group => {
-              const isGroupOpen = mobileOpenGroup === group.label
-              const GroupIcon   = group.icon
-              const isGroupActive = group.children.some(c => pathname === c.href)
+              const isGroupOpen   = mobileOpenGroup === group.label
+              const GroupIcon     = group.icon
+              const isGroupActive = group.children.some(c => pathname === c.href || pathname.startsWith(c.href + '/'))
+
+              const dividerIdx    = group.children.findIndex(c => c.dividerBefore)
+              const mainChildren  = dividerIdx === -1 ? group.children : group.children.slice(0, dividerIdx)
+              const adminChildren = dividerIdx === -1 ? [] : group.children.slice(dividerIdx)
+              const adminPerms    = adminChildren.map(c => c.permission).filter(Boolean) as string[]
+
               return (
                 <div key={group.label}>
                   <button
                     onClick={() => setMobileOpenGroup(isGroupOpen ? null : group.label)}
                     className={`w-full flex items-center justify-between text-sm font-medium px-3 py-2.5 rounded-lg transition-colors ${
-                      isGroupActive
-                        ? 'text-violet-700 bg-violet-50'
-                        : 'text-gray-700 hover:bg-gray-50'
+                      isGroupActive ? 'text-violet-700 bg-violet-50' : 'text-gray-700 hover:bg-gray-50'
                     }`}
                   >
                     <span className="flex items-center gap-2.5">
@@ -351,18 +279,16 @@ export function ErpNavbar() {
 
                   {isGroupOpen && (
                     <div className="ml-8 mt-0.5 mb-1 flex flex-col gap-0.5 border-l border-gray-100 pl-3">
-                      {group.children.map(child => {
-                        const Icon    = child.icon
-                        const isActive = pathname === child.href
+                      {mainChildren.map(child => {
+                        const Icon     = child.icon
+                        const isActive = pathname === child.href || pathname.startsWith(child.href + '/')
                         return (
                           <Link
                             key={child.href}
                             href={child.href}
                             onClick={() => setMobileOpen(false)}
                             className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg transition-colors ${
-                              isActive
-                                ? 'font-medium text-violet-700 bg-violet-50'
-                                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                              isActive ? 'font-medium text-violet-700 bg-violet-50' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                             }`}
                           >
                             <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-violet-500' : 'text-gray-400'}`} />
@@ -370,6 +296,30 @@ export function ErpNavbar() {
                           </Link>
                         )
                       })}
+
+                      {adminChildren.length > 0 && (
+                        <PermissionGate permission={adminPerms}>
+                          <div className="border-t border-gray-100 my-1" />
+                          {adminChildren.map(child => {
+                            const Icon     = child.icon
+                            const isActive = pathname === child.href || pathname.startsWith(child.href + '/')
+                            return (
+                              <PermissionGate key={child.href} permission={child.permission!}>
+                                <Link
+                                  href={child.href}
+                                  onClick={() => setMobileOpen(false)}
+                                  className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg transition-colors ${
+                                    isActive ? 'font-medium text-violet-700 bg-violet-50' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                                  }`}
+                                >
+                                  <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-violet-500' : 'text-gray-400'}`} />
+                                  {child.label}
+                                </Link>
+                              </PermissionGate>
+                            )
+                          })}
+                        </PermissionGate>
+                      )}
                     </div>
                   )}
                 </div>
@@ -397,6 +347,7 @@ export function ErpNavbar() {
                 Odhlásit se
               </button>
             </div>
+
           </div>
         </div>
       )}
