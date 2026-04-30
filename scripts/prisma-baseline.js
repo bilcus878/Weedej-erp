@@ -15,3 +15,17 @@ for (const name of BASELINE) {
     console.log(`↷ already tracked: ${name}`)
   }
 }
+
+// Clear any previously-failed migrations so migrate deploy can re-apply them.
+const ROLLBACKS = [
+  '20260430_marketing_analytics',
+]
+
+for (const name of ROLLBACKS) {
+  try {
+    execSync(`npx prisma migrate resolve --rolled-back ${name}`, { stdio: 'pipe' })
+    console.log(`✓ cleared failed state: ${name}`)
+  } catch {
+    console.log(`↷ not in failed state: ${name}`)
+  }
+}
