@@ -1,20 +1,33 @@
 // SumUp API Client - komunikace se SumUp API
-// Tady jsou všechny funkce pro stahování dat ze SumUp
 
 import axios from 'axios'
 import * as cheerio from 'cheerio'
+import { prisma }   from '@/lib/prisma'
+import { decrypt }  from '@/lib/integrationCrypto'
 
 const SUMUP_API_URL = process.env.SUMUP_API_URL || 'https://api.sumup.com/v0.1'
-const SUMUP_API_KEY = process.env.SUMUP_API_KEY
 
-// Axios instance s automatickým API klíčem
-const sumupClient = axios.create({
-  baseURL: SUMUP_API_URL,
-  headers: {
-    'Authorization': `Bearer ${SUMUP_API_KEY}`,
-    'Content-Type': 'application/json',
-  },
-})
+// Resolves the SumUp API key: DB (encrypted) → env var fallback → error.
+// DB is authoritative; env var is kept only as a zero-downtime migration bridge.
+async function getSumupApiKey(): Promise<string> {
+  try {
+    const config = await prisma.integrationConfig.findUnique({ where: { provider: 'sumup' } })
+    if (config?.encKey) return decrypt(config.encKey)
+  } catch {
+    // DB unreachable — fall through to env fallback
+  }
+  const envKey = process.env.SUMUP_API_KEY
+  if (envKey) return envKey
+  throw new Error('SumUp API klíč není nastaven. Přidejte ho v Nastavení → API klíče → SumUp.')
+}
+
+async function makeSumupClient() {
+  const key = await getSumupApiKey()
+  return axios.create({
+    baseURL: SUMUP_API_URL,
+    headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
+  })
+}
 
 // TypeScript typy pro SumUp data (aby věděl TypeScript co očekávat)
 export interface SumUpProduct {
@@ -62,6 +75,7 @@ export interface SumUpTransaction {
 
 // Funkce pro získání katalogu zboží ze SumUp
 export async function fetchProducts(): Promise<SumUpProduct[]> {
+  const sumupClient = await makeSumupClient()
   try {
     // SumUp používá endpoint /me/products
     const response = await sumupClient.get('/me/products')
@@ -83,6 +97,7 @@ export async function fetchTransactions(
   startDate?: Date,
   endDate?: Date
 ): Promise<SumUpTransaction[]> {
+  const sumupClient = await makeSumupClient()
   try {
     // POUŽÍVÁME JEN Transactions API - Sales API má problémy s filtrováním
     // Transactions API má lepší early exit a správně filtruje během stahování
@@ -233,6 +248,7 @@ export async function fetchTransactions(
 
 // Funkce pro získání jedné transakce
 export async function fetchTransaction(transactionId: string): Promise<SumUpTransaction> {
+  const sumupClient = await makeSumupClient()
   try {
     const response = await sumupClient.get(`/me/transactions/${transactionId}`)
     return response.data
@@ -408,4 +424,4 @@ export async function fetchSumUpItems(): Promise<any[]> {
   return [] // Vrátíme prázdné pole - katalog spravujeme lokálně
 }
 
-export default sumupClient
+export { getSumupApiKey }

@@ -1,10 +1,10 @@
 'use client'
 
-import { Globe, Info, Plus, Key, AlertTriangle, CheckCircle, Trash2, Copy } from 'lucide-react'
+import { Globe, Info, Plus, Key, AlertTriangle, CheckCircle, Trash2, Copy, CreditCard, RotateCcw, Shield } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
-import type { ApiKeyItem } from '../types'
+import type { ApiKeyItem, SumupConfig } from '../types'
 
 interface Props {
   apiKeys:          ApiKeyItem[]
@@ -19,14 +19,82 @@ interface Props {
   onToggleKey:      (id: string, isActive: boolean) => void
   onDeleteKey:      (id: string) => void
   onCopy:           (text: string) => void
+  // SumUp integration
+  sumupConfig:       SumupConfig | null
+  sumupKeyInput:     string
+  sumupSaving:       boolean
+  setSumupKeyInput:  (v: string) => void
+  onSaveSumupKey:    () => void
 }
 
 export function ApiTab({
   apiKeys, apiKeysLoading, newKeyName, creatingKey, justCreatedKey, copiedKey,
   setNewKeyName, setJustCreatedKey, onCreateKey, onToggleKey, onDeleteKey, onCopy,
+  sumupConfig, sumupKeyInput, sumupSaving, setSumupKeyInput, onSaveSumupKey,
 }: Props) {
   return (
     <div className="space-y-5">
+
+      {/* ── SumUp integration ─────────────────────────────────────────────────── */}
+      <Card className="overflow-hidden">
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-blue-100">
+          <h2 className="text-base font-semibold text-blue-900 flex items-center gap-2">
+            <CreditCard className="h-4 w-4 text-blue-600" />SumUp integrace
+          </h2>
+          <p className="text-xs text-blue-600 mt-0.5">
+            API klíč pro synchronizaci transakcí ze SumUp pokladny — uložen šifrovaně v databázi
+          </p>
+        </div>
+        <CardContent className="p-6 space-y-4">
+
+          {/* Status banner */}
+          {sumupConfig?.isConfigured ? (
+            <div className="flex items-center gap-2 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-2.5 rounded-lg">
+              <CheckCircle className="h-4 w-4 shrink-0" />
+              <span>
+                Nakonfigurováno:&nbsp;<code className="font-mono font-medium">{sumupConfig.maskedKey}</code>
+              </span>
+              {sumupConfig.updatedBy && (
+                <span className="ml-auto text-xs text-emerald-600 shrink-0">upravil {sumupConfig.updatedBy}</span>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 px-3 py-2.5 rounded-lg">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              Klíč není nastaven — synchronizace SumUp transakcí je vypnutá
+            </div>
+          )}
+
+          {/* Key input — used for first save or rotation */}
+          <div className="flex gap-3">
+            <div className="relative flex-1">
+              <Input
+                type="password"
+                value={sumupKeyInput}
+                onChange={e => setSumupKeyInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && onSaveSumupKey()}
+                placeholder={sumupConfig?.isConfigured ? 'Nový klíč pro rotaci (sup_sk_…)' : 'sup_sk_…'}
+                className="flex-1 pr-10"
+              />
+            </div>
+            <Button
+              onClick={onSaveSumupKey}
+              disabled={sumupSaving || !sumupKeyInput.trim()}
+            >
+              {sumupSaving
+                ? 'Ukládám…'
+                : sumupConfig?.isConfigured
+                  ? <><RotateCcw className="h-3.5 w-3.5 mr-1.5" />Rotovat klíč</>
+                  : 'Uložit klíč'}
+            </Button>
+          </div>
+
+          <p className="text-xs text-gray-400 flex items-center gap-1.5">
+            <Shield className="h-3 w-3" />
+            Klíč je uložen šifrovaně (AES-256-GCM). Každá změna je zaznamenána v Audit logu.
+          </p>
+        </CardContent>
+      </Card>
       <Card className="overflow-hidden">
         <div className="bg-gradient-to-r from-violet-50 to-purple-50 px-6 py-4 border-b border-violet-100">
           <h2 className="text-base font-semibold text-violet-900 flex items-center gap-2">

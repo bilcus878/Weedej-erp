@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import type { AppSettings, ApiKeyItem, Toast, CompanyFormData, SettingsTab } from '../types'
+import type { AppSettings, ApiKeyItem, Toast, CompanyFormData, SettingsTab, SumupConfig } from '../types'
 import {
   fetchSettings as fetchSettingsService,
   updateSettings,
@@ -10,6 +10,8 @@ import {
   createApiKey as createApiKeyService,
   toggleApiKey as toggleApiKeyService,
   deleteApiKey as deleteApiKeyService,
+  fetchSumupConfig as fetchSumupConfigService,
+  saveSumupConfig as saveSumupConfigService,
 } from '../services/settingsService'
 
 let toastId = 0
@@ -32,6 +34,10 @@ export function useSettings() {
   const [creatingKey,    setCreatingKey]    = useState(false)
   const [justCreatedKey, setJustCreatedKey] = useState<string | null>(null)
   const [copiedKey,      setCopiedKey]      = useState(false)
+
+  const [sumupConfig,    setSumupConfig]    = useState<SumupConfig | null>(null)
+  const [sumupKeyInput,  setSumupKeyInput]  = useState('')
+  const [sumupSaving,    setSumupSaving]    = useState(false)
 
   const [toasts,      setToasts]      = useState<Toast[]>([])
   const [formData,    setFormData]    = useState<CompanyFormData>(emptyForm)
@@ -132,6 +138,30 @@ export function useSettings() {
     }
   }
 
+  async function loadSumupConfig() {
+    try {
+      setSumupConfig(await fetchSumupConfigService())
+    } catch {
+      // Non-fatal — show unconfigured state
+      setSumupConfig({ isConfigured: false, maskedKey: null, updatedAt: null, updatedBy: null })
+    }
+  }
+
+  async function handleSaveSumupKey() {
+    if (!sumupKeyInput.trim()) return
+    setSumupSaving(true)
+    try {
+      const result = await saveSumupConfigService(sumupKeyInput.trim())
+      setSumupConfig({ isConfigured: true, maskedKey: result.maskedKey, updatedAt: new Date().toISOString(), updatedBy: null })
+      setSumupKeyInput('')
+      showToast('SumUp API klíč byl uložen', 'success')
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : 'Nepodařilo se uložit SumUp klíč', 'error')
+    } finally {
+      setSumupSaving(false)
+    }
+  }
+
   async function handleCreateApiKey() {
     if (!newKeyName.trim()) return
     setCreatingKey(true)
@@ -174,7 +204,9 @@ export function useSettings() {
   }
 
   useEffect(() => { loadSettings() }, [])
-  useEffect(() => { if (activeTab === 'api') loadApiKeys() }, [activeTab])
+  useEffect(() => {
+    if (activeTab === 'api') { loadApiKeys(); loadSumupConfig() }
+  }, [activeTab])
 
   return {
     settings, loading, saving, resetting,
@@ -190,5 +222,6 @@ export function useSettings() {
     handleToggleVatPayer, handleToggleNegativeStock,
     handleCreateApiKey, handleToggleApiKey, handleDeleteApiKey,
     copyToClipboard,
+    sumupConfig, sumupKeyInput, setSumupKeyInput, sumupSaving, handleSaveSumupKey,
   }
 }

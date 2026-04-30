@@ -136,6 +136,11 @@ export default function SettingsPage() {
           onToggleKey={s.handleToggleApiKey}
           onDeleteKey={s.handleDeleteApiKey}
           onCopy={s.copyToClipboard}
+          sumupConfig={s.sumupConfig}
+          sumupKeyInput={s.sumupKeyInput}
+          sumupSaving={s.sumupSaving}
+          setSumupKeyInput={s.setSumupKeyInput}
+          onSaveSumupKey={s.handleSaveSumupKey}
         />
       )}
     </div>

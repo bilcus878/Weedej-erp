@@ -40,4 +40,11 @@ export interface CompanyFormData {
   logo: string
 }
 
+export interface SumupConfig {
+  isConfigured: boolean
+  maskedKey:    string | null
+  updatedAt:    string | null
+  updatedBy:    string | null
+}
+
 export type SettingsTab = 'company' | 'invoicing' | 'system' | 'api'

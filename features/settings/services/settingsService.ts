@@ -1,4 +1,4 @@
-import type { AppSettings, ApiKeyItem, CompanyFormData } from '../types'
+import type { AppSettings, ApiKeyItem, CompanyFormData, SumupConfig } from '../types'
 
 export async function fetchSettings(): Promise<AppSettings> {
   const res = await fetch('/api/settings')
@@ -47,4 +47,23 @@ export async function toggleApiKey(id: string, isActive: boolean): Promise<Respo
 
 export async function deleteApiKey(id: string): Promise<Response> {
   return fetch(`/api/api-keys/${id}`, { method: 'DELETE' })
+}
+
+export async function fetchSumupConfig(): Promise<SumupConfig> {
+  const res = await fetch('/api/integrations/sumup')
+  if (!res.ok) throw new Error('Nepodařilo se načíst konfiguraci SumUp')
+  return res.json()
+}
+
+export async function saveSumupConfig(apiKey: string): Promise<SumupConfig> {
+  const res = await fetch('/api/integrations/sumup', {
+    method:  'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ apiKey }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.error || 'Nepodařilo se uložit SumUp klíč')
+  }
+  return res.json()
 }

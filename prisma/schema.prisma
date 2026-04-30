@@ -428,6 +428,17 @@ model Settings {
   eshopApiKey               String   @default("")
 }
 
+// Encrypted storage for third-party API credentials (SumUp, Stripe, …).
+// One row per provider; key is AES-256-GCM encrypted with SETTINGS_ENCRYPTION_KEY.
+model IntegrationConfig {
+  id        String   @id @default(uuid())
+  provider  String   @unique  // "sumup" | "stripe" | …
+  encKey    String            // "iv:authTag:ciphertext" (hex), never plaintext
+  maskedKey String            // safe-to-display preview, e.g. "sup_sk_****ed195"
+  updatedAt DateTime @updatedAt
+  updatedBy String?           // email of user who last rotated the key
+}
+
 model PurchaseOrder {
   id                    String              @id @default(uuid())
   orderNumber           String              @unique
