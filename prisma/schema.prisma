@@ -201,6 +201,8 @@ model Transaction {
   @@index([customerId])
   @@index([supplierId])
   @@index([invoiceType])
+  @@index([transactionDate, invoiceType])
+  @@index([transactionDate, status])
 }
 
 model TransactionItem {
@@ -482,6 +484,7 @@ model DeliveryNoteItem {
 model CustomerOrder {
   id                    String              @id @default(uuid())
   orderNumber           String              @unique
+
   customerId            String?
   customerName          String?
   customerEmail         String?
@@ -551,6 +554,9 @@ model CustomerOrder {
   @@index([eshopOrderId])
   @@index([shippingMethod])
   @@index([pickupPointCarrier])
+  @@index([createdAt, status])
+  @@index([paidAt])
+  @@index([customerId, createdAt])
 }
 
 model CustomerOrderItem {
@@ -648,6 +654,9 @@ model IssuedInvoice {
   @@index([invoiceDate])
   @@index([paymentStatus])
   @@index([status])
+  @@index([invoiceDate, paymentStatus])
+  @@index([dueDate, paymentStatus])
+  @@index([customerId, invoiceDate])
 }
 
 model IssuedInvoiceItem {
@@ -1025,6 +1034,66 @@ model ApiKey {
   updatedAt  DateTime  @updatedAt
 
   @@index([key])
+}
+
+// ========== ANALYTICS — EVENTS Z E-SHOPU ==========
+
+model AnalyticsEvent {
+  id               String   @id @default(uuid())
+  eventId          String   @unique // client UUID sent by e-shop — used for deduplication
+  eventType        String   // product_view | add_to_cart | begin_checkout | purchase | refund | signup
+  entityType       String?  // "product" | "order" | "customer"
+  entityId         String?  // ID entity (eshop orderId, productId, …)
+  userId           String?  // e-shop User.id (string, not FK — separate DB)
+  sessionId        String?  // browser session identifier
+
+  // Browser context — captured by e-shop, forwarded for server-side provider enrichment
+  gaClientId       String?  // GA4 _ga cookie → client_id for Measurement Protocol
+  fbp              String?  // Meta _fbp cookie
+  fbc              String?  // Meta _fbc click-ID cookie
+
+  // ERP enrichment — filled at ingestion time if a match is found
+  erpCustomerId    String?  // matched ERP Customer.id
+  erpOrderId       String?  // matched ERP CustomerOrder.id
+
+  source           String   // "eshop" | "erp" | "api"
+  properties       Json     // event-specific payload (revenue, items, currency …)
+  ipAddress        String?
+  userAgent        String?
+
+  clientTimestamp  DateTime // when the event occurred on the e-shop (sent by client)
+  createdAt        DateTime @default(now()) // when ERP received it
+
+  deliveries       AnalyticsEventDelivery[]
+
+  @@index([eventType, createdAt])
+  @@index([userId, createdAt])
+  @@index([source, createdAt])
+  @@index([erpCustomerId, createdAt])
+  @@index([erpOrderId])
+  @@index([createdAt])
+}
+
+model AnalyticsEventDelivery {
+  id               String         @id @default(uuid())
+  analyticsEventId String
+  provider         String         // "ga4" | "meta"
+  status           String         @default("pending")
+  // pending | delivered | failed | skipped | permanently_failed
+  attempts         Int            @default(0)
+  lastAttemptAt    DateTime?
+  httpStatus       Int?           // HTTP response code from the provider
+  responseBody     Json?          // provider response body (for debugging)
+  errorMessage     String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  event            AnalyticsEvent @relation(fields: [analyticsEventId], references: [id], onDelete: Cascade)
+
+  @@index([analyticsEventId])
+  @@index([provider, status])
+  @@index([status, createdAt])
+  @@index([status, attempts, lastAttemptAt])
 }
 
 // ========== WEBHOOK LOGY (ERP → E-SHOP) ==========
