@@ -41,7 +41,6 @@ function getAllowedTransitions(status: ReturnStatus): ReturnStatus[] {
   return TRANSITIONS[status] ?? []
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function mapReturnFull(r: any) {
   const approvedItems = r.items.filter((i: any) =>
     i.itemStatus === 'approved' || i.itemStatus === 'partial'
