@@ -6,6 +6,11 @@ export { ReturnTypeBadge }         from './components/ReturnTypeBadge'
 export { ReturnTimeline }          from './components/ReturnTimeline'
 export { ReturnItemsTable }        from './components/ReturnItemsTable'
 export { createReturnColumns }     from './components/returnColumns'
+export { WorkflowActions }         from './components/WorkflowActions'
+export { ApproveModal }            from './components/ApproveModal'
+export { RejectModal }             from './components/RejectModal'
+export { ReceiveGoodsModal }       from './components/ReceiveGoodsModal'
+export { ProcessRefundModal }      from './components/ProcessRefundModal'
 export type {
   ReturnRequestListItem,
   ReturnRequestDetail,

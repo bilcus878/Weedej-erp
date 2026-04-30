@@ -1,8 +1,14 @@
-export { useBatches }           from './hooks/useBatches'
-export { useBatchDetail }       from './hooks/useBatchDetail'
-export { useLotDetail }         from './hooks/useLotDetail'
-export { BatchStatusBadge }     from './components/BatchStatusBadge'
-export { BatchFormFields }      from './components/BatchFormFields'
+export { useBatches }            from './hooks/useBatches'
+export { useBatchDetail }        from './hooks/useBatchDetail'
+export { useLotDetail }          from './hooks/useLotDetail'
+export { BatchStatusBadge }      from './components/BatchStatusBadge'
+export { BatchFormFields }       from './components/BatchFormFields'
+export { BatchDetailHeader }     from './components/BatchDetailHeader'
+export { BatchMovementsTable }   from './components/BatchMovementsTable'
+export { LotProductsTable }      from './components/LotProductsTable'
+export { LotMovementsTable }     from './components/LotMovementsTable'
+export { STATUS_OPTIONS }        from './constants'
+export { fmt, fmtNum, getDaysLeft, isExpiringSoon, isExpired } from './utils'
 export {
   fetchLots, fetchLotDetail, updateLotStatus,
   fetchBatchDetail, fetchProductBatches, updateBatchStatus,
