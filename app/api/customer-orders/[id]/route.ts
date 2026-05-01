@@ -23,11 +23,16 @@ export async function GET(
           }
         },
         reservations: true,
-        deliveryNotes: { // ✅ Changed from deliveryNote to deliveryNotes
+        deliveryNotes: {
           include: {
-            items: true
+            items: {
+              include: {
+                product: true
+              }
+            }
           }
-        }
+        },
+        issuedInvoice: true,
       }
     })
 

@@ -2,11 +2,11 @@
 
 import { useRef, useMemo } from 'react'
 import { ShoppingCart, Plus } from 'lucide-react'
-import { EntityPage, LoadingState, ErrorState, CustomerOrderDetail, DetailActionFooter } from '@/components/erp'
+import { EntityPage, LoadingState, ErrorState } from '@/components/erp'
 import { useCompanySettings } from '@/components/erp/hooks/useCompanySettings'
 import {
-  useCustomerOrders, useCustomerOrderActions,
-  createCustomerOrderColumns, mapCustomerOrderToOrderDetail,
+  useCustomerOrders,
+  createCustomerOrderColumns,
   CreateCustomerOrderForm,
 } from '@/features/customer-orders'
 
@@ -15,7 +15,6 @@ export const dynamic = 'force-dynamic'
 export default function CustomerOrdersPage() {
   const { ep, filters, customers, products } = useCustomerOrders()
   const { isVatPayer }                        = useCompanySettings()
-  const { handleMarkPaid, handleUpdateStatus, handlePrintPDF } = useCustomerOrderActions(ep.refresh)
   const openCreateRef = useRef<() => void>(() => {})
 
   const customerSuggestions = useMemo(() => {
@@ -26,7 +25,7 @@ export default function CustomerOrdersPage() {
   if (ep.loading) return <LoadingState />
   if (ep.error)   return <ErrorState message={ep.error} onRetry={ep.refresh} />
 
-  const columns = createCustomerOrderColumns(filters, handleMarkPaid, customerSuggestions)
+  const columns = createCustomerOrderColumns(filters, undefined, customerSuggestions)
 
   return (
     <EntityPage highlightId={ep.highlightId}>
@@ -51,31 +50,8 @@ export default function CustomerOrdersPage() {
         columns={columns}
         rows={ep.paginated}
         getRowId={r => r.id}
-        expanded={ep.expanded}
-        onToggle={ep.toggleExpand}
         onClearFilters={filters.clear}
         rowClassName={r => r.status === 'storno' ? 'bg-red-50 opacity-70' : ''}
-        renderDetail={rawOrder => {
-          const order = mapCustomerOrderToOrderDetail(rawOrder)
-          const hasActiveDeliveryNote = order.deliveryNotes?.some(dn => dn.status === 'active') ?? false
-          return (
-            <>
-              <CustomerOrderDetail
-                order={order}
-                isVatPayer={isVatPayer}
-                orderHref={`/customer-orders?highlight=${rawOrder.id}`}
-                onRefresh={ep.refresh}
-              />
-              <DetailActionFooter
-                flow="outgoing"
-                onPrintPdf={() => handlePrintPDF(rawOrder)}
-                showInventory={(order.status === 'paid' || order.status === 'processing') && !hasActiveDeliveryNote}
-                showDelivered={order.status === 'shipped'}
-                onDelivered={() => handleUpdateStatus(rawOrder.id, 'delivered')}
-              />
-            </>
-          )
-        }}
       />
 
       <EntityPage.Pagination page={ep.page} total={ep.totalPages} onChange={ep.setPage} />

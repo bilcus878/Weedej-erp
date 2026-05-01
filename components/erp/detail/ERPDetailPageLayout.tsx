@@ -39,7 +39,7 @@ interface ERPDetailPageLayoutProps {
   /** Header action buttons (top-right) */
   actions?:      React.ReactNode
   /** Main content (left column, wider) */
-  children:      React.ReactNode
+  children?:     React.ReactNode
   /** Sidebar content (right column, narrower) — optional */
   sidebar?:      React.ReactNode
   /** Show full skeleton while data loads */

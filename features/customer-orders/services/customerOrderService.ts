@@ -7,6 +7,13 @@ export async function fetchCustomerOrders(): Promise<CustomerOrder[]> {
   return Array.isArray(data) ? data : []
 }
 
+export async function fetchCustomerOrder(id: string): Promise<CustomerOrder> {
+  const res = await fetch(`/api/customer-orders/${id}`)
+  if (res.status === 404) throw new Error('not_found')
+  if (!res.ok) throw new Error('Nepodařilo se načíst objednávku')
+  return res.json()
+}
+
 export async function fetchCustomers(): Promise<Customer[]> {
   const res = await fetch('/api/customers')
   if (!res.ok) throw new Error('Nepodařilo se načíst zákazníky')

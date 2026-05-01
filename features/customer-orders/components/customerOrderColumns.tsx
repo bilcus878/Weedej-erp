@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import Button from '@/components/ui/Button'
 import { formatDate } from '@/lib/shared/dates/format'
 import { formatPrice } from '@/lib/shared/finance/money'
@@ -21,7 +22,7 @@ const STATUS_OPTIONS: SelectOption[] = [
 
 export function createCustomerOrderColumns(
   filters: FiltersResult<CustomerOrder>,
-  onMarkPaid: (orderId: string) => void,
+  onMarkPaid?: (orderId: string) => void,
   customerSuggestions: string[] = [],
 ): ColumnDef<CustomerOrder>[] {
   const v = filters.values
@@ -32,9 +33,13 @@ export function createCustomerOrderColumns(
       key: 'number', header: 'Číslo',
       filterNode: <FilterInput className="w-full text-center" value={v['number'] ?? ''} onChange={val => s('number', val)} placeholder="OBJ..." />,
       render: r => (
-        <p className={`text-sm font-medium text-gray-700 ${r.status === 'storno' ? 'line-through' : ''}`}>
+        <Link
+          href={`/customer-orders/${r.id}`}
+          className={`text-sm font-semibold text-violet-600 hover:text-violet-800 hover:underline font-mono ${r.status === 'storno' ? 'line-through' : ''}`}
+          onClick={e => e.stopPropagation()}
+        >
           {r.orderNumber}
-        </p>
+        </Link>
       ),
     },
     {
@@ -80,7 +85,7 @@ export function createCustomerOrderColumns(
       filterNode: <FilterInput className="w-full text-center" type="number" value={v['minValue'] ?? ''} onChange={val => s('minValue', val)} placeholder="≥" />,
       render: r => (
         <div className="flex items-center justify-center gap-2">
-          {r.status === 'new' && (
+          {r.status === 'new' && onMarkPaid && (
             <Button size="sm" onClick={e => { e.stopPropagation(); onMarkPaid(r.id) }}>Zaplaceno</Button>
           )}
           <p className="text-sm font-bold text-gray-900">{formatPrice(r.totalAmount)}</p>

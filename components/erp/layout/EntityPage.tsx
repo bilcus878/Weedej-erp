@@ -86,8 +86,8 @@ interface TableProps<T> {
   columns:         ColumnDef<T>[]
   rows:            T[]
   getRowId:        (row: T) => string
-  expanded:        Set<string>
-  onToggle:        (id: string) => void
+  expanded?:       Set<string>
+  onToggle?:       (id: string) => void
   renderDetail?:   (row: T) => ReactNode
   rowClassName?:   (row: T) => string
   empty?:          ReactNode
@@ -154,7 +154,7 @@ function Table<T>({
       {/* Data rows */}
       {rows.map(row => {
         const id         = getRowId(row)
-        const isExpanded = expanded.has(id)
+        const isExpanded = expanded?.has(id) ?? false
         const isHighlit  = highlightId === id
         const extraClass = rowClassName?.(row) ?? ''
 
@@ -169,15 +169,15 @@ function Table<T>({
           >
             {/* Summary row */}
             <div
-              className="grid items-center gap-4 px-4 py-3 cursor-pointer transition-colors hover:bg-gray-50"
+              className={`grid items-center gap-4 px-4 py-3 transition-colors ${onToggle ? 'cursor-pointer hover:bg-gray-50' : ''}`}
               style={{ gridTemplateColumns: gridTemplate }}
-              onClick={() => onToggle(id)}
+              onClick={onToggle ? () => onToggle(id) : undefined}
             >
               <div className="w-8 shrink-0">
-                {isExpanded
+                {onToggle && (isExpanded
                   ? <ChevronDown  className="h-5 w-5 text-gray-400" />
                   : <ChevronRight className="h-5 w-5 text-gray-400" />
-                }
+                )}
               </div>
               {columns.map(col => (
                 <div
