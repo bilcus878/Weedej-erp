@@ -2,7 +2,7 @@
 // URL: /api/received-invoices/[id]/storno
 
 import { NextResponse } from 'next/server'
-import { stornoReceivedInvoice } from '@/lib/storno'
+import { stornoReceivedInvoice } from '@/lib/features/documents/storno'
 
 export const dynamic = 'force-dynamic'
 

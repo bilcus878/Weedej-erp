@@ -1,10 +1,11 @@
 'use client'
 
-import { formatDate, formatPrice } from '@/lib/utils'
-import { isNonVatPayer } from '@/lib/vatCalculation'
+import { formatDate } from '@/lib/shared/dates/format'
+import { formatPrice } from '@/lib/shared/finance/money'
+import { isNonVatPayer } from '@/lib/shared/finance/vatCalculation'
 import type { ColumnDef, SelectOption, FiltersResult } from '@/components/erp'
 import { FilterInput, FilterSelect, FilterCombobox } from '@/components/erp'
-import { PAYMENT_OPTIONS } from '@/lib/constants/paymentOptions'
+import { PAYMENT_OPTIONS } from '@/features/shared/paymentOptions'
 import type { PurchaseOrder, Supplier } from '../types'
 import { PurchaseOrderStatusBadge } from './PurchaseOrderStatusBadge'
 

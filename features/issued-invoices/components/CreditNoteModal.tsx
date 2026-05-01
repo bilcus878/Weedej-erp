@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { FileOutput, Plus, X } from 'lucide-react'
-import { formatPrice } from '@/lib/utils'
+import { formatPrice } from '@/lib/shared/finance/money'
 import type { IssuedInvoice, CreditNoteFormItem } from '../types'
 
 interface Props {

@@ -3,10 +3,10 @@
 // NOVÝ WORKFLOW: Tahová logika s validací zbývajícího množství
 
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/lib/platform/db/prisma'
 import { getNextDocumentNumber } from '@/lib/shared/documents/documentSeries'
-import { findOrCreateBatch, type BatchInput } from '@/lib/batchUtils'
-import { archiveReceipt, archiveAsync } from '@/lib/documents/DocumentArchiveService'
+import { findOrCreateBatch, type BatchInput } from '@/lib/features/inventory/batchUtils'
+import { archiveReceipt, archiveAsync } from '@/lib/platform/documents/DocumentArchiveService'
 
 export const dynamic = 'force-dynamic'
 
@@ -398,7 +398,7 @@ export async function POST(
       .map(i => receipt.items.find(ri => ri.id === i.id)?.productId)
       .filter((id): id is string => Boolean(id))
     if (affectedProductIds.length > 0) {
-      import('@/lib/eshopStockWebhook').then(({ notifyEshopStockUpdate }) =>
+      import('@/lib/platform/webhooks/eshopStockWebhook').then(({ notifyEshopStockUpdate }) =>
         notifyEshopStockUpdate(affectedProductIds)
       ).catch(() => {})
     }

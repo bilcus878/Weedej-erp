@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { resolveItemQuantities } from '@/lib/variantConversion'
+import { resolveItemQuantities } from '@/lib/shared/inventory/variantConversion'
 import { fetchPendingShipments, createDeliveryNoteFromOrder, processDeliveryNote } from '../services/deliveryNoteService'
 import type { CustomerOrder, DeliveryNoteItem } from '../types'
 

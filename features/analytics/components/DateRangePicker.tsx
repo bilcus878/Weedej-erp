@@ -3,9 +3,9 @@
 import { useState }         from 'react'
 import { Calendar }         from 'lucide-react'
 import { format }           from 'date-fns'
-import { buildPreset, DATE_PRESETS } from '@/lib/analytics/dateRange'
+import { buildPreset, DATE_PRESETS } from '@/lib/features/analytics/dateRange'
 import type { AnalyticsFilters }     from '../types'
-import type { DatePreset }           from '@/lib/analytics/dateRange'
+import type { DatePreset }           from '@/lib/features/analytics/dateRange'
 
 interface Props {
   filters:   AnalyticsFilters

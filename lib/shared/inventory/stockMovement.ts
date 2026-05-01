@@ -15,7 +15,7 @@
  * Import path: @/lib/shared/inventory/stockMovement
  */
 
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/lib/platform/db/prisma'
 
 // ── Current physical stock ────────────────────────────────────────────────────
 

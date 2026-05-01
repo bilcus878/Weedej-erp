@@ -22,10 +22,10 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { z }                         from 'zod'
-import { prisma }                    from '@/lib/prisma'
-import { verifyAnalyticsHmac }       from '@/lib/analytics/hmac'
-import { storeEvent, dispatchAsync } from '@/lib/analytics/eventPipeline'
-import { ANALYTICS_EVENT_TYPES }     from '@/lib/analytics/types'
+import { prisma }                    from '@/lib/platform/db/prisma'
+import { verifyAnalyticsHmac }       from '@/lib/features/analytics/hmac'
+import { storeEvent, dispatchAsync } from '@/lib/features/analytics/eventPipeline'
+import { ANALYTICS_EVENT_TYPES }     from '@/lib/features/analytics/types'
 
 export const dynamic = 'force-dynamic'
 

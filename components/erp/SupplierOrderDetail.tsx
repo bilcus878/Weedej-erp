@@ -7,7 +7,7 @@ import {
   ExternalLink, Building2, CreditCard,
   XCircle,
 } from 'lucide-react'
-import { formatPrice } from '@/lib/utils'
+import { formatPrice } from '@/lib/shared/finance/money'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

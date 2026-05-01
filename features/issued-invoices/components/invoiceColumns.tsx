@@ -1,9 +1,9 @@
 'use client'
 
-import { formatPrice } from '@/lib/utils'
+import { formatPrice } from '@/lib/shared/finance/money'
 import type { ColumnDef, SelectOption, FiltersResult } from '@/components/erp'
 import { FilterInput, FilterSelect, FilterCombobox } from '@/components/erp'
-import { PAYMENT_OPTIONS } from '@/lib/constants/paymentOptions'
+import { PAYMENT_OPTIONS } from '@/features/shared/paymentOptions'
 import type { IssuedInvoice } from '../types'
 import { StatusBadge } from './StatusBadge'
 

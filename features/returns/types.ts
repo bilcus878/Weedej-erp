@@ -6,7 +6,7 @@ import type {
   ReturnRefundMethod,
   ReturnItemCondition,
   ReturnItemStatus,
-} from '@/lib/returns/returnWorkflow'
+} from '@/lib/features/returns/returnWorkflow'
 
 export type {
   ReturnStatus,

@@ -1,6 +1,6 @@
-import { isNonVatPayer, DEFAULT_VAT_RATE } from '@/lib/vatCalculation'
-import { calcPackCount } from '@/lib/packQuantity'
-import { formatVariantQty } from '@/lib/formatVariantQty'
+import { isNonVatPayer, DEFAULT_VAT_RATE } from '@/lib/shared/finance/vatCalculation'
+import { calcPackCount } from '@/lib/shared/inventory/packQuantity'
+import { formatVariantQty } from '@/lib/shared/inventory/formatVariantQty'
 import type { OrderDetailData, OrderDetailItem } from '@/components/erp'
 import type { DeliveryNote } from '../types'
 

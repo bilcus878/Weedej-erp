@@ -2,7 +2,7 @@
 // GET - detail jedné inventury s položkami
 
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/lib/platform/db/prisma'
 
 export const dynamic = 'force-dynamic'
 

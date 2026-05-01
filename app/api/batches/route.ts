@@ -3,7 +3,7 @@
 // POST /api/batches  — find-or-create batch by (batchNumber, productId)
 
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/lib/platform/db/prisma'
 
 export const dynamic = 'force-dynamic'
 

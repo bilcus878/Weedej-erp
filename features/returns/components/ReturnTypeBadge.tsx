@@ -1,4 +1,4 @@
-import { RETURN_TYPE_LABELS, type ReturnType } from '@/lib/returns/returnWorkflow'
+import { RETURN_TYPE_LABELS, type ReturnType } from '@/lib/features/returns/returnWorkflow'
 
 const COLORS: Record<ReturnType, string> = {
   return:         'bg-purple-100 text-purple-700',

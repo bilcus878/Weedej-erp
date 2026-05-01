@@ -2,8 +2,8 @@
 // URL: http://localhost:3000/api/products/sync
 
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { fetchSumUpItems } from '@/lib/sumup'
+import { prisma } from '@/lib/platform/db/prisma'
+import { fetchSumUpItems } from '@/lib/platform/payments/sumup'
 
 export const dynamic = 'force-dynamic'
 

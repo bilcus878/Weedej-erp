@@ -1,7 +1,7 @@
 // Input komponenta - znovupoužitelné textové pole
 
 import { InputHTMLAttributes, forwardRef } from 'react'
-import { cn } from '@/lib/utils'
+import { cn } from '@/utils/cn'
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {}
 

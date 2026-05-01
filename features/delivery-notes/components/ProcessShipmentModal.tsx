@@ -2,8 +2,8 @@
 
 import { useState } from 'react'
 import { Package, Truck, MapPin, ChevronDown, ChevronUp } from 'lucide-react'
-import { formatPrice } from '@/lib/utils'
-import { isNonVatPayer, DEFAULT_VAT_RATE } from '@/lib/vatCalculation'
+import { formatPrice } from '@/lib/shared/finance/money'
+import { isNonVatPayer, DEFAULT_VAT_RATE } from '@/lib/shared/finance/vatCalculation'
 import type { DeliveryNoteItem, CustomerOrder } from '../types'
 
 // ─── Constants ────────────────────────────────────────────────────────────────

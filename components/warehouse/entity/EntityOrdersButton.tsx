@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Package, ShoppingCart } from 'lucide-react'
-import { formatDate } from '@/lib/utils'
+import { formatDate } from '@/lib/shared/dates/format'
 import { PopupButton } from '@/components/ui/PopupButton'
 
 // ─── Types ────────────────────────────────────────────────────────────────────

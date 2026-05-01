@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { useRouter, usePathname }        from 'next/navigation'
-import { buildPreset }                   from '@/lib/analytics/dateRange'
+import { buildPreset }                   from '@/lib/features/analytics/dateRange'
 import { AnalyticsFilterBar }            from './AnalyticsFilterBar'
 import { OverviewSection }               from './sections/OverviewSection'
 import { SalesSection }                  from './sections/SalesSection'
@@ -13,7 +13,7 @@ import { OperationsSection }             from './sections/OperationsSection'
 import { MarketingSection }              from './sections/MarketingSection'
 import { useAnalytics }                  from '../hooks/useAnalytics'
 import type { AnalyticsFilters }         from '../types'
-import type { DatePreset }               from '@/lib/analytics/dateRange'
+import type { DatePreset }               from '@/lib/features/analytics/dateRange'
 
 type TabId = 'overview' | 'sales' | 'customers' | 'products' | 'financial' | 'operations' | 'marketing'
 

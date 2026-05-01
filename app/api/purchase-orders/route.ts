@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/lib/platform/db/prisma'
 import { getNextDocumentNumber } from '@/lib/shared/documents/documentSeries'
-import { calculateVatFromNet, calculateVatFromGross, calculateLineVat, calculateVatSummary, DEFAULT_VAT_RATE } from '@/lib/vatCalculation'
-import { archivePurchaseOrder, archiveAsync } from '@/lib/documents/DocumentArchiveService'
+import { calculateVatFromNet, calculateVatFromGross, calculateLineVat, calculateVatSummary, DEFAULT_VAT_RATE } from '@/lib/shared/finance/vatCalculation'
+import { archivePurchaseOrder, archiveAsync } from '@/lib/platform/documents/DocumentArchiveService'
 
 export const dynamic = 'force-dynamic'
 

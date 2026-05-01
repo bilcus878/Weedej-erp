@@ -2,7 +2,7 @@
 
 import { CreditCard, Banknote } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/Card'
-import { formatPrice } from '@/lib/utils'
+import { formatPrice } from '@/lib/shared/finance/money'
 import type { DashboardStats } from '../types'
 
 interface Props {

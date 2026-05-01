@@ -2,8 +2,8 @@
 // URL: /api/received-invoices
 
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { archiveReceivedInvoice, archiveAsync } from '@/lib/documents/DocumentArchiveService'
+import { prisma } from '@/lib/platform/db/prisma'
+import { archiveReceivedInvoice, archiveAsync } from '@/lib/platform/documents/DocumentArchiveService'
 
 export const dynamic = 'force-dynamic'
 

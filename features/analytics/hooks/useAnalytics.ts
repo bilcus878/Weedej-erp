@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { buildPreset }           from '@/lib/analytics/dateRange'
+import { buildPreset }           from '@/lib/features/analytics/dateRange'
 import { analyticsService }      from '../services/analyticsService'
 import type { AnalyticsFilters } from '../types'
 import type {

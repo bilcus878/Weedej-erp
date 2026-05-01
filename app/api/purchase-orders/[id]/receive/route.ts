@@ -3,9 +3,9 @@
 // NOVÝ WORKFLOW: Všechno naráz - příjemka + sklad + faktura v jedné transakci
 
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/lib/platform/db/prisma'
 import { getNextDocumentNumber } from '@/lib/shared/documents/documentSeries'
-import { findOrCreateBatch, type BatchInput } from '@/lib/batchUtils'
+import { findOrCreateBatch, type BatchInput } from '@/lib/features/inventory/batchUtils'
 
 export const dynamic = 'force-dynamic'
 

@@ -8,8 +8,8 @@
 //   • synchronizovat produkty s externími systémy (Google Shopping, Heureka…)
 
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { verifyApiKey, corsHeaders, handleOptions } from '@/lib/apiKeyAuth'
+import { prisma } from '@/lib/platform/db/prisma'
+import { verifyApiKey, corsHeaders, handleOptions } from '@/lib/platform/auth/apiKeyAuth'
 
 export const dynamic = 'force-dynamic'
 

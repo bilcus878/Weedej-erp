@@ -3,8 +3,8 @@
 // Tento soubor je dostupný na URL: http://localhost:3000/api/products
 
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { fetchProducts } from '@/lib/sumup'
+import { prisma } from '@/lib/platform/db/prisma'
+import { fetchProducts } from '@/lib/platform/payments/sumup'
 
 export const dynamic = 'force-dynamic'
 

@@ -3,8 +3,8 @@
 // Workflow: Vytvoří DeliveryNote se statusem "draft" - čeká na vyskladnění
 
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { archiveCustomerOrder, archiveAsync } from '@/lib/documents/DocumentArchiveService'
+import { prisma } from '@/lib/platform/db/prisma'
+import { archiveCustomerOrder, archiveAsync } from '@/lib/platform/documents/DocumentArchiveService'
 
 export const dynamic = 'force-dynamic'
 
@@ -68,7 +68,7 @@ export async function POST(
     }
 
     // Vytvoř výdejku pomocí helper funkce
-    const { createDeliveryNoteFromCustomerOrder } = await import('@/lib/createDeliveryNote')
+    const { createDeliveryNoteFromCustomerOrder } = await import('@/lib/features/orders/createDeliveryNote')
     const deliveryNote = await createDeliveryNoteFromCustomerOrder(order.id)
 
     // Načti aktualizovanou objednávku

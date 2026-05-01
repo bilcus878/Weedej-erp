@@ -16,10 +16,10 @@
 //   400 { error: "..." }
 
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/lib/platform/db/prisma'
 import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { generateUniqueSku } from '@/lib/skuGeneration'
+import { authOptions } from '@/lib/platform/auth/auth'
+import { generateUniqueSku } from '@/lib/features/products/skuGeneration'
 
 export const dynamic = 'force-dynamic'
 

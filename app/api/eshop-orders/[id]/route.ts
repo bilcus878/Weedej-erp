@@ -9,7 +9,7 @@
 // Ostatní přechody (delivered, cancelled) jen aktualizují status.
 
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/lib/platform/db/prisma'
 
 export const dynamic = 'force-dynamic'
 
@@ -71,7 +71,7 @@ export async function PATCH(
 
       // Draft chybí → vytvoř ho (fallback pro starší objednávky bez auto-výdejky)
       if (!draftNote) {
-        const { createDeliveryNoteFromCustomerOrder } = await import('@/lib/createDeliveryNote')
+        const { createDeliveryNoteFromCustomerOrder } = await import('@/lib/features/orders/createDeliveryNote')
         await createDeliveryNoteFromCustomerOrder(existing.id)
         draftNote = await prisma.deliveryNote.findFirst({
           where: { customerOrderId: existing.id, status: 'draft' },
@@ -140,7 +140,7 @@ export async function PATCH(
         .map((i: any) => i.productId)
         .filter((id: any): id is string => Boolean(id))
       if (affectedProductIds.length > 0) {
-        import('@/lib/eshopStockWebhook').then(({ notifyEshopStockUpdate }) =>
+        import('@/lib/platform/webhooks/eshopStockWebhook').then(({ notifyEshopStockUpdate }) =>
           notifyEshopStockUpdate(affectedProductIds)
         ).catch(() => {})
       }
@@ -149,7 +149,7 @@ export async function PATCH(
       if (existing.eshopOrderId) {
         const erpUrl     = process.env.ERP_PUBLIC_URL || process.env.NEXTAUTH_URL || ''
         const invoiceId  = existing.issuedInvoice?.id ?? null
-        const { enqueueOrderShippedWebhook } = await import('@/lib/eshopWebhook')
+        const { enqueueOrderShippedWebhook } = await import('@/lib/platform/webhooks/eshopWebhook')
         enqueueOrderShippedWebhook(existing.id, {
           eshopOrderId:   existing.eshopOrderId,
           erpOrderNumber: existing.orderNumber,

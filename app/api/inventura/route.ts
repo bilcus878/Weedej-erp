@@ -3,8 +3,8 @@
 // POST - vytvořit novou inventuru
 
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getNextDocumentNumber } from '@/lib/documentSeries'
+import { prisma } from '@/lib/platform/db/prisma'
+import { getNextDocumentNumber } from '@/lib/shared/documents/documentSeries'
 
 export const dynamic = 'force-dynamic'
 

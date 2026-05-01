@@ -1,4 +1,4 @@
-import { RETURN_STATUS_LABELS, type ReturnStatus } from '@/lib/returns/returnWorkflow'
+import { RETURN_STATUS_LABELS, type ReturnStatus } from '@/lib/features/returns/returnWorkflow'
 
 const COLORS: Record<ReturnStatus, string> = {
   submitted:          'bg-blue-100 text-blue-700',

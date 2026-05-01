@@ -8,13 +8,13 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { verifyApiKey, corsHeaders, handleOptions } from '@/lib/apiKeyAuth'
+import { prisma } from '@/lib/platform/db/prisma'
+import { verifyApiKey, corsHeaders, handleOptions } from '@/lib/platform/auth/apiKeyAuth'
 import {
   calculateCurrentStock,
   calculateExpectedStock,
   calculateReservedStock,
-} from '@/lib/stockCalculation'
+} from '@/lib/shared/inventory/stockMovement'
 
 export const dynamic = 'force-dynamic'
 

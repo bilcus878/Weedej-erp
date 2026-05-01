@@ -2,8 +2,8 @@ import { CheckCircle, XCircle, Clock, AlertTriangle } from 'lucide-react'
 import {
   RETURN_CONDITION_LABELS,
   type ReturnItemCondition,
-} from '@/lib/returns/returnWorkflow'
-import { formatPrice } from '@/lib/utils'
+} from '@/lib/features/returns/returnWorkflow'
+import { formatPrice } from '@/lib/shared/finance/money'
 import type { ReturnRequestItem } from '../types'
 
 const ITEM_STATUS_CONFIG = {

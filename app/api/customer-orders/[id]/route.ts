@@ -2,8 +2,8 @@
 // URL: /api/customer-orders/[id]
 
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { CustomerOrderStatus, CUSTOMER_ORDER_TRANSITIONS } from '@/lib/constants'
+import { prisma } from '@/lib/platform/db/prisma'
+import { CustomerOrderStatus, CUSTOMER_ORDER_TRANSITIONS } from '@/lib/shared/constants/customerOrder'
 
 export const dynamic = 'force-dynamic'
 

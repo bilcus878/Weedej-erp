@@ -1,7 +1,7 @@
 'use client'
 
 import { Send, ShoppingCart, Receipt, Package, CheckCircle2 } from 'lucide-react'
-import { formatPrice } from '@/lib/utils'
+import { formatPrice } from '@/lib/shared/finance/money'
 
 interface WorkItemProps {
   icon:     React.ReactNode

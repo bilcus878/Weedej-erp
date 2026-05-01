@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { useEntityPage, useFilters } from '@/components/erp'
 import type { SelectOption } from '@/components/erp'
 import { fetchReceivedInvoices, fetchSuppliers } from '../services/receivedInvoiceService'
-import { PAYMENT_OPTIONS } from '@/lib/constants/paymentOptions'
+import { PAYMENT_OPTIONS } from '@/features/shared/paymentOptions'
 import type { ReceivedInvoice, Supplier } from '../types'
 
 const STATUS_OPTIONS: SelectOption[] = [

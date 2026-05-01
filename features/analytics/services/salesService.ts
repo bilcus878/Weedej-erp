@@ -1,7 +1,7 @@
-import { prisma }      from '@/lib/prisma'
-import { compare }     from '@/lib/analytics/comparisonEngine'
-import { formatPrice } from '@/lib/utils'
-import type { DateRange } from '@/lib/analytics/dateRange'
+import { prisma }      from '@/lib/platform/db/prisma'
+import { compare }     from '@/lib/features/analytics/comparisonEngine'
+import { formatPrice } from '@/lib/shared/finance/money'
+import type { DateRange } from '@/lib/features/analytics/dateRange'
 import type { SalesReport } from '../types'
 
 interface SalesServiceParams {

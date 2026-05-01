@@ -2,7 +2,7 @@
 
 import type { RefObject } from 'react'
 import { ChevronDown, ChevronUp, ChevronRight, ChevronsUpDown } from 'lucide-react'
-import { formatQuantity } from '@/lib/utils'
+import { formatQuantity } from '@/lib/shared/units/format'
 import { FilterInput, FilterSelect } from '@/components/erp'
 import type { FiltersResult, SelectOption } from '@/components/erp'
 import type { InventorySummary, Category, SortField, SortDirection } from '../types'

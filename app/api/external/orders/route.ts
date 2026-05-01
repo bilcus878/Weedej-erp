@@ -4,10 +4,10 @@
 // Určeno pro e-shop — vyžaduje API klíč v hlavičce X-API-Key
 
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/lib/platform/db/prisma'
 import { getNextDocumentNumber } from '@/lib/shared/documents/documentSeries'
-import { createIssuedInvoiceFromCustomerOrder } from '@/lib/createIssuedInvoice'
-import { verifyApiKey, corsHeaders, handleOptions } from '@/lib/apiKeyAuth'
+import { createIssuedInvoiceFromCustomerOrder } from '@/lib/features/invoices/createIssuedInvoice'
+import { verifyApiKey, corsHeaders, handleOptions } from '@/lib/platform/auth/apiKeyAuth'
 
 export const dynamic = 'force-dynamic'
 

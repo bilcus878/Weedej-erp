@@ -3,7 +3,7 @@
 import { useState, useMemo, useRef } from 'react'
 import { useEntityPage, useFilters } from '@/components/erp'
 import { useCompanySettings } from '@/components/erp/hooks/useCompanySettings'
-import { VAT_RATE_LABELS, CZECH_VAT_RATES } from '@/lib/vatCalculation'
+import { VAT_RATE_LABELS, CZECH_VAT_RATES } from '@/lib/shared/finance/vatCalculation'
 import type { Product, Category, EshopVariant, EshopVariantForm, SortField, SortDir, InlineEditForm } from '../types'
 import { emptyVariantForm } from '../types'
 import {

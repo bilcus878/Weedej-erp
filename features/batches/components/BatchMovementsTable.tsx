@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { formatPrice } from '@/lib/utils'
+import { formatPrice } from '@/lib/shared/finance/money'
 import type { BatchMovement } from '../types'
 
 interface Props {

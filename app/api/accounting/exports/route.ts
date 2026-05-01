@@ -2,12 +2,12 @@
 // GET  /api/accounting/exports — list past export jobs for current user
 
 import { NextRequest, NextResponse } from 'next/server'
-import { requirePermission }          from '@/lib/routeGuard'
-import { Permission }                 from '@/lib/permissions'
-import { prisma }                     from '@/lib/prisma'
-import { processExport }              from '@/lib/accounting/exportJob'
-import { previewDocuments }           from '@/lib/accounting/normalizer'
-import type { DocType, ExportFormat } from '@/lib/accounting/types'
+import { requirePermission }          from '@/lib/platform/auth/routeGuard'
+import { Permission }                 from '@/lib/shared/permissions'
+import { prisma }                     from '@/lib/platform/db/prisma'
+import { processExport }              from '@/lib/features/accounting/exportJob'
+import { previewDocuments }           from '@/lib/features/accounting/normalizer'
+import type { DocType, ExportFormat } from '@/lib/features/accounting/types'
 import { z }                          from 'zod'
 
 export const dynamic = 'force-dynamic'

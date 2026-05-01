@@ -4,7 +4,7 @@
 // NEŘEŠÍ sklad ani příjemky - to se stornuje samostatně
 
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/lib/platform/db/prisma'
 
 export const dynamic = 'force-dynamic'
 

@@ -2,8 +2,8 @@
 // URL: http://localhost:3000/api/transactions
 
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { calculateVatFromNet, calculateVatFromGross, calculateLineVat, DEFAULT_VAT_RATE, round2 } from '@/lib/vatCalculation'
+import { prisma } from '@/lib/platform/db/prisma'
+import { calculateVatFromNet, calculateVatFromGross, calculateLineVat, DEFAULT_VAT_RATE, round2 } from '@/lib/shared/finance/vatCalculation'
 
 export const dynamic = 'force-dynamic'
 
@@ -218,7 +218,7 @@ export async function POST(request: Request) {
     // Automaticky vytvoř výdejku pro tuto transakci
     // (Nový systém - výdejky automaticky vyskladňují)
     try {
-      const { createDeliveryNoteFromTransaction } = await import('@/lib/createDeliveryNote')
+      const { createDeliveryNoteFromTransaction } = await import('@/lib/features/orders/createDeliveryNote')
       await createDeliveryNoteFromTransaction(transaction.id)
       console.log(`✓ Automaticky vytvořena výdejka pro transakci ${transaction.transactionCode}`)
     } catch (error) {

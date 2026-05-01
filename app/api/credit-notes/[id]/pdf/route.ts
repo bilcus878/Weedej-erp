@@ -9,11 +9,11 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
-import { generateCreditNotePdfBuffer } from '@/lib/documents/serverPdfGenerators'
-import { archiveCreditNote, archiveAsync } from '@/lib/documents/DocumentArchiveService'
-import { diskAdapter } from '@/lib/documents/LocalDiskAdapter'
+import { authOptions } from '@/lib/platform/auth/auth'
+import { prisma } from '@/lib/platform/db/prisma'
+import { generateCreditNotePdfBuffer } from '@/lib/platform/pdf/serverPdfGenerators'
+import { archiveCreditNote, archiveAsync } from '@/lib/platform/documents/DocumentArchiveService'
+import { diskAdapter } from '@/lib/platform/storage/LocalDiskAdapter'
 
 export const dynamic = 'force-dynamic'
 

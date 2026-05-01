@@ -2,8 +2,8 @@
 // URL: /api/customer-orders/[id]/cancel
 
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { cancelReservations } from '@/lib/reservationManagement'
+import { prisma } from '@/lib/platform/db/prisma'
+import { cancelReservations } from '@/lib/features/eshop/reservationManagement'
 
 export const dynamic = 'force-dynamic'
 

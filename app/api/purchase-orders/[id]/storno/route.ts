@@ -2,7 +2,7 @@
 // URL: /api/purchase-orders/[id]/storno
 
 import { NextResponse } from 'next/server'
-import { stornoPurchaseOrder } from '@/lib/storno'
+import { stornoPurchaseOrder } from '@/lib/features/documents/storno'
 
 export const dynamic = 'force-dynamic'
 

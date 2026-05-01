@@ -1,6 +1,6 @@
-import { prisma }      from '@/lib/prisma'
-import { formatPrice } from '@/lib/utils'
-import type { DateRange } from '@/lib/analytics/dateRange'
+import { prisma }      from '@/lib/platform/db/prisma'
+import { formatPrice } from '@/lib/shared/finance/money'
+import type { DateRange } from '@/lib/features/analytics/dateRange'
 import type { ProductsReport } from '../types'
 
 interface ProductServiceParams { range: DateRange }

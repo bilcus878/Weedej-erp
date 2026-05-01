@@ -1,8 +1,8 @@
 // GET /api/permissions  — list all permissions grouped by module (ADMIN only)
 
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { requireAdmin } from '@/lib/routeGuard'
+import { prisma } from '@/lib/platform/db/prisma'
+import { requireAdmin } from '@/lib/platform/auth/routeGuard'
 
 export const dynamic = 'force-dynamic'
 

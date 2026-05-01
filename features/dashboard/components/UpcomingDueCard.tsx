@@ -1,7 +1,8 @@
 'use client'
 
 import { Bell, ArrowRight, ArrowDownCircle, ArrowUpCircle, CheckCircle, AlertCircle } from 'lucide-react'
-import { formatPrice, formatDate } from '@/lib/utils'
+import { formatDate } from '@/lib/shared/dates/format'
+import { formatPrice } from '@/lib/shared/finance/money'
 import type { ReceivedInvoice, IssuedInvoice, OverdueSummary } from '../types'
 
 type UpcomingItem =

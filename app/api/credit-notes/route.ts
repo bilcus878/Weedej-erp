@@ -3,9 +3,9 @@
 
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
-import { archiveCreditNote, archiveAsync } from '@/lib/documents/DocumentArchiveService'
+import { authOptions } from '@/lib/platform/auth/auth'
+import { prisma } from '@/lib/platform/db/prisma'
+import { archiveCreditNote, archiveAsync } from '@/lib/platform/documents/DocumentArchiveService'
 
 export const dynamic = 'force-dynamic'
 
@@ -146,7 +146,7 @@ export async function POST(request: Request) {
     totalWithVat = Math.round(totalWithVat * 100) / 100
 
     // ON-COMMIT číslování
-    const { getNextDocumentNumber } = await import('@/lib/documentNumbering')
+    const { getNextDocumentNumber } = await import('@/lib/shared/documents/documentSeries')
 
     const creditNote = await prisma.$transaction(async (tx) => {
       const creditNoteNumber = await getNextDocumentNumber('credit-note', tx)

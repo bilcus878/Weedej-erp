@@ -1,10 +1,10 @@
 import { NextResponse }      from 'next/server'
 import { getServerSession } from 'next-auth'
 import { z }                from 'zod'
-import { authOptions }      from '@/lib/auth'
-import type { ReturnStatus } from '@/lib/returns/returnWorkflow'
-import { ReturnCommandService } from '@/lib/returns/ReturnCommandService'
-import { isValidationError, ReturnValidationError } from '@/lib/returns/ReturnValidationService'
+import { authOptions }      from '@/lib/platform/auth/auth'
+import type { ReturnStatus } from '@/lib/features/returns/returnWorkflow'
+import { ReturnCommandService } from '@/lib/features/returns/ReturnCommandService'
+import { isValidationError, ReturnValidationError } from '@/lib/features/returns/ReturnValidationService'
 
 export const dynamic = 'force-dynamic'
 

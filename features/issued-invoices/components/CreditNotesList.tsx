@@ -1,7 +1,7 @@
 'use client'
 
 import { ExternalLink } from 'lucide-react'
-import { formatPrice } from '@/lib/utils'
+import { formatPrice } from '@/lib/shared/finance/money'
 import type { CreditNoteData } from '../types'
 
 interface Props {

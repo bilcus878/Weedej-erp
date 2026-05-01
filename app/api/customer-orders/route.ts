@@ -2,11 +2,11 @@
 // URL: /api/customer-orders
 
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/lib/platform/db/prisma'
 import { getNextDocumentNumber } from '@/lib/shared/documents/documentSeries'
-import { createReservations, canReserveQuantity } from '@/lib/reservationManagement'
-import { applyDiscountAndCalculateVat, calculateVatFromGross, round2, calculateLineVat } from '@/lib/vatCalculation'
-import { archiveCustomerOrder, archiveAsync } from '@/lib/documents/DocumentArchiveService'
+import { createReservations, canReserveQuantity } from '@/lib/features/eshop/reservationManagement'
+import { applyDiscountAndCalculateVat, calculateVatFromGross, round2, calculateLineVat } from '@/lib/shared/finance/vatCalculation'
+import { archiveCustomerOrder, archiveAsync } from '@/lib/platform/documents/DocumentArchiveService'
 
 export const dynamic = 'force-dynamic'
 
@@ -323,7 +323,7 @@ export async function POST(request: Request) {
 
     // Automaticky vytvoř vystavenou fakturu (nezaplacenou) pro tuto objednávku
     try {
-      const { createIssuedInvoiceFromCustomerOrder } = await import('@/lib/createIssuedInvoice')
+      const { createIssuedInvoiceFromCustomerOrder } = await import('@/lib/features/invoices/createIssuedInvoice')
       await createIssuedInvoiceFromCustomerOrder(order.id, {
         dueDate,
         paymentType: normalizedPaymentType,

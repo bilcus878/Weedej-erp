@@ -2,7 +2,7 @@
 // URL: /api/purchase-orders/next-number
 
 import { NextResponse } from 'next/server'
-import { previewNextDocumentNumber } from '@/lib/documentSeries'
+import { previewNextDocumentNumber } from '@/lib/shared/documents/documentSeries'
 
 export const dynamic = 'force-dynamic'
 

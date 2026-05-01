@@ -2,7 +2,7 @@
 // URL: /api/delivery-notes/[id]/storno
 
 import { NextResponse } from 'next/server'
-import { stornoDeliveryNote } from '@/lib/storno'
+import { stornoDeliveryNote } from '@/lib/features/documents/storno'
 
 export const dynamic = 'force-dynamic'
 

@@ -2,9 +2,9 @@
 // URL: /api/delivery-notes
 
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getNextDocumentNumber } from '@/lib/documentSeries'
-import { archiveDeliveryNote, archiveAsync } from '@/lib/documents/DocumentArchiveService'
+import { prisma } from '@/lib/platform/db/prisma'
+import { getNextDocumentNumber } from '@/lib/shared/documents/documentSeries'
+import { archiveDeliveryNote, archiveAsync } from '@/lib/platform/documents/DocumentArchiveService'
 
 export const dynamic = 'force-dynamic'
 
@@ -74,7 +74,7 @@ export async function POST(request: Request) {
 
     // Pokud má být automaticky zpracováno, kontroluj sklad PŘED transakcí
     if (autoProcess && !allowNegativeStock) {
-      const { canDeliverQuantity } = await import('@/lib/stockCalculation')
+      const { canDeliverQuantity } = await import('@/lib/shared/inventory/stockMovement')
 
       for (const item of items) {
         if (item.productId) {

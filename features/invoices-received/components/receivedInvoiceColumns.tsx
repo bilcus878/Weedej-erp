@@ -2,7 +2,7 @@
 
 import type { ColumnDef, SelectOption, FiltersResult } from '@/components/erp'
 import { FilterInput, FilterSelect, FilterCombobox } from '@/components/erp'
-import { PAYMENT_OPTIONS } from '@/lib/constants/paymentOptions'
+import { PAYMENT_OPTIONS } from '@/features/shared/paymentOptions'
 import type { ReceivedInvoice, Supplier } from '../types'
 import { ReceivedInvoiceStatusBadge } from './ReceivedInvoiceStatusBadge'
 

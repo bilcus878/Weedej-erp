@@ -3,8 +3,8 @@
 // Vrací všechny zaplacené objednávky, které ještě nejsou kompletně vyskladněné
 
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { isItemFullyShipped } from '@/lib/variantConversion'
+import { prisma } from '@/lib/platform/db/prisma'
+import { isItemFullyShipped } from '@/lib/shared/inventory/variantConversion'
 
 export const dynamic = 'force-dynamic'
 

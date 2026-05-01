@@ -1,5 +1,5 @@
-import { formatPrice } from '@/lib/utils'
-import { isNonVatPayer, DEFAULT_VAT_RATE } from '@/lib/vatCalculation'
+import { formatPrice } from '@/lib/shared/finance/money'
+import { isNonVatPayer, DEFAULT_VAT_RATE } from '@/lib/shared/finance/vatCalculation'
 
 export interface ErpItem {
   id: string

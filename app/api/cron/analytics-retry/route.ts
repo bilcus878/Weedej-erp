@@ -14,7 +14,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { retryFailedDeliveries }     from '@/lib/analytics/eventPipeline'
+import { retryFailedDeliveries }     from '@/lib/features/analytics/eventPipeline'
 
 export const dynamic = 'force-dynamic'
 

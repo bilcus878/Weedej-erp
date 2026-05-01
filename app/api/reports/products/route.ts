@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse }      from 'next/server'
-import { requirePermission }              from '@/lib/routeGuard'
-import { Permission }                     from '@/lib/permissions'
-import { buildPreset }                    from '@/lib/analytics/dateRange'
+import { requirePermission }              from '@/lib/platform/auth/routeGuard'
+import { Permission }                     from '@/lib/shared/permissions'
+import { buildPreset }                    from '@/lib/features/analytics/dateRange'
 import { getProductsReport }              from '@/features/analytics/services/productService'
-import { buildCsv, buildExcel, buildPdf, contentTypeFor } from '@/lib/analytics/exportEngine'
-import type { ExportFormat }              from '@/lib/analytics/exportEngine'
+import { buildCsv, buildExcel, buildPdf, contentTypeFor } from '@/lib/features/analytics/exportEngine'
+import type { ExportFormat }              from '@/lib/features/analytics/exportEngine'
 
 export const dynamic = 'force-dynamic'
 

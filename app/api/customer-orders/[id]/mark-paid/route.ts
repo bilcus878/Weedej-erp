@@ -2,8 +2,8 @@
 // URL: /api/customer-orders/[id]/mark-paid
 
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { archiveCustomerOrder, archiveAsync } from '@/lib/documents/DocumentArchiveService'
+import { prisma } from '@/lib/platform/db/prisma'
+import { archiveCustomerOrder, archiveAsync } from '@/lib/platform/documents/DocumentArchiveService'
 
 export const dynamic = 'force-dynamic'
 

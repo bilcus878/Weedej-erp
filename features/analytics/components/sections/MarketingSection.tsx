@@ -12,7 +12,7 @@ import {
 import { KpiCard }     from '../KpiCard'
 import { KpiGrid }     from '../KpiGrid'
 import { ExportMenu }  from '../ExportMenu'
-import { formatPrice } from '@/lib/utils'
+import { formatPrice } from '@/lib/shared/finance/money'
 import type { MarketingReport } from '../../types'
 import type { AnalyticsFilters } from '../../types'
 

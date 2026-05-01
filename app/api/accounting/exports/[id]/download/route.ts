@@ -1,10 +1,10 @@
 // GET /api/accounting/exports/:id/download — stream the export file
 
 import { NextRequest, NextResponse } from 'next/server'
-import { requirePermission }          from '@/lib/routeGuard'
-import { Permission }                 from '@/lib/permissions'
-import { prisma }                     from '@/lib/prisma'
-import { readExportFile }             from '@/lib/accounting/exportJob'
+import { requirePermission }          from '@/lib/platform/auth/routeGuard'
+import { Permission }                 from '@/lib/shared/permissions'
+import { prisma }                     from '@/lib/platform/db/prisma'
+import { readExportFile }             from '@/lib/features/accounting/exportJob'
 
 export const dynamic = 'force-dynamic'
 

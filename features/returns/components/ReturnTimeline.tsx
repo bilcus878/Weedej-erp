@@ -4,7 +4,7 @@ import { cs } from 'date-fns/locale'
 import {
   RETURN_STATUS_LABELS,
   type ReturnStatus,
-} from '@/lib/returns/returnWorkflow'
+} from '@/lib/features/returns/returnWorkflow'
 import type { ReturnStatusHistoryEntry } from '../types'
 
 const STATUS_ICON: Record<string, React.ReactNode> = {

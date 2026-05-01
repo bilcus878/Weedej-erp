@@ -7,7 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { retryDueWebhooks } from '@/lib/eshopWebhook'
+import { retryDueWebhooks } from '@/lib/platform/webhooks/eshopWebhook'
 
 export const dynamic = 'force-dynamic'
 

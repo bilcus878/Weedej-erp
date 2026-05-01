@@ -1,5 +1,5 @@
-import type { DatePreset } from '@/lib/analytics/dateRange'
-import type { ComparisonValue, TimeSeriesPoint } from '@/lib/analytics/comparisonEngine'
+import type { DatePreset } from '@/lib/features/analytics/dateRange'
+import type { ComparisonValue, TimeSeriesPoint } from '@/lib/features/analytics/comparisonEngine'
 
 // ── Filter state ──────────────────────────────────────────────────────────────
 

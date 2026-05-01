@@ -3,9 +3,9 @@
 // Workflow: Změní status z "draft" na "active", odečte ze skladu, uvolní rezervace
 
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { selectBatchForOutbound } from '@/lib/batchUtils'
-import { archiveDeliveryNote, archiveAsync } from '@/lib/documents/DocumentArchiveService'
+import { prisma } from '@/lib/platform/db/prisma'
+import { selectBatchForOutbound } from '@/lib/features/inventory/batchUtils'
+import { archiveDeliveryNote, archiveAsync } from '@/lib/platform/documents/DocumentArchiveService'
 
 export const dynamic = 'force-dynamic'
 
@@ -77,7 +77,7 @@ export async function POST(
     }
 
     // VALIDACE: Zkontroluj dostupnost skladu
-    const { canDeliverQuantity } = await import('@/lib/stockCalculation')
+    const { canDeliverQuantity } = await import('@/lib/shared/inventory/stockMovement')
 
     for (const itemData of body.items) {
       const deliveryItem = deliveryNote.items.find(i => i.id === itemData.id)
@@ -257,7 +257,7 @@ export async function POST(
       .map(i => deliveryNote.items.find(di => di.id === i.id)?.productId)
       .filter((id): id is string => Boolean(id))
     if (affectedProductIds.length > 0) {
-      import('@/lib/eshopStockWebhook').then(({ notifyEshopStockUpdate }) =>
+      import('@/lib/platform/webhooks/eshopStockWebhook').then(({ notifyEshopStockUpdate }) =>
         notifyEshopStockUpdate(affectedProductIds)
       ).catch(() => {})
     }
@@ -289,7 +289,7 @@ export async function POST(
       finalOrder.status === 'shipped'
     ) {
       try {
-        const { enqueueOrderShippedWebhook } = await import('@/lib/eshopWebhook')
+        const { enqueueOrderShippedWebhook } = await import('@/lib/platform/webhooks/eshopWebhook')
         const erpUrl = process.env.ERP_PUBLIC_URL || process.env.NEXTAUTH_URL || ''
 
         // Reload order to get linked invoice id (not in finalOrder select)

@@ -3,8 +3,8 @@
 
 import { NextResponse } from 'next/server'
 import { getNextDocumentNumber } from '@/lib/shared/documents/documentSeries'
-import { prisma } from '@/lib/prisma'
-import { archiveReceipt, archiveAsync } from '@/lib/documents/DocumentArchiveService'
+import { prisma } from '@/lib/platform/db/prisma'
+import { archiveReceipt, archiveAsync } from '@/lib/platform/documents/DocumentArchiveService'
 
 export const dynamic = 'force-dynamic'
 

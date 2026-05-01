@@ -3,7 +3,7 @@
 import React, { useState, useEffect, type MutableRefObject } from 'react'
 import { Package, Plus, Trash2, User, CreditCard, Calendar, Banknote, Landmark, CheckCircle, Search } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { VAT_RATE_LABELS, isNonVatPayer, calculateLineVat, calculateVatSummary } from '@/lib/vatCalculation'
+import { VAT_RATE_LABELS, isNonVatPayer, calculateLineVat, calculateVatSummary } from '@/lib/shared/finance/vatCalculation'
 import { useCreatePurchaseOrderForm } from '../hooks/useCreatePurchaseOrderForm'
 import { CascadingProductDropdown } from '@/components/CascadingProductDropdown'
 import { PurchaseOrderTotalsPreview } from './PurchaseOrderTotalsPreview'

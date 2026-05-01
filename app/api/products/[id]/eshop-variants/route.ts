@@ -8,10 +8,10 @@
 //           correct GS1 check digit, and must not already exist on another variant.
 
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/lib/platform/db/prisma'
 import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { resolveVariantIdentifiers } from '@/lib/variantIdentification'
+import { authOptions } from '@/lib/platform/auth/auth'
+import { resolveVariantIdentifiers } from '@/lib/features/products/variantIdentification'
 
 export const dynamic = 'force-dynamic'
 

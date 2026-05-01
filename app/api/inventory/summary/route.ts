@@ -4,13 +4,13 @@
 export const dynamic = 'force-dynamic'
 
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/lib/platform/db/prisma'
 import {
   calculateCurrentStock,
   calculateExpectedStock,
   calculateReservedStock,
   calculateAvailableStock
-} from '@/lib/stockCalculation'
+} from '@/lib/shared/inventory/stockMovement'
 
 // GET /api/inventory/summary - Získat souhrn skladu (pro každý produkt celkové množství)
 export async function GET() {

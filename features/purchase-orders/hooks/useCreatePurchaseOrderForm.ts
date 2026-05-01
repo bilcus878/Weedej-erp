@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { DEFAULT_VAT_RATE, NON_VAT_PAYER_RATE } from '@/lib/vatCalculation'
+import { DEFAULT_VAT_RATE, NON_VAT_PAYER_RATE } from '@/lib/shared/finance/vatCalculation'
 import { fetchNextOrderNumber, createPurchaseOrder } from '../services/purchaseOrderService'
 import type { PurchaseOrderItem, ManualSupplierData, Product } from '../types'
 

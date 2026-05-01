@@ -1,6 +1,7 @@
 import { X, ClipboardList, Search, Filter, TrendingUp, TrendingDown, Check } from 'lucide-react'
 import Input from '@/components/ui/Input'
-import { formatDate, formatQuantity } from '@/lib/utils'
+import { formatDate } from '@/lib/shared/dates/format'
+import { formatQuantity } from '@/lib/shared/units/format'
 import type { InventuraDetail, InventuraDetailItem } from '../types'
 
 interface Props {

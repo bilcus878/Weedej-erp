@@ -1,6 +1,6 @@
 import type { IssuedInvoice } from '../types'
 import type { OrderDetailData } from '@/components/erp'
-import { DEFAULT_VAT_RATE } from '@/lib/vatCalculation'
+import { DEFAULT_VAT_RATE } from '@/lib/shared/finance/vatCalculation'
 
 export function mapInvoiceToOrderDetail(invoice: IssuedInvoice): OrderDetailData {
   const isPaid   = ['paid', 'shipped', 'delivered'].includes(invoice.status)

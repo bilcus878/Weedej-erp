@@ -2,10 +2,10 @@
 // Returns counts per type without generating any file. Used for UI confirmation.
 
 import { NextRequest, NextResponse } from 'next/server'
-import { requirePermission }          from '@/lib/routeGuard'
-import { Permission }                 from '@/lib/permissions'
-import { previewDocuments }           from '@/lib/accounting/normalizer'
-import type { DocType }               from '@/lib/accounting/types'
+import { requirePermission }          from '@/lib/platform/auth/routeGuard'
+import { Permission }                 from '@/lib/shared/permissions'
+import { previewDocuments }           from '@/lib/features/accounting/normalizer'
+import type { DocType }               from '@/lib/features/accounting/types'
 import { z }                          from 'zod'
 
 export const dynamic = 'force-dynamic'

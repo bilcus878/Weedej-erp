@@ -1,8 +1,8 @@
 import { NextResponse }      from 'next/server'
 import { getServerSession }  from 'next-auth'
-import { authOptions }       from '@/lib/auth'
-import { prisma }            from '@/lib/prisma'
-import { encrypt, maskKey }  from '@/lib/integrationCrypto'
+import { authOptions }       from '@/lib/platform/auth/auth'
+import { prisma }            from '@/lib/platform/db/prisma'
+import { encrypt, maskKey }  from '@/lib/platform/crypto/integrationCrypto'
 
 export async function GET() {
   try {

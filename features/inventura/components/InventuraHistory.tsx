@@ -1,6 +1,6 @@
 import { History, ClipboardList, ChevronDown, ChevronRight, Eye } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/Card'
-import { formatDate } from '@/lib/utils'
+import { formatDate } from '@/lib/shared/dates/format'
 import type { InventuraRecord } from '../types'
 
 interface Props {

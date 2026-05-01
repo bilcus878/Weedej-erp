@@ -2,10 +2,10 @@
 // DELETE /api/customers/[id]  — delete customer   (DELETE_CUSTOMERS)
 
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { requirePermission } from '@/lib/routeGuard'
-import { createAuditLog, diffAndLog } from '@/lib/auditService'
-import { Permission } from '@/lib/permissions'
+import { prisma } from '@/lib/platform/db/prisma'
+import { requirePermission } from '@/lib/platform/auth/routeGuard'
+import { createAuditLog, diffAndLog } from '@/lib/platform/audit/auditService'
+import { Permission } from '@/lib/shared/permissions'
 
 export const dynamic = 'force-dynamic'
 

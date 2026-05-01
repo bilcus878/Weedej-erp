@@ -1,5 +1,5 @@
 import { TrendingUp, TrendingDown, Check } from 'lucide-react'
-import { formatQuantity } from '@/lib/utils'
+import { formatQuantity } from '@/lib/shared/units/format'
 import type { InventuraItem } from '../types'
 
 interface Props {

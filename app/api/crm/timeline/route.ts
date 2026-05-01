@@ -3,9 +3,9 @@
 // Merges: CrmInteractions, CrmTasks, CustomerOrders, IssuedInvoices
 
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { requirePermission } from '@/lib/routeGuard'
-import { Permission } from '@/lib/permissions'
+import { prisma } from '@/lib/platform/db/prisma'
+import { requirePermission } from '@/lib/platform/auth/routeGuard'
+import { Permission } from '@/lib/shared/permissions'
 
 export const dynamic = 'force-dynamic'
 

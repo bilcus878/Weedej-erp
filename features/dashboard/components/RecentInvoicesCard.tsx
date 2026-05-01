@@ -1,7 +1,8 @@
 'use client'
 
 import { FileText, ArrowRight, ArrowDownCircle, ArrowUpCircle } from 'lucide-react'
-import { formatPrice, formatDate } from '@/lib/utils'
+import { formatDate } from '@/lib/shared/dates/format'
+import { formatPrice } from '@/lib/shared/finance/money'
 import type { NormalizedInvoice } from '../types'
 
 export function RecentInvoicesCard({ invoices }: { invoices: NormalizedInvoice[] }) {

@@ -2,9 +2,9 @@
 // URL: http://localhost:3000/api/transactions/sync
 
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { fetchTransactions, fetchReceiptDetail } from '@/lib/sumup'
-import { calculateVatFromGross, DEFAULT_VAT_RATE, round2 } from '@/lib/vatCalculation'
+import { prisma } from '@/lib/platform/db/prisma'
+import { fetchTransactions, fetchReceiptDetail } from '@/lib/platform/payments/sumup'
+import { calculateVatFromGross, DEFAULT_VAT_RATE, round2 } from '@/lib/shared/finance/vatCalculation'
 
 export const dynamic = 'force-dynamic'
 
@@ -354,7 +354,7 @@ export async function POST(request: Request) {
           // ✅ Automaticky vytvoř výdejku pro tuto HOTOVOSTNÍ transakci
           let deliveryNote
           try {
-            const { createDeliveryNoteFromTransaction } = await import('@/lib/createDeliveryNote')
+            const { createDeliveryNoteFromTransaction } = await import('@/lib/features/orders/createDeliveryNote')
             deliveryNote = await createDeliveryNoteFromTransaction(transaction.id)
           } catch (error) {
             console.error('Chyba při vytváření automatické výdejky:', error)
@@ -363,7 +363,7 @@ export async function POST(request: Request) {
 
           // ✅ Automaticky vytvoř vystavenou fakturu pro tuto transakci
           try {
-            const { createIssuedInvoiceFromTransaction } = await import('@/lib/createIssuedInvoice')
+            const { createIssuedInvoiceFromTransaction } = await import('@/lib/features/invoices/createIssuedInvoice')
             await createIssuedInvoiceFromTransaction(transaction.id, deliveryNote?.id)
           } catch (error) {
             console.error('Chyba při vytváření automatické faktury:', error)
@@ -611,7 +611,7 @@ export async function POST(request: Request) {
         // ✅ Automaticky vytvoř výdejku pro tuto HOTOVOSTNÍ transakci
         let deliveryNote
         try {
-          const { createDeliveryNoteFromTransaction } = await import('@/lib/createDeliveryNote')
+          const { createDeliveryNoteFromTransaction } = await import('@/lib/features/orders/createDeliveryNote')
           deliveryNote = await createDeliveryNoteFromTransaction(transaction.id)
         } catch (error) {
           console.error('Chyba při vytváření automatické výdejky:', error)
@@ -620,7 +620,7 @@ export async function POST(request: Request) {
 
         // ✅ Automaticky vytvoř vystavenou fakturu pro tuto transakci
         try {
-          const { createIssuedInvoiceFromTransaction } = await import('@/lib/createIssuedInvoice')
+          const { createIssuedInvoiceFromTransaction } = await import('@/lib/features/invoices/createIssuedInvoice')
           await createIssuedInvoiceFromTransaction(transaction.id, deliveryNote?.id)
         } catch (error) {
           console.error('Chyba při vytváření automatické faktury:', error)
@@ -867,7 +867,7 @@ export async function POST(request: Request) {
               // ✅ Automaticky vytvoř výdejku pro tuto KARETNÍ transakci
               let deliveryNote
               try {
-                const { createDeliveryNoteFromTransaction } = await import('@/lib/createDeliveryNote')
+                const { createDeliveryNoteFromTransaction } = await import('@/lib/features/orders/createDeliveryNote')
                 deliveryNote = await createDeliveryNoteFromTransaction(transaction.id)
               } catch (error) {
                 console.error('Chyba při vytváření automatické výdejky:', error)
@@ -876,7 +876,7 @@ export async function POST(request: Request) {
 
               // ✅ Automaticky vytvoř vystavenou fakturu pro tuto transakci
               try {
-                const { createIssuedInvoiceFromTransaction } = await import('@/lib/createIssuedInvoice')
+                const { createIssuedInvoiceFromTransaction } = await import('@/lib/features/invoices/createIssuedInvoice')
                 await createIssuedInvoiceFromTransaction(transaction.id, deliveryNote?.id)
               } catch (error) {
                 console.error('Chyba při vytváření automatické faktury:', error)
@@ -1018,7 +1018,7 @@ export async function POST(request: Request) {
       // Automaticky vytvoř výdejku pro tuto SumUp transakci
       let deliveryNote
       try {
-        const { createDeliveryNoteFromTransaction } = await import('@/lib/createDeliveryNote')
+        const { createDeliveryNoteFromTransaction } = await import('@/lib/features/orders/createDeliveryNote')
         deliveryNote = await createDeliveryNoteFromTransaction(transaction.id)
       } catch (error) {
         console.error('Chyba při vytváření automatické výdejky:', error)
@@ -1027,7 +1027,7 @@ export async function POST(request: Request) {
 
       // ✅ Automaticky vytvoř vystavenou fakturu pro tuto transakci
       try {
-        const { createIssuedInvoiceFromTransaction } = await import('@/lib/createIssuedInvoice')
+        const { createIssuedInvoiceFromTransaction } = await import('@/lib/features/invoices/createIssuedInvoice')
         await createIssuedInvoiceFromTransaction(transaction.id, deliveryNote?.id)
       } catch (error) {
         console.error('Chyba při vytváření automatické faktury:', error)

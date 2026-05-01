@@ -1,16 +1,16 @@
 import { NextResponse }       from 'next/server'
 import { getServerSession }  from 'next-auth'
 import { z }                 from 'zod'
-import { authOptions }       from '@/lib/auth'
-import { prisma }            from '@/lib/prisma'
+import { authOptions }       from '@/lib/platform/auth/auth'
+import { prisma }            from '@/lib/platform/db/prisma'
 import {
   ReturnCommandService,
   RETURN_LIST_INCLUDE,
-} from '@/lib/returns/ReturnCommandService'
+} from '@/lib/features/returns/ReturnCommandService'
 import {
   ReturnValidationError,
   isValidationError,
-} from '@/lib/returns/ReturnValidationService'
+} from '@/lib/features/returns/ReturnValidationService'
 
 export const dynamic = 'force-dynamic'
 

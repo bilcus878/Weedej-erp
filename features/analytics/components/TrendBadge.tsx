@@ -1,8 +1,8 @@
 'use client'
 
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react'
-import { formatPctChange }                  from '@/lib/analytics/comparisonEngine'
-import type { ComparisonValue }             from '@/lib/analytics/comparisonEngine'
+import { formatPctChange }                  from '@/lib/features/analytics/comparisonEngine'
+import type { ComparisonValue }             from '@/lib/features/analytics/comparisonEngine'
 
 interface Props {
   comparison: ComparisonValue

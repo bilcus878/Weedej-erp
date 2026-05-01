@@ -4,7 +4,7 @@ import { useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useEntityPage, useFilters } from '@/components/erp'
 import { fetchIssuedInvoices } from '../services/issuedInvoiceService'
-import { PAYMENT_OPTIONS } from '@/lib/constants/paymentOptions'
+import { PAYMENT_OPTIONS } from '@/features/shared/paymentOptions'
 import type { IssuedInvoice } from '../types'
 
 const STATUS_OPTIONS = [

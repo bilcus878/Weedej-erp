@@ -2,7 +2,8 @@
 
 import { useRef, useState, useEffect } from 'react'
 import { Package } from 'lucide-react'
-import { formatDate, formatPrice } from '@/lib/utils'
+import { formatDate } from '@/lib/shared/dates/format'
+import { formatPrice } from '@/lib/shared/finance/money'
 import { useClickOutside } from '../shared/useClickOutside'
 
 export interface PopoverOrder {

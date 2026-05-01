@@ -1,10 +1,10 @@
 import { NextResponse }       from 'next/server'
 import { getServerSession }  from 'next-auth'
 import { z }                 from 'zod'
-import { authOptions }       from '@/lib/auth'
-import { prisma }            from '@/lib/prisma'
-import { RETURN_FULL_INCLUDE } from '@/lib/returns/ReturnCommandService'
-import { mapReturnFull }       from '@/lib/returns/returnMapper'
+import { authOptions }       from '@/lib/platform/auth/auth'
+import { prisma }            from '@/lib/platform/db/prisma'
+import { RETURN_FULL_INCLUDE } from '@/lib/features/returns/ReturnCommandService'
+import { mapReturnFull }       from '@/lib/features/returns/returnMapper'
 
 export const dynamic = 'force-dynamic'
 

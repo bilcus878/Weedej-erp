@@ -16,11 +16,11 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/lib/platform/db/prisma'
 import { getNextDocumentNumber } from '@/lib/shared/documents/documentSeries'
-import { createIssuedInvoiceFromCustomerOrder } from '@/lib/createIssuedInvoice'
-import { verifyApiKey, corsHeaders, handleOptions } from '@/lib/apiKeyAuth'
-import { createReservations } from '@/lib/reservationManagement'
+import { createIssuedInvoiceFromCustomerOrder } from '@/lib/features/invoices/createIssuedInvoice'
+import { verifyApiKey, corsHeaders, handleOptions } from '@/lib/platform/auth/apiKeyAuth'
+import { createReservations } from '@/lib/features/eshop/reservationManagement'
 
 export const dynamic = 'force-dynamic'
 

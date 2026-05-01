@@ -16,7 +16,7 @@
  * Import path: @/lib/shared/documents/documentSeries
  */
 
-import { prisma }  from '@/lib/prisma'
+import { prisma }  from '@/lib/platform/db/prisma'
 import { Prisma }  from '@prisma/client'
 
 // ── Document type → prefix map ────────────────────────────────────────────────

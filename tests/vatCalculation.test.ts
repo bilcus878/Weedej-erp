@@ -8,7 +8,7 @@ import {
   calculateVatFromNet,
   calculateVatFromGross,
   round2,
-} from '@/lib/vatCalculation'
+} from '@/lib/shared/finance/vatCalculation'
 
 describe('VAT Calculation - Critical Edge Cases', () => {
   describe('isVatPayerEntity', () => {

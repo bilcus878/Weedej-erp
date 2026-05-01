@@ -22,8 +22,8 @@ import {
   RETURN_RESOLUTION_LABELS,
   RETURN_REFUND_METHOD_LABELS,
   RETURN_TYPE_LABELS,
-} from '@/lib/returns/returnWorkflow'
-import { formatPrice } from '@/lib/utils'
+} from '@/lib/features/returns/returnWorkflow'
+import { formatPrice } from '@/lib/shared/finance/money'
 
 export const dynamic = 'force-dynamic'
 

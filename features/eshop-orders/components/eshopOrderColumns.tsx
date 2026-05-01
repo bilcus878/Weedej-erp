@@ -1,6 +1,7 @@
 'use client'
 
-import { formatDate, formatPrice } from '@/lib/utils'
+import { formatDate } from '@/lib/shared/dates/format'
+import { formatPrice } from '@/lib/shared/finance/money'
 import type { ColumnDef, SelectOption, FiltersResult } from '@/components/erp'
 import { FilterInput, FilterSelect } from '@/components/erp'
 import type { EshopOrder } from '../types'

@@ -1,4 +1,4 @@
-import { isNonVatPayer, DEFAULT_VAT_RATE } from '@/lib/vatCalculation'
+import { isNonVatPayer, DEFAULT_VAT_RATE } from '@/lib/shared/finance/vatCalculation'
 import type { SupplierOrderDetailData, SupplierOrderDetailItem } from '@/components/erp'
 import type { Receipt } from '../types'
 

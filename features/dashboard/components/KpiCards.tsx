@@ -1,7 +1,7 @@
 'use client'
 
 import { TrendingUp, TrendingDown, Minus, Warehouse, ShoppingCart, DollarSign } from 'lucide-react'
-import { formatPrice } from '@/lib/utils'
+import { formatPrice } from '@/lib/shared/finance/money'
 import type { DashboardStats, OrderStats } from '../types'
 
 interface Props {

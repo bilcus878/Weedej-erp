@@ -1,7 +1,8 @@
 'use client'
 
 import { Send, ArrowRight, Globe, CheckCircle } from 'lucide-react'
-import { formatPrice, formatDate } from '@/lib/utils'
+import { formatDate } from '@/lib/shared/dates/format'
+import { formatPrice } from '@/lib/shared/finance/money'
 import type { PendingShipmentOrder } from '../types'
 
 function statusLabel(status: string) {

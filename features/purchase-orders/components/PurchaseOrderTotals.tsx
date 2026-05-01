@@ -1,6 +1,6 @@
 'use client'
 
-import { calculateLineVat, calculateVatSummary, isNonVatPayer, VAT_RATE_LABELS, type VatLineItem } from '@/lib/vatCalculation'
+import { calculateLineVat, calculateVatSummary, isNonVatPayer, VAT_RATE_LABELS, type VatLineItem } from '@/lib/shared/finance/vatCalculation'
 import type { PurchaseOrderItem } from '../types'
 
 interface Props {

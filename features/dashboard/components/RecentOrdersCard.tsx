@@ -1,7 +1,8 @@
 'use client'
 
 import { ShoppingCart, ArrowRight } from 'lucide-react'
-import { formatPrice, formatDate } from '@/lib/utils'
+import { formatDate } from '@/lib/shared/dates/format'
+import { formatPrice } from '@/lib/shared/finance/money'
 import type { CustomerOrder } from '../types'
 
 const STATUS: Record<string, { label: string; cls: string }> = {

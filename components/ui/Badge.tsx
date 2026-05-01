@@ -2,7 +2,7 @@
 // Použití: <Badge variant="success">Dokončeno</Badge>
 
 import { HTMLAttributes } from 'react'
-import { cn } from '@/lib/utils'
+import { cn } from '@/utils/cn'
 
 interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
   variant?: 'success' | 'warning' | 'danger' | 'info' | 'default'

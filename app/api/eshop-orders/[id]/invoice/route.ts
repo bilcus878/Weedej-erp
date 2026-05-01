@@ -3,8 +3,8 @@
 // Pokud faktura již existuje, vrátí ji (idempotentní)
 
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { createIssuedInvoiceFromCustomerOrder } from '@/lib/createIssuedInvoice'
+import { prisma } from '@/lib/platform/db/prisma'
+import { createIssuedInvoiceFromCustomerOrder } from '@/lib/features/invoices/createIssuedInvoice'
 
 export const dynamic = 'force-dynamic'
 

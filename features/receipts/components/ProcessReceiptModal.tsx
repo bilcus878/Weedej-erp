@@ -2,8 +2,8 @@
 
 import { Package, Building2, ChevronDown, ChevronRight, FlaskConical } from 'lucide-react'
 import Input from '@/components/ui/Input'
-import { formatPrice } from '@/lib/utils'
-import { isNonVatPayer, DEFAULT_VAT_RATE } from '@/lib/vatCalculation'
+import { formatPrice } from '@/lib/shared/finance/money'
+import { isNonVatPayer, DEFAULT_VAT_RATE } from '@/lib/shared/finance/vatCalculation'
 import type { ReceiptItem, InvoiceData } from '../types'
 import type { BatchFormData } from '@/features/batches/types'
 

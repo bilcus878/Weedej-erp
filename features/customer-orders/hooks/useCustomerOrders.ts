@@ -4,7 +4,7 @@ import { useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useEntityPage, useFilters } from '@/components/erp'
 import type { SelectOption } from '@/components/erp'
-import { PAYMENT_OPTIONS } from '@/lib/constants/paymentOptions'
+import { PAYMENT_OPTIONS } from '@/features/shared/paymentOptions'
 import { fetchCustomerOrders, fetchCustomers, fetchProducts } from '../services/customerOrderService'
 import type { CustomerOrder, Customer, Product } from '../types'
 

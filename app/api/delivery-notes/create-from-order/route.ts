@@ -6,10 +6,10 @@
 // Fallback: CustomerOrderItem → Product.price (jen pokud faktura ještě neexistuje).
 
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/lib/platform/db/prisma'
 import { getNextDocumentNumber } from '@/lib/shared/documents/documentSeries'
-import { isItemFullyShipped } from '@/lib/variantConversion'
-import { selectBatchForOutbound } from '@/lib/batchUtils'
+import { isItemFullyShipped } from '@/lib/shared/inventory/variantConversion'
+import { selectBatchForOutbound } from '@/lib/features/inventory/batchUtils'
 
 export const dynamic = 'force-dynamic'
 
@@ -60,7 +60,7 @@ export async function POST(request: Request) {
     }
 
     // Kontrola dostupnosti skladu
-    const { canDeliverQuantity } = await import('@/lib/stockCalculation')
+    const { canDeliverQuantity } = await import('@/lib/shared/inventory/stockMovement')
     for (const item of items) {
       if (item.productId && item.quantity > 0) {
         const stockCheck = await canDeliverQuantity(item.productId, item.quantity, false)
@@ -274,7 +274,7 @@ export async function POST(request: Request) {
       })
       if (finalOrder?.status === 'shipped') {
         const erpUrl = process.env.ERP_PUBLIC_URL || process.env.NEXTAUTH_URL || ''
-        import('@/lib/eshopWebhook').then(({ enqueueOrderShippedWebhook }) =>
+        import('@/lib/platform/webhooks/eshopWebhook').then(({ enqueueOrderShippedWebhook }) =>
           enqueueOrderShippedWebhook(order.id, {
             eshopOrderId:   order.eshopOrderId!,
             erpOrderNumber: order.orderNumber,

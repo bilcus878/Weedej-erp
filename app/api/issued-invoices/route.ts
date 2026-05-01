@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/lib/platform/db/prisma'
 import { resolveInvoiceStatus } from '@/features/issued-invoices/domain/invoiceStatus'
-import { calcPackCount } from '@/lib/packQuantity'
+import { calcPackCount } from '@/lib/shared/inventory/packQuantity'
 
 export const dynamic = 'force-dynamic'
 
@@ -176,7 +176,7 @@ export async function POST(request: Request) {
     }
 
     // Vytvoř fakturu v transakci (ON-COMMIT číslování)
-    const { getNextDocumentNumber } = await import('@/lib/documentNumbering')
+    const { getNextDocumentNumber } = await import('@/lib/shared/documents/documentSeries')
 
     const invoice = await prisma.$transaction(async (tx) => {
       const invoiceNumber = await getNextDocumentNumber('issued-invoice', tx)

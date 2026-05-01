@@ -2,9 +2,9 @@
 // POST /api/users  — create new ERP user (ADMIN only)
 
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { requireAdmin } from '@/lib/routeGuard'
-import { createAuditLog } from '@/lib/auditService'
+import { prisma } from '@/lib/platform/db/prisma'
+import { requireAdmin } from '@/lib/platform/auth/routeGuard'
+import { createAuditLog } from '@/lib/platform/audit/auditService'
 import bcrypt from 'bcryptjs'
 
 export const dynamic = 'force-dynamic'

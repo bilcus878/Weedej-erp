@@ -7,8 +7,8 @@ import {
   Package, ExternalLink, ShoppingBag, CreditCard,
   XCircle, RefreshCw, MapPin,
 } from 'lucide-react'
-import { formatPrice } from '@/lib/utils'
-import { formatVariantQty } from '@/lib/formatVariantQty'
+import { formatPrice } from '@/lib/shared/finance/money'
+import { formatVariantQty } from '@/lib/shared/inventory/formatVariantQty'
 
 // ─── Typy ────────────────────────────────────────────────────────────────────
 

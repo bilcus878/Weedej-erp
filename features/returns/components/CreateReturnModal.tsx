@@ -2,7 +2,7 @@
 
 import { XCircle, Search, Loader2, AlertCircle, ChevronRight, ChevronLeft, CheckSquare, Square } from 'lucide-react'
 import { useCreateReturn } from '../hooks/useCreateReturn'
-import { RETURN_TYPE_LABELS, RETURN_REASON_LABELS } from '@/lib/returns/returnWorkflow'
+import { RETURN_TYPE_LABELS, RETURN_REASON_LABELS } from '@/lib/features/returns/returnWorkflow'
 import type { ReturnType as ReturnRequestType, ReturnReason } from '../types'
 
 const inp = 'w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-400'

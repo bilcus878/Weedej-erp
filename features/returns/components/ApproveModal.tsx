@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { XCircle, AlertCircle } from 'lucide-react'
-import { formatPrice } from '@/lib/utils'
+import { formatPrice } from '@/lib/shared/finance/money'
 import type { ReturnRequestDetail, ReturnItemCondition, ReturnItemStatus } from '../types'
 import type { useReturnActions } from '../hooks/useReturnActions'
 
