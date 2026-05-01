@@ -5,7 +5,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getNextDocumentNumber } from '@/lib/documentNumbering'
 import { createReservations, canReserveQuantity } from '@/lib/reservationManagement'
-import { applyDiscountAndCalculateVat, calculateVatFromGross, round2 } from '@/lib/vatCalculation'
+import { applyDiscountAndCalculateVat, calculateVatFromGross, round2, calculateLineVat } from '@/lib/vatCalculation'
 import { archiveCustomerOrder, archiveAsync } from '@/lib/documents/DocumentArchiveService'
 
 export const dynamic = 'force-dynamic'
@@ -252,6 +252,8 @@ export async function POST(request: Request) {
           ...customerData,
           orderDate: orderDate ? new Date(orderDate) : new Date(),
           totalAmount,
+          totalAmountWithoutVat,
+          totalVatAmount,
           note,
           sumupTransactionId,
           status: sumupTransactionId ? 'paid' : 'new',
@@ -269,13 +271,26 @@ export async function POST(request: Request) {
           // Fakturační adresa
           ...billingFields,
           items: {
-            create: items.map((item: any) => ({
-              productId: item.productId || null,
-              productName: item.productName || null,
-              quantity: item.quantity,
-              unit: item.unit,
-              price: item.price
-            }))
+            // Store the VAT-calculated, discount-adjusted values — backend is the single source of truth
+            create: processedItems.map((item: any, i: number) => {
+              const lineVat = vatLineItems[i]
+              const qty = Number(item.quantity)
+              // Derive unit-level values from line totals (already rounded at line level)
+              const unitPriceWithVat  = qty > 0 ? round2(lineVat.totalWithVat  / qty) : 0
+              const unitVatAmount     = qty > 0 ? round2(lineVat.vatAmount      / qty) : 0
+              return {
+                productId:    item.productId    || null,
+                productName:  item.productName  || null,
+                quantity:     qty,
+                unit:         item.unit,
+                variantValue: item.variantValue != null ? Number(item.variantValue) : null,
+                variantUnit:  item.variantUnit  ?? null,
+                price:        item.price,        // unit price without VAT, discount-adjusted
+                vatRate:      item.vatRate,
+                vatAmount:    unitVatAmount,
+                priceWithVat: unitPriceWithVat,
+              }
+            })
           }
         },
         include: {

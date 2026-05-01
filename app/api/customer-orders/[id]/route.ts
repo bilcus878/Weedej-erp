@@ -3,6 +3,7 @@
 
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { CustomerOrderStatus, CUSTOMER_ORDER_TRANSITIONS } from '@/lib/constants'
 
 export const dynamic = 'force-dynamic'
 
@@ -48,6 +49,9 @@ export async function GET(
 }
 
 // PATCH /api/customer-orders/[id] - Upravit objednávku
+// NOTE: Status changes must go through the dedicated sub-routes:
+//   POST /[id]/mark-paid, /[id]/ship, /[id]/cancel
+// Only non-financial metadata fields are accepted here.
 export async function PATCH(
   request: Request,
   { params }: { params: { id: string } }
@@ -56,27 +60,42 @@ export async function PATCH(
     const body = await request.json()
     const { status, customerName, customerEmail, customerPhone, customerAddress, note } = body
 
-    const existing = await prisma.customerOrder.findUnique({ where: { id: params.id }, select: { id: true } })
-    if (!existing) return NextResponse.json({ error: 'Objednávka nenalezena' }, { status: 404 })
+    // Status changes through PATCH are only allowed for simple, non-inventory-affecting transitions.
+    // Any attempt to set a status that requires financial or stock side-effects must use
+    // the dedicated action routes (mark-paid, ship, cancel).
+    let validatedStatus: string | undefined
+    if (status !== undefined) {
+      const existing = await prisma.customerOrder.findUnique({
+        where: { id: params.id },
+        select: { id: true, status: true },
+      })
+      if (!existing) return NextResponse.json({ error: 'Objednávka nenalezena' }, { status: 404 })
+
+      const currentStatus = existing.status as CustomerOrderStatus
+      const allowedNext = CUSTOMER_ORDER_TRANSITIONS[currentStatus] ?? []
+      if (!(allowedNext as string[]).includes(status)) {
+        return NextResponse.json(
+          { error: `Neplatný přechod stavu: ${currentStatus} → ${status}. Použij příslušný akční endpoint.` },
+          { status: 422 }
+        )
+      }
+      validatedStatus = status
+    }
 
     const order = await prisma.customerOrder.update({
       where: { id: params.id },
       data: {
-        status: status !== undefined ? status : undefined,
-        customerName: customerName !== undefined ? customerName : undefined,
-        customerEmail: customerEmail !== undefined ? customerEmail : undefined,
-        customerPhone: customerPhone !== undefined ? customerPhone : undefined,
+        status:          validatedStatus,
+        customerName:    customerName    !== undefined ? customerName    : undefined,
+        customerEmail:   customerEmail   !== undefined ? customerEmail   : undefined,
+        customerPhone:   customerPhone   !== undefined ? customerPhone   : undefined,
         customerAddress: customerAddress !== undefined ? customerAddress : undefined,
-        note: note !== undefined ? note : undefined
+        note:            note            !== undefined ? note            : undefined,
       },
       include: {
         customer: true,
-        items: {
-          include: {
-            product: true
-          }
-        },
-        reservations: true
+        items: { include: { product: true } },
+        reservations: true,
       }
     })
 

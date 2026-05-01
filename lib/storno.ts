@@ -6,19 +6,22 @@
  */
 
 import { prisma } from './prisma'
-import { Prisma } from '@prisma/client'
+import { createAuditLog } from './auditService'
+import {
+  ReceiptStatus,
+  DeliveryNoteStatus,
+  PurchaseOrderStatus,
+  ReceivedInvoiceStatus,
+  CustomerOrderStatus,
+} from './constants'
 
 /**
  * Stornuje příjemku
  *
  * Co se stane:
- * 1. Příjemka se označí jako "storno"
+ * 1. Příjemka se označí jako storno
  * 2. Zboží se ODEČTE ze skladu (inverzní operace k naskladnění)
  * 3. Status objednávky se přepočítá
- *
- * @param receiptId - ID příjemky ke stornování
- * @param reason - Důvod storna (povinný!)
- * @param userId - Kdo stornuje (volitelné)
  */
 export async function stornoReceipt(
   receiptId: string,
@@ -29,15 +32,14 @@ export async function stornoReceipt(
     throw new Error('Důvod storna je povinný')
   }
 
-  await prisma.$transaction(async (tx) => {
-    // 1. Načti příjemku
+  const previousStatus = await prisma.$transaction(async (tx) => {
     const receipt = await tx.receipt.findUnique({
       where: { id: receiptId },
       include: {
         items: true,
         inventoryItems: true,
         purchaseOrder: true,
-        receivedInvoice: true, // ReceivedInvoice (nová relace)
+        receivedInvoice: true,
       },
     })
 
@@ -45,30 +47,26 @@ export async function stornoReceipt(
       throw new Error('Příjemka nenalezena')
     }
 
-    // 2. Kontrola - lze stornovat pouze aktivní příjemky
-    if (receipt.status === 'storno') {
+    if (receipt.status === ReceiptStatus.STORNO) {
       throw new Error('Příjemka je již stornována')
     }
 
-    if (receipt.status === 'draft') {
+    if (receipt.status === ReceiptStatus.DRAFT) {
       throw new Error('Nelze stornovat koncept - ten lze smazat')
     }
 
-    // 3. Označ příjemku jako storno
     await tx.receipt.update({
       where: { id: receiptId },
       data: {
-        status: 'storno',
+        status: ReceiptStatus.STORNO,
         stornoReason: reason,
         stornoAt: new Date(),
         stornoBy: userId || 'system',
       },
     })
 
-    // 4. INVERZNÍ OPERACE: Odeber zboží ze skladu
-    // (Příjemka naskladnila → storno musí vyskladnit)
+    // INVERZNÍ OPERACE: Odeber zboží ze skladu
     for (const invItem of receipt.inventoryItems) {
-      // 4a. Označ původní inventoryItem jako STORNO
       await tx.inventoryItem.update({
         where: { id: invItem.id },
         data: {
@@ -76,11 +74,10 @@ export async function stornoReceipt(
         }
       })
 
-      // 4b. Vytvoř zápornou skladovou položku (inverzní záznam = protipohyb)
       await tx.inventoryItem.create({
         data: {
           productId:     invItem.productId,
-          quantity:      -Number(invItem.quantity), // ZÁPORNÉ množství!
+          quantity:      -Number(invItem.quantity),
           unit:          invItem.unit,
           purchasePrice: invItem.purchasePrice,
           supplierId:    invItem.supplierId,
@@ -92,7 +89,7 @@ export async function stornoReceipt(
       })
     }
 
-    // 5. VRAŤ alreadyReceivedQuantity zpět (odečti stornované množství)
+    // Vrať alreadyReceivedQuantity zpět
     if (receipt.purchaseOrderId) {
       for (const receiptItem of receipt.items) {
         if (!receiptItem.productId) continue
@@ -105,7 +102,6 @@ export async function stornoReceipt(
         })
 
         if (orderItem && receiptItem.receivedQuantity) {
-          // Odečti stornované množství z alreadyReceivedQuantity
           await tx.purchaseOrderItem.update({
             where: { id: orderItem.id },
             data: {
@@ -117,7 +113,6 @@ export async function stornoReceipt(
         }
       }
 
-      // 6. Aktualizuj status objednávky
       const updatedOrderItems = await tx.purchaseOrderItem.findMany({
         where: { purchaseOrderId: receipt.purchaseOrderId }
       })
@@ -133,51 +128,53 @@ export async function stornoReceipt(
         if (received < ordered) allReceived = false
       }
 
-      const newStatus = allReceived ? 'received' : (anyReceived ? 'partially_received' : 'pending')
+      const newStatus = allReceived
+        ? PurchaseOrderStatus.RECEIVED
+        : (anyReceived ? PurchaseOrderStatus.PARTIALLY_RECEIVED : PurchaseOrderStatus.PENDING)
 
       await tx.purchaseOrder.update({
         where: { id: receipt.purchaseOrderId },
         data: { status: newStatus }
       })
-
-      console.log(`✓ Storno příjemky ${receipt.receiptNumber} - objednávka ${receipt.purchaseOrder?.orderNumber} → ${newStatus}`)
     }
 
-    // 7. Odpoj příjemku od faktury (částka faktury ZŮSTÁVÁ - je za celou objednávku)
     if (receipt.receivedInvoice) {
-      // Odpoj příjemku od faktury (nová relace)
       await tx.receipt.update({
         where: { id: receipt.id },
-        data: {
-          receivedInvoiceId: null
-        }
+        data: { receivedInvoiceId: null }
       })
 
-      // Přidej poznámku o stornování (ČÁSTKU NEMĚNÍM - zůstává celá objednávka)
       await tx.receivedInvoice.update({
         where: { id: receipt.receivedInvoice.id },
         data: {
           note: `STORNO příjemky ${receipt.receiptNumber}: ${reason}${receipt.receivedInvoice.note ? '\n\n' + receipt.receivedInvoice.note : ''}`,
         },
       })
-      console.log(`✓ Faktura ${receipt.receivedInvoice.invoiceNumber} - odpojena příjemka ${receipt.receiptNumber} (částka zůstává)`)
     }
+
+    return receipt.status
   })
 
-  console.log(`✅ Příjemka ${receiptId} byla stornována: ${reason}`)
+  await createAuditLog({
+    userId:     userId || 'system',
+    username:   userId || 'system',
+    actionType: 'UPDATE',
+    entityName: 'Receipt',
+    entityId:   receiptId,
+    fieldName:  'status',
+    oldValue:   previousStatus,
+    newValue:   ReceiptStatus.STORNO,
+    module:     'receipts',
+  })
 }
 
 /**
  * Stornuje výdejku
  *
  * Co se stane:
- * 1. Výdejka se označí jako "storno"
+ * 1. Výdejka se označí jako storno
  * 2. Zboží se VRÁTÍ na sklad (inverzní operace k vyskladnění)
  * 3. Rezervace se uvolní
- *
- * @param deliveryNoteId - ID výdejky ke stornování
- * @param reason - Důvod storna (povinný!)
- * @param userId - Kdo stornuje (volitelné)
  */
 export async function stornoDeliveryNote(
   deliveryNoteId: string,
@@ -188,20 +185,15 @@ export async function stornoDeliveryNote(
     throw new Error('Důvod storna je povinný')
   }
 
-  await prisma.$transaction(async (tx) => {
-    // 1. Načti výdejku
+  const previousStatus = await prisma.$transaction(async (tx) => {
     const deliveryNote = await tx.deliveryNote.findUnique({
       where: { id: deliveryNoteId },
       include: {
         items: {
-          include: {
-            product: true,
-          },
+          include: { product: true },
         },
         customerOrder: {
-          include: {
-            items: true
-          }
+          include: { items: true }
         }
       },
     })
@@ -210,31 +202,27 @@ export async function stornoDeliveryNote(
       throw new Error('Výdejka nenalezena')
     }
 
-    // 2. Kontrola - lze stornovat pouze aktivní výdejky
-    if (deliveryNote.status === 'storno') {
+    if (deliveryNote.status === DeliveryNoteStatus.STORNO) {
       throw new Error('Výdejka je již stornována')
     }
 
-    if (deliveryNote.status === 'draft') {
+    if (deliveryNote.status === DeliveryNoteStatus.DRAFT) {
       throw new Error('Nelze stornovat koncept - ten lze smazat')
     }
 
-    // 3. Označ výdejku jako storno
     await tx.deliveryNote.update({
       where: { id: deliveryNoteId },
       data: {
-        status: 'storno',
+        status: DeliveryNoteStatus.STORNO,
         stornoReason: reason,
         stornoAt: new Date(),
         stornoBy: userId || 'system',
       },
     })
 
-    // 4. INVERZNÍ OPERACE: Vrať zboží na sklad
-    // (Výdejka vyskladnila → storno musí naskladnit)
+    // INVERZNÍ OPERACE: Vrať zboží na sklad
     for (const item of deliveryNote.items) {
       if (item.productId) {
-        // 4a. Pokud existuje původní inventoryItem (záporný pohyb z vyskladnění), označ ho jako STORNO
         let originalBatchId: string | null = null
         if ((item as any).inventoryItemId) {
           const originalInventoryItem = await tx.inventoryItem.findUnique({
@@ -253,11 +241,10 @@ export async function stornoDeliveryNote(
           }
         }
 
-        // 4b. Vytvoř KLADNOU skladovou položku (vrácení zpět = protipohyb)
         await tx.inventoryItem.create({
           data: {
             productId:     item.productId,
-            quantity:      Number(item.quantity), // KLADNÉ množství (vrácení)
+            quantity:      Number(item.quantity),
             unit:          item.unit,
             purchasePrice: item.product?.purchasePrice || 0,
             date:          new Date(),
@@ -268,34 +255,24 @@ export async function stornoDeliveryNote(
       }
     }
 
-    // 5. Pokud je výdejka navázaná na objednávku zákazníka → uprav shippedQuantity
     if (deliveryNote.customerOrderId && deliveryNote.customerOrder) {
       const order = deliveryNote.customerOrder
 
       for (const deliveryItem of deliveryNote.items) {
-        // Najdi odpovídající položku v objednávce
         const orderItem = order.items.find(
           oi => oi.productId === deliveryItem.productId
         )
 
         if (orderItem) {
-          // Odečti stornované množství od shippedQuantity
           const newShippedQty = Math.max(0, Number(orderItem.shippedQuantity || 0) - Number(deliveryItem.quantity))
-
           await tx.customerOrderItem.update({
             where: { id: orderItem.id },
-            data: {
-              shippedQuantity: newShippedQty
-            }
+            data: { shippedQuantity: newShippedQty }
           })
-
-          console.log(`✓ Aktualizována shippedQuantity pro ${deliveryItem.productName || deliveryItem.product?.name}: ${newShippedQty}`)
         }
       }
 
-      // 6. Zkontroluj nový status objednávky
-      // POZOR: Pokud je objednávka STORNO, NESMÍME měnit status!
-      if (order.status !== 'storno') {
+      if (order.status !== CustomerOrderStatus.STORNO) {
         const allOrderItems = await tx.customerOrderItem.findMany({
           where: { customerOrderId: order.id }
         })
@@ -305,15 +282,15 @@ export async function stornoDeliveryNote(
           Number(item.shippedQuantity || 0) >= Number(item.quantity)
         )
 
-        let newOrderStatus = 'paid' // Default: zaplacená (čeká na vyskladnění)
+        let newOrderStatus: string
         if (allFullyShipped) {
-          newOrderStatus = 'shipped' // Kompletně odesláno
+          newOrderStatus = CustomerOrderStatus.SHIPPED
         } else if (anyShipped) {
-          newOrderStatus = 'processing' // Částečně odesláno
+          newOrderStatus = CustomerOrderStatus.PROCESSING
         } else if (order.paidAt) {
-          newOrderStatus = 'paid' // Zaplacená, čeká na vyskladnění
+          newOrderStatus = CustomerOrderStatus.PAID
         } else {
-          newOrderStatus = 'new' // Neuhrazená
+          newOrderStatus = CustomerOrderStatus.NEW
         }
 
         await tx.customerOrder.update({
@@ -321,33 +298,34 @@ export async function stornoDeliveryNote(
           data: {
             status: newOrderStatus,
             shippedAt: allFullyShipped ? new Date() : null
-            // paidAt NEMĚNÍME - zůstává zaplacená!
           }
         })
-
-        console.log(`✓ Objednávka ${order.orderNumber} aktualizována na status: ${newOrderStatus} (paidAt zachováno)`)
-      } else {
-        console.log(`⚠ Objednávka ${order.orderNumber} je STORNO - status se NEAKTUALIZUJE`)
       }
     }
 
-    // Hotovo - zboží vráceno na sklad
+    return deliveryNote.status
   })
 
-  console.log(`✅ Výdejka ${deliveryNoteId} byla stornována: ${reason}`)
+  await createAuditLog({
+    userId:     userId || 'system',
+    username:   userId || 'system',
+    actionType: 'UPDATE',
+    entityName: 'DeliveryNote',
+    entityId:   deliveryNoteId,
+    fieldName:  'status',
+    oldValue:   previousStatus,
+    newValue:   DeliveryNoteStatus.STORNO,
+    module:     'delivery-notes',
+  })
 }
 
 /**
- * Stornuje objednávku
+ * Stornuje nákupní objednávku
  *
  * Co se stane:
- * 1. Objednávka se označí jako "storno"
- * 2. Faktura se označí jako "storno" (CASCADE)
+ * 1. Objednávka se označí jako storno
+ * 2. Faktura se označí jako storno (CASCADE)
  * 3. Kontrola, že objednávka nemá zpracované příjemky
- *
- * @param purchaseOrderId - ID objednávky ke stornování
- * @param reason - Důvod storna (povinný!)
- * @param userId - Kdo stornuje (volitelné)
  */
 export async function stornoPurchaseOrder(
   purchaseOrderId: string,
@@ -358,8 +336,7 @@ export async function stornoPurchaseOrder(
     throw new Error('Důvod storna je povinný')
   }
 
-  await prisma.$transaction(async (tx) => {
-    // 1. Načti objednávku
+  const previousStatus = await prisma.$transaction(async (tx) => {
     const order = await tx.purchaseOrder.findUnique({
       where: { id: purchaseOrderId },
       include: {
@@ -372,55 +349,59 @@ export async function stornoPurchaseOrder(
       throw new Error('Objednávka nenalezena')
     }
 
-    // 2. Kontrola - lze stornovat pouze objednávky bez zpracovaných příjemek
-    if (order.status === 'storno') {
+    if (order.status === PurchaseOrderStatus.STORNO) {
       throw new Error('Objednávka je již stornována')
     }
 
-    const hasProcessedReceipts = order.receipts.some(r => r.status === 'active')
+    const hasProcessedReceipts = order.receipts.some(r => r.status === ReceiptStatus.ACTIVE)
     if (hasProcessedReceipts) {
       throw new Error('Nelze stornovat objednávku, která má zpracované příjemky. Stornuj nejdřív příjemky!')
     }
 
-    // 3. Označ objednávku jako storno
     await tx.purchaseOrder.update({
       where: { id: purchaseOrderId },
       data: {
-        status: 'storno',
+        status: PurchaseOrderStatus.STORNO,
         stornoReason: reason,
         stornoAt: new Date(),
         stornoBy: userId || 'system',
       },
     })
 
-    // 4. Označ fakturu jako storno (CASCADE)
     if (order.invoice) {
       await tx.receivedInvoice.update({
         where: { id: order.invoice.id },
         data: {
-          status: 'storno',
+          status: ReceivedInvoiceStatus.STORNO,
           stornoReason: `Storno objednávky ${order.orderNumber}: ${reason}`,
           stornoAt: new Date(),
           stornoBy: userId || 'system',
         },
       })
-      console.log(`✓ Faktura ${order.invoice.invoiceNumber} byla automaticky stornována (CASCADE)`)
     }
 
-    console.log(`✅ Objednávka ${order.orderNumber} byla stornována: ${reason}`)
+    return order.status
+  })
+
+  await createAuditLog({
+    userId:     userId || 'system',
+    username:   userId || 'system',
+    actionType: 'UPDATE',
+    entityName: 'PurchaseOrder',
+    entityId:   purchaseOrderId,
+    fieldName:  'status',
+    oldValue:   previousStatus,
+    newValue:   PurchaseOrderStatus.STORNO,
+    module:     'purchase-orders',
   })
 }
 
 /**
- * Stornuje fakturu
+ * Stornuje přijatou fakturu
  *
  * Co se stane:
- * 1. Faktura se označí jako "storno"
- * 2. Kontrola, že faktura nemá zpracované příjemky
- *
- * @param invoiceId - ID faktury ke stornování
- * @param reason - Důvod storna (povinný!)
- * @param userId - Kdo stornuje (volitelné)
+ * 1. Faktura se označí jako storno
+ * 2. Objednávka se označí jako storno (CASCADE)
  */
 export async function stornoReceivedInvoice(
   invoiceId: string,
@@ -431,8 +412,7 @@ export async function stornoReceivedInvoice(
     throw new Error('Důvod storna je povinný')
   }
 
-  await prisma.$transaction(async (tx) => {
-    // 1. Načti fakturu
+  const previousStatus = await prisma.$transaction(async (tx) => {
     const invoice = await tx.receivedInvoice.findUnique({
       where: { id: invoiceId },
       include: {
@@ -445,39 +425,45 @@ export async function stornoReceivedInvoice(
       throw new Error('Faktura nenalezena')
     }
 
-    // 2. Kontrola - lze stornovat pouze faktury, které nejsou již stornovány
-    if (invoice.status === 'storno') {
+    if (invoice.status === ReceivedInvoiceStatus.STORNO) {
       throw new Error('Faktura je již stornována')
     }
 
-    // Poznámka: Faktura může mít příjemky - ty se řeší samostatně (vrátka nebo nová opravná faktura)
-
-    // 3. Označ fakturu jako storno
     await tx.receivedInvoice.update({
       where: { id: invoiceId },
       data: {
-        status: 'storno',
+        status: ReceivedInvoiceStatus.STORNO,
         stornoReason: reason,
         stornoAt: new Date(),
         stornoBy: userId || 'system',
       },
     })
 
-    // 4. Označ objednávku jako storno (pokud existuje)
     if (invoice.purchaseOrder) {
       await tx.purchaseOrder.update({
         where: { id: invoice.purchaseOrder.id },
         data: {
-          status: 'storno',
+          status: PurchaseOrderStatus.STORNO,
           stornoReason: `Storno faktury ${invoice.invoiceNumber}: ${reason}`,
           stornoAt: new Date(),
           stornoBy: userId || 'system',
         },
       })
-      console.log(`✓ Objednávka ${invoice.purchaseOrder.orderNumber} byla automaticky stornována (CASCADE)`)
     }
 
-    console.log(`✅ Faktura ${invoice.invoiceNumber} byla stornována: ${reason}`)
+    return invoice.status
+  })
+
+  await createAuditLog({
+    userId:     userId || 'system',
+    username:   userId || 'system',
+    actionType: 'UPDATE',
+    entityName: 'ReceivedInvoice',
+    entityId:   invoiceId,
+    fieldName:  'status',
+    oldValue:   previousStatus,
+    newValue:   ReceivedInvoiceStatus.STORNO,
+    module:     'received-invoices',
   })
 }
 
@@ -489,83 +475,37 @@ export async function canStorno(
   documentId: string
 ): Promise<{ canStorno: boolean; reason?: string }> {
   if (documentType === 'receipt') {
-    const receipt = await prisma.receipt.findUnique({
-      where: { id: documentId },
-    })
-
-    if (!receipt) {
-      return { canStorno: false, reason: 'Doklad nenalezen' }
-    }
-
-    if (receipt.status === 'storno') {
-      return { canStorno: false, reason: 'Doklad je již stornován' }
-    }
-
-    if (receipt.status === 'draft') {
-      return { canStorno: false, reason: 'Koncept lze smazat, ne stornovat' }
-    }
-
+    const receipt = await prisma.receipt.findUnique({ where: { id: documentId } })
+    if (!receipt) return { canStorno: false, reason: 'Doklad nenalezen' }
+    if (receipt.status === ReceiptStatus.STORNO) return { canStorno: false, reason: 'Doklad je již stornován' }
+    if (receipt.status === ReceiptStatus.DRAFT) return { canStorno: false, reason: 'Koncept lze smazat, ne stornovat' }
     return { canStorno: true }
   }
 
   if (documentType === 'delivery_note') {
-    const deliveryNote = await prisma.deliveryNote.findUnique({
-      where: { id: documentId },
-    })
-
-    if (!deliveryNote) {
-      return { canStorno: false, reason: 'Doklad nenalezen' }
-    }
-
-    if (deliveryNote.status === 'storno') {
-      return { canStorno: false, reason: 'Doklad je již stornován' }
-    }
-
-    if (deliveryNote.status === 'draft') {
-      return { canStorno: false, reason: 'Koncept lze smazat, ne stornovat' }
-    }
-
+    const deliveryNote = await prisma.deliveryNote.findUnique({ where: { id: documentId } })
+    if (!deliveryNote) return { canStorno: false, reason: 'Doklad nenalezen' }
+    if (deliveryNote.status === DeliveryNoteStatus.STORNO) return { canStorno: false, reason: 'Doklad je již stornován' }
+    if (deliveryNote.status === DeliveryNoteStatus.DRAFT) return { canStorno: false, reason: 'Koncept lze smazat, ne stornovat' }
     return { canStorno: true }
   }
 
   if (documentType === 'purchase_order') {
     const order = await prisma.purchaseOrder.findUnique({
       where: { id: documentId },
-      include: {
-        receipts: true,
-      },
+      include: { receipts: true },
     })
-
-    if (!order) {
-      return { canStorno: false, reason: 'Doklad nenalezen' }
-    }
-
-    if (order.status === 'storno') {
-      return { canStorno: false, reason: 'Doklad je již stornován' }
-    }
-
-    const hasProcessedReceipts = order.receipts.some(r => r.status === 'active')
-    if (hasProcessedReceipts) {
-      return { canStorno: false, reason: 'Objednávka má zpracované příjemky - stornuj nejdřív příjemky!' }
-    }
-
+    if (!order) return { canStorno: false, reason: 'Doklad nenalezen' }
+    if (order.status === PurchaseOrderStatus.STORNO) return { canStorno: false, reason: 'Doklad je již stornován' }
+    const hasProcessedReceipts = order.receipts.some(r => r.status === ReceiptStatus.ACTIVE)
+    if (hasProcessedReceipts) return { canStorno: false, reason: 'Objednávka má zpracované příjemky - stornuj nejdřív příjemky!' }
     return { canStorno: true }
   }
 
   if (documentType === 'received_invoice') {
-    const invoice = await prisma.receivedInvoice.findUnique({
-      where: { id: documentId },
-    })
-
-    if (!invoice) {
-      return { canStorno: false, reason: 'Doklad nenalezen' }
-    }
-
-    if (invoice.status === 'storno') {
-      return { canStorno: false, reason: 'Doklad je již stornován' }
-    }
-
-    // Faktura může mít příjemky - ty se řeší samostatně (vrátka nebo nová opravná faktura)
+    const invoice = await prisma.receivedInvoice.findUnique({ where: { id: documentId } })
+    if (!invoice) return { canStorno: false, reason: 'Doklad nenalezen' }
+    if (invoice.status === ReceivedInvoiceStatus.STORNO) return { canStorno: false, reason: 'Doklad je již stornován' }
     return { canStorno: true }
   }
 

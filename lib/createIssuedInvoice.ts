@@ -1,6 +1,6 @@
 // Helper funkce pro automatické vytvoření vystavené faktury
 import { prisma } from '@/lib/prisma'
-import { getNextDocumentNumber } from './documentNumbering'
+import { getNextDocumentNumber } from './documentSeries'
 import { getOrderLineItems } from './getOrderLineItems'
 import { archiveIssuedInvoice, archiveAsync } from './documents/DocumentArchiveService'
 

@@ -1,6 +1,6 @@
 // Helper funkce pro automatické vytvoření výdejky z transakce
 import { prisma } from '@/lib/prisma'
-import { getNextDocumentNumber } from './documentNumbering'
+import { getNextDocumentNumber } from './documentSeries'
 import { getOrderLineItems } from './getOrderLineItems'
 
 /**
@@ -216,11 +216,11 @@ export async function processDeliveryNote(
   }
 
   // Kontrola statusu
-  if (deliveryNote.status === 'delivered' && deliveryNote.processedAt) {
+  if ((deliveryNote.status === 'active' || deliveryNote.status === 'delivered') && deliveryNote.processedAt) {
     throw new Error('Výdejka již byla zpracována')
   }
 
-  if (deliveryNote.status === 'cancelled') {
+  if (deliveryNote.status === 'cancelled' || deliveryNote.status === 'storno') {
     throw new Error('Výdejka je zrušena')
   }
 
