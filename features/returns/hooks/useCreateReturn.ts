@@ -5,29 +5,30 @@ import { useRouter } from 'next/navigation'
 import { createReturn } from '../services/returnService'
 import type { ReturnType, ReturnReason } from '../types'
 
-// Minimal order shape we need — avoids coupling to the full customer-orders feature
+// Minimal order shape we need — fields are already numeric (serialized by /api/returns/search-orders)
 export interface OrderSearchResult {
   id:              string
   orderNumber:     string
   orderDate:       string
   status:          string
+  source:          string
   totalAmount:     number
   customerName:    string | null
   customerEmail:   string | null
   customerPhone:   string | null
   customerAddress: string | null
-  items: OrderSearchItem[]
+  items:           OrderSearchItem[]
 }
 
 export interface OrderSearchItem {
   id:           string
   productId:    string | null
   productName:  string | null
-  quantity:     number
+  quantity:     number  // already a JS number from search-orders endpoint
   unit:         string
-  price:        number        // bez DPH
-  vatRate:      number
-  priceWithVat: number | null
+  price:        number  // net price, already a JS number
+  vatRate:      number  // already a JS number
+  priceWithVat: number | null  // null when priceWithVat was 0 in DB (needs client-side calc)
 }
 
 export interface ItemSelection {
@@ -38,19 +39,18 @@ export interface ItemSelection {
 export function useCreateReturn(onClose: () => void) {
   const router = useRouter()
 
-  // ── Step ──────────────────────────────────────────────────────────────────
   const [step, setStep] = useState<1 | 2 | 3>(1)
 
-  // ── Step 1: order search ──────────────────────────────────────────────────
+  // Step 1 — order search
   const [orderSearch,   setOrderSearch]   = useState('')
   const [orders,        setOrders]        = useState<OrderSearchResult[]>([])
   const [searchLoading, setSearchLoading] = useState(false)
   const [selectedOrder, setSelectedOrder] = useState<OrderSearchResult | null>(null)
 
-  // ── Step 2: item selections ───────────────────────────────────────────────
+  // Step 2 — item selections
   const [selections, setSelections] = useState<Map<string, ItemSelection>>(new Map())
 
-  // ── Step 3: return details ────────────────────────────────────────────────
+  // Step 3 — return details
   const [type,         setType]         = useState<ReturnType>('return')
   const [reason,       setReason]       = useState<ReturnReason>('defective')
   const [reasonDetail, setReasonDetail] = useState('')
@@ -58,15 +58,18 @@ export function useCreateReturn(onClose: () => void) {
   const [custEmail,    setCustEmail]    = useState('')
   const [custPhone,    setCustPhone]    = useState('')
 
-  // ── Submit ────────────────────────────────────────────────────────────────
+  // Submit state
   const [submitting, setSubmitting] = useState(false)
   const [error,      setError]      = useState<string | null>(null)
 
-  // ── Load orders on mount + debounced re-fetch on search change ────────────
+  // Fetch from the dedicated search endpoint that:
+  //   - includes both internal + eshop orders
+  //   - serializes Decimal fields as JS numbers
+  //   - searches by order number AND customer name/email
   const fetchOrders = useCallback(async (q: string) => {
     setSearchLoading(true)
     try {
-      const url = q ? `/api/customer-orders?search=${encodeURIComponent(q)}` : '/api/customer-orders'
+      const url = `/api/returns/search-orders?q=${encodeURIComponent(q)}`
       const res = await fetch(url)
       if (res.ok) setOrders(await res.json())
     } finally {
@@ -74,23 +77,21 @@ export function useCreateReturn(onClose: () => void) {
     }
   }, [])
 
-  // Initial load (recent orders)
+  // Initial load on mount — fetch recent orders
   useEffect(() => { fetchOrders('') }, [fetchOrders])
 
-  // Debounced search
+  // Debounced search on query change
   useEffect(() => {
-    if (!orderSearch) { fetchOrders(''); return }
     const t = setTimeout(() => fetchOrders(orderSearch), 300)
     return () => clearTimeout(t)
   }, [orderSearch, fetchOrders])
 
-  // ── Select order → prefill state, go to step 2 ───────────────────────────
   function selectOrder(order: OrderSearchResult) {
     setSelectedOrder(order)
     setCustName(order.customerName  ?? '')
     setCustEmail(order.customerEmail ?? '')
     setCustPhone(order.customerPhone ?? '')
-    // Default: all items selected, full quantity
+    // Pre-select all items at full quantity
     setSelections(new Map(
       order.items.map(item => [item.id, { checked: true, qty: item.quantity }])
     ))
@@ -119,26 +120,39 @@ export function useCreateReturn(onClose: () => void) {
     ? [...selections.values()].filter(s => s.checked && s.qty > 0).length
     : 0
 
-  // ── Submit ────────────────────────────────────────────────────────────────
   async function submit() {
     if (!selectedOrder || selectedCount === 0) return
     setError(null)
     setSubmitting(true)
     try {
       const items = selectedOrder.items
-        .filter(i => selections.get(i.id)?.checked && (selections.get(i.id)?.qty ?? 0) > 0)
-        .map(i => {
-          const sel = selections.get(i.id)!
-          const withVat = i.priceWithVat ?? parseFloat((i.price * (1 + i.vatRate / 100)).toFixed(2))
+        .filter(item => {
+          const sel = selections.get(item.id)
+          return sel?.checked && (sel.qty ?? 0) > 0
+        })
+        .map(item => {
+          const sel = selections.get(item.id)!
+
+          // Compute gross price per unit.
+          // The search-orders endpoint returns priceWithVat=null when the DB value was 0
+          // (meaning it was never set). In that case fall back to price × (1 + vatRate/100).
+          const unitPriceWithVat = item.priceWithVat != null && item.priceWithVat > 0
+            ? item.priceWithVat
+            : parseFloat((item.price * (1 + item.vatRate / 100)).toFixed(2))
+
+          // Clamp returned quantity to the ordered quantity
+          const returnedQty = Math.min(sel.qty, item.quantity)
+
           return {
-            productId:        i.productId,
-            productName:      i.productName ?? '',
-            unit:             i.unit,
-            originalQuantity: i.quantity,
-            returnedQuantity: sel.qty,
-            unitPrice:        i.price,
-            unitPriceWithVat: withVat,
-            vatRate:          i.vatRate,
+            productId:        item.productId ?? null,
+            // Never send empty string — the API requires min(1)
+            productName:      item.productName?.trim() || 'Neznámý produkt',
+            unit:             item.unit,
+            originalQuantity: item.quantity,        // already a JS number
+            returnedQuantity: returnedQty,           // clamped
+            unitPrice:        item.price,            // already a JS number
+            unitPriceWithVat,                        // computed JS number
+            vatRate:          item.vatRate,          // already a JS number
           }
         })
 
@@ -147,9 +161,9 @@ export function useCreateReturn(onClose: () => void) {
         type,
         reason,
         reasonDetail: reasonDetail.trim() || undefined,
-        customerName:  custName  || undefined,
-        customerEmail: custEmail || undefined,
-        customerPhone: custPhone || undefined,
+        customerName:  custName.trim()  || undefined,
+        customerEmail: custEmail.trim() || undefined,
+        customerPhone: custPhone.trim() || undefined,
         items,
       })
 
@@ -164,20 +178,16 @@ export function useCreateReturn(onClose: () => void) {
 
   return {
     step, setStep,
-    // step 1
     orderSearch, setOrderSearch,
     orders, searchLoading,
     selectedOrder, selectOrder,
-    // step 2
     selections, toggleItem, setItemQty, selectedCount,
-    // step 3
     type, setType,
     reason, setReason,
     reasonDetail, setReasonDetail,
     custName, setCustName,
     custEmail, setCustEmail,
     custPhone, setCustPhone,
-    // submit
     submitting, error, submit,
   }
 }

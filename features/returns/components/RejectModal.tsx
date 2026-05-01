@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { XCircle } from 'lucide-react'
+import { XCircle, AlertCircle } from 'lucide-react'
 import type { ReturnRequestDetail } from '../types'
 import type { useReturnActions } from '../hooks/useReturnActions'
 
@@ -16,8 +16,8 @@ export function RejectModal({ detail, onClose, actions }: Props) {
 
   const handleSubmit = async () => {
     if (!reason.trim()) return
-    await actions.reject(detail.id, { rejectionReason: reason })
-    onClose()
+    const ok = await actions.reject(detail.id, { rejectionReason: reason })
+    if (ok) onClose()
   }
 
   return (
@@ -29,15 +29,26 @@ export function RejectModal({ detail, onClose, actions }: Props) {
             <XCircle className="w-5 h-5" />
           </button>
         </div>
-        <div className="px-6 py-4">
-          <label className="block text-xs font-semibold text-gray-600 mb-1.5">Důvod zamítnutí *</label>
-          <textarea
-            value={reason}
-            onChange={e => setReason(e.target.value)}
-            rows={4}
-            placeholder="Popište důvod zamítnutí reklamace..."
-            className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-300 resize-none"
-          />
+        <div className="px-6 py-4 space-y-3">
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+              Důvod zamítnutí <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              value={reason}
+              onChange={e => setReason(e.target.value)}
+              rows={4}
+              placeholder="Popište důvod zamítnutí reklamace — zákazník tuto informaci uvidí..."
+              className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-300 resize-none"
+            />
+          </div>
+
+          {actions.error && (
+            <div className="flex items-start gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2.5">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>{actions.error}</span>
+            </div>
+          )}
         </div>
         <div className="px-6 py-4 border-t border-gray-100 flex gap-2 justify-end">
           <button onClick={onClose} className="text-sm px-4 py-2 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors">

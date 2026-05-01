@@ -53,14 +53,21 @@ export async function GET() {
 
 const CreateItemSchema = z.object({
   productId:        z.string().nullable().optional(),
-  productName:      z.string().min(1),
-  unit:             z.string().min(1),
-  originalQuantity: z.number().positive(),
-  returnedQuantity: z.number().positive(),
-  unitPrice:        z.number().min(0),
-  unitPriceWithVat: z.number().min(0),
-  vatRate:          z.number().min(0).default(21),
-})
+  productName:      z.string().min(1, 'Název produktu nesmí být prázdný'),
+  unit:             z.string().min(1, 'Jednotka je povinná'),
+  // z.coerce.number() handles the edge-case where a caller sends a numeric string
+  originalQuantity: z.coerce.number().positive('Původní množství musí být kladné'),
+  returnedQuantity: z.coerce.number().positive('Vrácené množství musí být kladné'),
+  unitPrice:        z.coerce.number().min(0, 'Cena nesmí být záporná'),
+  unitPriceWithVat: z.coerce.number().min(0, 'Cena s DPH nesmí být záporná'),
+  vatRate:          z.coerce.number().min(0).max(100).default(21),
+}).refine(
+  data => data.returnedQuantity <= data.originalQuantity,
+  {
+    message: 'Vrácené množství nesmí překročit původně objednané množství',
+    path:    ['returnedQuantity'],
+  }
+)
 
 const CreateReturnSchema = z.object({
   customerOrderId: z.string().uuid().nullable().optional(),

@@ -22,52 +22,69 @@ export function useReturnActions(onSuccess: (updated: ReturnRequestDetail) => vo
   const [saving, setSaving] = useState(false)
   const [error,  setError]  = useState<string | null>(null)
 
-  async function run<T>(fn: () => Promise<T>): Promise<T | null> {
+  // Returns true on success, false on failure.
+  // Callers (modals) MUST check the return value before closing.
+  async function run<T>(
+    fn:        () => Promise<T>,
+    onResult?: (r: T) => void,
+  ): Promise<boolean> {
     setSaving(true)
     setError(null)
     try {
       const result = await fn()
-      return result
+      onResult?.(result)
+      return true
     } catch (e: any) {
-      setError(e.message ?? 'Chyba')
-      return null
+      setError(e.message ?? 'Nastala neočekávaná chyba')
+      return false
     } finally {
       setSaving(false)
     }
   }
 
-  async function transition(id: string, toStatus: ReturnStatus, note?: string) {
-    const result = await run(() => transitionStatus(id, { toStatus, note }))
-    if (result) onSuccess(result)
+  async function transition(id: string, toStatus: ReturnStatus, note?: string): Promise<boolean> {
+    return run(
+      () => transitionStatus(id, { toStatus, note }),
+      r  => onSuccess(r),
+    )
   }
 
-  async function approve(id: string, input: ApproveReturnInput) {
-    const result = await run(() => approveReturn(id, input))
-    if (result) onSuccess(result)
+  async function approve(id: string, input: ApproveReturnInput): Promise<boolean> {
+    return run(
+      () => approveReturn(id, input),
+      r  => onSuccess(r),
+    )
   }
 
-  async function reject(id: string, input: RejectReturnInput) {
-    const result = await run(() => rejectReturn(id, input))
-    if (result) onSuccess(result)
+  async function reject(id: string, input: RejectReturnInput): Promise<boolean> {
+    return run(
+      () => rejectReturn(id, input),
+      r  => onSuccess(r),
+    )
   }
 
-  async function receiveGoodsAction(id: string, input: ReceiveGoodsInput) {
-    const result = await run(() => receiveGoods(id, input))
-    if (result) onSuccess(result)
+  async function receiveGoodsAction(id: string, input: ReceiveGoodsInput): Promise<boolean> {
+    return run(
+      () => receiveGoods(id, input),
+      r  => onSuccess(r),
+    )
   }
 
-  async function processRefundAction(id: string, input: ProcessRefundInput) {
-    const result = await run(() => processRefund(id, input))
-    if (result) onSuccess(result)
+  async function processRefundAction(id: string, input: ProcessRefundInput): Promise<boolean> {
+    return run(
+      () => processRefund(id, input),
+      r  => onSuccess(r),
+    )
   }
 
-  async function saveNote(id: string, note: string) {
-    await run(() => updateAdminNote(id, note))
+  async function saveNote(id: string, note: string): Promise<boolean> {
+    return run(() => updateAdminNote(id, note))
   }
 
   return {
     saving,
     error,
+    clearError: () => setError(null),
     transition,
     approve,
     reject,
