@@ -4,14 +4,18 @@ import { z }                from 'zod'
 import { authOptions }      from '@/lib/auth'
 import { prisma }           from '@/lib/prisma'
 import { createAuditLog }   from '@/lib/auditService'
-import { canProcessRefund, type ReturnStatus } from '@/lib/returns/returnWorkflow'
-import { processReturnRefund }                from '@/lib/returns/returnRefundService'
+import {
+  assertStatusTransition,
+  assertNoExistingRefund,
+  isValidationError,
+  rewrapPrismaError,
+} from '@/lib/returns/ReturnValidationService'
+import { processReturnRefund } from '@/lib/returns/returnRefundService'
 import { RETURN_FULL_INCLUDE, mapReturnFull } from '../../_shared'
 
 export const dynamic = 'force-dynamic'
 
 const ProcessRefundSchema = z.object({
-  refundAmount:    z.number().positive('Částka refundace musí být kladná'),
   refundMethod:    z.enum(['original_payment', 'store_credit', 'bank_transfer']),
   refundReference: z.string().optional(),
   adminNote:       z.string().optional(),
@@ -21,11 +25,16 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const session = await getServerSession(authOptions)
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  let existingStatus: string | undefined
+
   try {
     const body   = await request.json()
     const parsed = ProcessRefundSchema.safeParse(body)
     if (!parsed.success) {
-      return NextResponse.json({ error: parsed.error.issues.map((i: any) => i.message).join(', ') }, { status: 400 })
+      return NextResponse.json(
+        { error: parsed.error.issues.map((i: { message: string }) => i.message).join(', ') },
+        { status: 400 },
+      )
     }
 
     const input = parsed.data
@@ -39,50 +48,54 @@ export async function POST(request: Request, { params }: { params: { id: string 
     })
     if (!existing) return NextResponse.json({ error: 'Reklamace nebyla nalezena' }, { status: 404 })
 
-    if (!canProcessRefund(existing.status as ReturnStatus)) {
-      return NextResponse.json(
-        { error: `Nelze zpracovat refundaci ve stavu: ${existing.status}` },
-        { status: 422 }
-      )
-    }
+    existingStatus = existing.status
 
-    if ((existing.creditNotes?.length ?? 0) > 0) {
-      return NextResponse.json({ error: 'Refundace již byla zpracována' }, { status: 422 })
-    }
+    // Pre-flight checks (fast path; DB constraint is the real safeguard)
+    assertStatusTransition(existing.status, 'resolved')
+    assertNoExistingRefund(existing.creditNotes)
+
+    // Only items that were approved contribute to the refund
+    const refundLineItems = existing.items
+      .filter(i => i.itemStatus === 'approved' || i.itemStatus === 'partial')
+      .map(i => ({
+        productName:      i.productName,
+        unit:             i.unit,
+        approvedQty:      Number(i.approvedQuantity ?? i.returnedQuantity),
+        unitPrice:        Number(i.unitPrice),
+        unitPriceWithVat: Number(i.unitPriceWithVat),
+        vatRate:          Number(i.vatRate),
+      }))
 
     const updated = await prisma.$transaction(async tx => {
-      // Build refund items from approved items
-      const refundItems = existing.items
-        .filter(i => i.itemStatus === 'approved' || i.itemStatus === 'partial')
-        .map(i => ({
-          productName:      i.productName,
-          unit:             i.unit,
-          approvedQty:      Number(i.approvedQuantity ?? i.returnedQuantity),
-          unitPrice:        Number(i.unitPrice),
-          unitPriceWithVat: Number(i.unitPriceWithVat),
-          vatRate:          Number(i.vatRate),
-        }))
-
+      // processReturnRefund uses calculateLineVat internally — no FP accumulation
       const refundResult = await processReturnRefund(tx, {
         returnRequestId: params.id,
         customerOrderId: existing.customerOrderId,
         refundMethod:    input.refundMethod,
         refundReference: input.refundReference ?? null,
-        items:           refundItems,
-      })
+        items:           refundLineItems,
+      }).catch(rewrapPrismaError)
 
+      // KEY INVARIANT: ReturnRequest.refundAmount = CreditNote.totalAmount (when doc exists)
+      // or the service-computed total (when no invoice). Never from user input.
+      const canonicalRefundAmount = refundResult.totalRefund
+
+      // Atomic guard: WHERE status = approved/partially_approved
       const r = await tx.returnRequest.update({
-        where: { id: params.id },
-        data:  {
-          status:           'resolved',
-          refundAmount:     input.refundAmount,
-          refundMethod:     input.refundMethod,
-          refundReference:  input.refundReference ?? null,
+        where: {
+          id:     params.id,
+          status: existing.status,  // 'approved' or 'partially_approved'
+        },
+        data: {
+          status:            'resolved',
+          refundAmount:      canonicalRefundAmount,
+          refundMethod:      input.refundMethod,
+          refundReference:   input.refundReference ?? null,
           refundProcessedAt: new Date(),
-          adminNote:        input.adminNote ?? existing.adminNote,
+          adminNote:         input.adminNote ?? existing.adminNote,
         },
         include: RETURN_FULL_INCLUDE,
-      })
+      }).catch(rewrapPrismaError)
 
       await tx.returnStatusHistory.create({
         data: {
@@ -91,9 +104,9 @@ export async function POST(request: Request, { params }: { params: { id: string 
           toStatus:        'resolved',
           changedBy:       session.user.id,
           changedByName:   session.user.name ?? session.user.email,
-          note: refundResult.hasAccountingDoc
-            ? `Refundace ${input.refundAmount} CZK zpracována — dobropis ${refundResult.creditNoteNumber}`
-            : `Refundace ${input.refundAmount} CZK zpracována (bez dobropisu)`,
+          note:            refundResult.hasAccountingDoc
+            ? `Refundace ${canonicalRefundAmount.toFixed(2)} CZK — dobropis ${refundResult.creditNoteNumber}`
+            : `Refundace ${canonicalRefundAmount.toFixed(2)} CZK (bez dobropisu)`,
         },
       })
 
@@ -107,13 +120,16 @@ export async function POST(request: Request, { params }: { params: { id: string 
       entityName: 'ReturnRequest',
       entityId:   params.id,
       fieldName:  'status',
-      oldValue:   existing.status,
+      oldValue:   existingStatus,
       newValue:   'resolved',
       module:     'returns',
     })
 
     return NextResponse.json(mapReturnFull(updated as any))
   } catch (error) {
+    if (isValidationError(error)) {
+      return NextResponse.json({ error: error.message }, { status: error.httpStatus })
+    }
     console.error('[POST /api/returns/[id]/process-refund]', error)
     return NextResponse.json({ error: 'Nepodařilo se zpracovat refundaci' }, { status: 500 })
   }

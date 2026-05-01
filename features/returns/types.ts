@@ -110,14 +110,24 @@ export interface ReturnRequestDetail extends ReturnRequestListItem {
 // ── Input types for API calls ──────────────────────────────────────────────
 
 export interface CreateReturnItemInput {
-  productId:        string | null
+  // Reference to the original CustomerOrderItem — backend resolves all prices from this.
+  // Optional: only for order-linked returns (not manual walk-in returns).
+  sourceOrderItemId?: string | null
+
+  // Metadata shown in the return (backend may override from the order item)
   productName:      string
   unit:             string
+
+  // Quantities
   originalQuantity: number
   returnedQuantity: number
-  unitPrice:        number
-  unitPriceWithVat: number
-  vatRate:          number
+
+  // Price fields — sent only for manual returns without a sourceOrderItemId.
+  // When sourceOrderItemId is present, the backend ignores these and fetches
+  // authoritative prices from the CustomerOrderItem record.
+  unitPrice?:        number
+  unitPriceWithVat?: number
+  vatRate?:          number
 }
 
 export interface CreateReturnInput {

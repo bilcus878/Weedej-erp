@@ -133,26 +133,20 @@ export function useCreateReturn(onClose: () => void) {
         .map(item => {
           const sel = selections.get(item.id)!
 
-          // Compute gross price per unit.
-          // The search-orders endpoint returns priceWithVat=null when the DB value was 0
-          // (meaning it was never set). In that case fall back to price × (1 + vatRate/100).
-          const unitPriceWithVat = item.priceWithVat != null && item.priceWithVat > 0
-            ? item.priceWithVat
-            : parseFloat((item.price * (1 + item.vatRate / 100)).toFixed(2))
-
-          // Clamp returned quantity to the ordered quantity
+          // Clamp returned quantity to the ordered quantity as a UI guard.
+          // The API enforces this too, but we clamp early to avoid sending invalid data.
           const returnedQty = Math.min(sel.qty, item.quantity)
 
           return {
-            productId:        item.productId ?? null,
-            // Never send empty string — the API requires min(1)
-            productName:      item.productName?.trim() || 'Neznámý produkt',
-            unit:             item.unit,
-            originalQuantity: item.quantity,        // already a JS number
-            returnedQuantity: returnedQty,           // clamped
-            unitPrice:        item.price,            // already a JS number
-            unitPriceWithVat,                        // computed JS number
-            vatRate:          item.vatRate,          // already a JS number
+            // Pass the order item ID so the backend can resolve authoritative prices.
+            // The backend ignores any price fields we might send and fetches them directly
+            // from CustomerOrderItem — this eliminates the price-tampering vector.
+            sourceOrderItemId: item.id,
+            productName:       item.productName?.trim() || 'Neznámý produkt',
+            unit:              item.unit,
+            originalQuantity:  item.quantity,
+            returnedQuantity:  returnedQty,
+            // No price fields — backend owns pricing
           }
         })
 

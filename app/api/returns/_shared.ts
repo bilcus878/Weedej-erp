@@ -4,6 +4,7 @@
 
 import { prisma } from '@/lib/prisma'
 import type { ReturnStatus } from '@/lib/returns/returnWorkflow'
+import { round2, calculateLineVat, calculateVatSummary } from '@/lib/vatCalculation'
 
 // Full include spec reused across GET endpoints
 export const RETURN_FULL_INCLUDE = {
@@ -45,10 +46,18 @@ export function mapReturnFull(r: any) {
   const approvedItems = r.items.filter((i: any) =>
     i.itemStatus === 'approved' || i.itemStatus === 'partial'
   )
-  const totalApprovedRefund = approvedItems.reduce((sum: number, i: any) => {
-    const qty = Number(i.approvedQuantity ?? i.returnedQuantity)
-    return sum + qty * Number(i.unitPriceWithVat)
-  }, 0)
+
+  // Use the same gross→net back-calculation + calculateLineVat as the refund service
+  // so the displayed "totalApprovedRefund" matches exactly what the credit note will contain.
+  const vatLines = approvedItems.map((i: any) => {
+    const qty      = Number(i.approvedQuantity ?? i.returnedQuantity)
+    const gross    = Number(i.unitPriceWithVat)
+    const vatRate  = Number(i.vatRate)
+    const net      = round2(gross / (1 + vatRate / 100))
+    return calculateLineVat(qty, net, vatRate)
+  })
+  const summary           = calculateVatSummary(vatLines)
+  const totalApprovedRefund = summary.totalWithVat
 
   const creditNote = r.creditNotes?.[0] ?? null
 

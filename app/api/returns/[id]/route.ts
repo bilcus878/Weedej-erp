@@ -1,5 +1,6 @@
 import { NextResponse }       from 'next/server'
 import { getServerSession }  from 'next-auth'
+import { z }                 from 'zod'
 import { authOptions }       from '@/lib/auth'
 import { prisma }            from '@/lib/prisma'
 import { RETURN_FULL_INCLUDE, mapReturnFull } from '../_shared'
@@ -28,18 +29,37 @@ export async function GET(_req: Request, { params }: Params) {
   }
 }
 
-// ── PATCH /api/returns/[id] — update mutable admin fields ───────────────────
+// ── PATCH /api/returns/[id] — update mutable logistic fields only ─────────────
+//
+// Financial fields (refundAmount, resolutionType, status) are NOT patchable here.
+// They are set exclusively by the dedicated action endpoints.
+
+const PatchSchema = z.object({
+  adminNote:             z.string().optional(),
+  returnTrackingNumber:  z.string().optional(),
+  returnCarrier:         z.string().optional(),
+  returnShippingCost:    z.coerce.number().min(0).nullable().optional(),
+  returnShippingPaidBy:  z.enum(['customer', 'seller']).nullable().optional(),
+})
 
 export async function PATCH(request: Request, { params }: Params) {
   const session = await getServerSession(authOptions)
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
-    const body = await request.json()
-    const allowed = ['adminNote', 'returnTrackingNumber', 'returnCarrier', 'returnShippingCost', 'returnShippingPaidBy']
+    const body   = await request.json()
+    const parsed = PatchSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues.map((i: { message: string }) => i.message).join(', ') },
+        { status: 400 },
+      )
+    }
+
+    // Only write fields that were explicitly provided
     const update: Record<string, unknown> = {}
-    for (const key of allowed) {
-      if (key in body) update[key] = body[key]
+    for (const [key, value] of Object.entries(parsed.data)) {
+      if (value !== undefined) update[key] = value
     }
 
     if (Object.keys(update).length === 0) {
