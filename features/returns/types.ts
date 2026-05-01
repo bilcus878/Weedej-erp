@@ -58,6 +58,12 @@ export interface ReturnRequestItem {
   restockInventoryItemId: string | null
 }
 
+// Refund execution status — separate from workflow status.
+// pending   → CreditNote issued, awaiting payment execution
+// completed → money confirmed transferred
+// failed    → execution failed, manual intervention required
+export type RefundStatus = 'none' | 'pending' | 'completed' | 'failed'
+
 export interface ReturnRequestListItem {
   id:           string
   returnNumber: string
@@ -79,6 +85,7 @@ export interface ReturnRequestDetail extends ReturnRequestListItem {
   reasonDetail:      string | null
   returnDeadline:    string | null
   warrantyExpiry:    string | null
+  currency:          string
   customerPhone:     string | null
   customerAddress:   string | null
   customerId:        string | null
@@ -90,6 +97,7 @@ export interface ReturnRequestDetail extends ReturnRequestListItem {
   refundMethod:            ReturnRefundMethod | null
   refundReference:         string | null
   refundProcessedAt:       string | null
+  refundStatus:            RefundStatus
   adminNote:               string | null
   rejectionReason:         string | null
   handledById:             string | null

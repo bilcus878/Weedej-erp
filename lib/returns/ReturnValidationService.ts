@@ -15,7 +15,8 @@ import { validateTransition, type ReturnStatus } from './returnWorkflow'
 export class ReturnValidationError extends Error {
   constructor(
     message:               string,
-    public readonly httpStatus: 400 | 404 | 409 | 422 = 422,
+    // 4xx = client/business errors; 500 = internal consistency failure (should never happen)
+    public readonly httpStatus: 400 | 404 | 409 | 422 | 500 = 422,
   ) {
     super(message)
     this.name = 'ReturnValidationError'
@@ -42,6 +43,45 @@ export function assertStatusTransition(
   } catch (e: unknown) {
     throw new ReturnValidationError(
       e instanceof Error ? e.message : `Neplatný přechod stavu: ${current} → ${target}`,
+      422,
+    )
+  }
+}
+
+/**
+ * Asserts that the return request is in the exact required status.
+ * Use this for action endpoints that have a single valid pre-condition status
+ * (e.g., approve requires 'inspecting') rather than using the state machine
+ * as a proxy, which would be semantically misleading.
+ */
+export function assertRequiredStatus(
+  current:  string,
+  required: ReturnStatus,
+  context?: string,
+): void {
+  if (current !== required) {
+    const label = context ?? `Tato akce`
+    throw new ReturnValidationError(
+      `${label} vyžaduje stav "${required}", ale reklamace je ve stavu "${current}".`,
+      422,
+    )
+  }
+}
+
+// ── Currency guard ────────────────────────────────────────────────────────────
+
+const SUPPORTED_CURRENCIES = new Set(['CZK'])
+
+/**
+ * Guards against cross-currency operations. Currently only CZK is supported.
+ * When multi-currency is added, extend SUPPORTED_CURRENCIES and update
+ * processReturnRefund to handle exchange rates.
+ */
+export function assertCurrency(currency: string): void {
+  if (!SUPPORTED_CURRENCIES.has(currency)) {
+    throw new ReturnValidationError(
+      `Nepodporovaná měna: "${currency}". ` +
+      `Systém aktuálně podporuje pouze: ${[...SUPPORTED_CURRENCIES].join(', ')}.`,
       422,
     )
   }

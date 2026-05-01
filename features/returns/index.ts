@@ -25,6 +25,7 @@ export type {
   ReturnRefundMethod,
   ReturnItemCondition,
   ReturnItemStatus,
+  RefundStatus,
   CreateReturnInput,
   CreateReturnItemInput,
   ApproveReturnInput,

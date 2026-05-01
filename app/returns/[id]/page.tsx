@@ -189,6 +189,19 @@ export default function ReturnDetailPage({ params }: { params: { id: string } })
                   {detail.refundProcessedAt && (
                     <InfoRow label="Zpracováno" value={format(new Date(detail.refundProcessedAt), 'd. M. yyyy HH:mm', { locale: cs })} />
                   )}
+                  {detail.refundStatus && detail.refundStatus !== 'none' && (
+                    <InfoRow label="Stav platby" value={
+                      <span className={`text-xs font-semibold ${
+                        detail.refundStatus === 'completed' ? 'text-green-700' :
+                        detail.refundStatus === 'failed'    ? 'text-red-700'   :
+                        'text-amber-700'
+                      }`}>
+                        {detail.refundStatus === 'completed' ? 'Vyplaceno' :
+                         detail.refundStatus === 'failed'    ? 'Selhalo'   :
+                         'Čekající'}
+                      </span>
+                    } />
+                  )}
                   {detail.creditNoteId && (
                     <InfoRow label="Dobropis" value={
                       <Link href={`/credit-notes?highlight=${detail.creditNoteId}`} className="text-purple-600 hover:underline font-mono text-xs">

@@ -7,7 +7,7 @@ import { createAuditLog }   from '@/lib/auditService'
 import { round2, calculateLineVat, calculateVatSummary } from '@/lib/vatCalculation'
 import type { ReturnStatus } from '@/lib/returns/returnWorkflow'
 import {
-  assertStatusTransition,
+  assertRequiredStatus,
   assertItemOwnership,
   assertApprovedQuantities,
   isValidationError,
@@ -58,8 +58,10 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
     existingStatus = existing.status
 
-    // Central validation — throws ReturnValidationError on failure
-    assertStatusTransition(existing.status, 'approved')  // 'inspecting' → 'approved' is valid; machine will catch others
+    // Approve requires exactly 'inspecting' — use assertRequiredStatus rather than the
+    // state machine so the pre-condition is explicit and not tied to a particular outcome
+    // ('approved' vs 'partially_approved' vs 'rejected' all originate from 'inspecting').
+    assertRequiredStatus(existing.status, 'inspecting', 'Rozhodnutí o reklamaci')
     assertItemOwnership(input.items.map(d => d.id), existing.items)
     assertApprovedQuantities(input.items, existing.items)
 

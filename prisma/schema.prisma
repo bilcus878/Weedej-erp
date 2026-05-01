@@ -48,6 +48,11 @@ model ReturnRequest {
   returnCarrier         String?
   returnShippingCost    Decimal?          @db.Decimal(10, 2)
 
+  // Currency — all monetary amounts on this request are in this currency.
+  // Currently CZK only; field exists to guard against cross-currency operations
+  // when multi-currency support is added. Immutable after creation.
+  currency      String    @default("CZK")
+
   // Resolution
   // resolutionType: refund | store_credit | exchange | repair | rejected
   resolutionType    String?
@@ -56,6 +61,14 @@ model ReturnRequest {
   refundMethod      String?
   refundReference   String?
   refundProcessedAt DateTime?
+
+  // Refund execution status — separate from workflow status.
+  // CreditNote creation (resolved) ≠ money has moved.
+  // none: no refund initiated yet
+  // pending: CreditNote issued, awaiting payment execution
+  // completed: money confirmed transferred to customer
+  // failed: payment execution failed, requires manual intervention
+  refundStatus  String    @default("none")
 
   // Internal admin
   adminNote       String?  @db.Text
@@ -83,8 +96,10 @@ model ReturnRequest {
   @@index([customerOrderId])
   @@index([customerId])
   @@index([status])
+  @@index([refundStatus])
   @@index([requestDate])
   @@index([type])
+  @@index([currency])
 }
 
 model ReturnRequestItem {

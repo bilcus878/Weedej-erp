@@ -227,6 +227,7 @@ export async function POST(request: Request) {
       return tx.returnRequest.create({
         data: {
           returnNumber,
+          currency:        'CZK',   // explicit — all returns are CZK until multi-currency is added
           customerOrderId: input.customerOrderId ?? null,
           customerId,
           eshopUserId:     input.eshopUserId ?? null,

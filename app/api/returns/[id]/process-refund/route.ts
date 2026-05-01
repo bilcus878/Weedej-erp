@@ -7,6 +7,7 @@ import { createAuditLog }   from '@/lib/auditService'
 import {
   assertStatusTransition,
   assertNoExistingRefund,
+  assertCurrency,
   isValidationError,
   rewrapPrismaError,
 } from '@/lib/returns/ReturnValidationService'
@@ -42,7 +43,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
     const existing = await prisma.returnRequest.findUnique({
       where:   { id: params.id },
       include: {
-        items:      true,
+        items:       true,
         creditNotes: { select: { id: true } },
       },
     })
@@ -50,11 +51,15 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
     existingStatus = existing.status
 
-    // Pre-flight checks (fast path; DB constraint is the real safeguard)
+    // Currency guard — must be done before any financial computation
+    assertCurrency(existing.currency)
+
+    // Status pre-flight: resolved is the target; state machine validates the source
     assertStatusTransition(existing.status, 'resolved')
+
+    // Idempotency pre-flight (DB unique constraint is the real guard; this gives a clean error)
     assertNoExistingRefund(existing.creditNotes)
 
-    // Only items that were approved contribute to the refund
     const refundLineItems = existing.items
       .filter(i => i.itemStatus === 'approved' || i.itemStatus === 'partial')
       .map(i => ({
@@ -67,28 +72,35 @@ export async function POST(request: Request, { params }: { params: { id: string 
       }))
 
     const updated = await prisma.$transaction(async tx => {
-      // processReturnRefund uses calculateLineVat internally — no FP accumulation
+      // processReturnRefund:
+      // 1. Computes totals via calculateLineVat + calculateVatSummary (no FP accumulation)
+      // 2. Creates CreditNote with correct negative amounts
+      // 3. Runs assertFinancialConsistency inside the transaction (rolls back if wrong)
+      // 4. Returns the canonical totalRefund and the correct initial refundStatus
       const refundResult = await processReturnRefund(tx, {
         returnRequestId: params.id,
         customerOrderId: existing.customerOrderId,
+        currency:        existing.currency,
         refundMethod:    input.refundMethod,
         refundReference: input.refundReference ?? null,
         items:           refundLineItems,
       }).catch(rewrapPrismaError)
 
       // KEY INVARIANT: ReturnRequest.refundAmount = CreditNote.totalAmount (when doc exists)
-      // or the service-computed total (when no invoice). Never from user input.
       const canonicalRefundAmount = refundResult.totalRefund
 
-      // Atomic guard: WHERE status = approved/partially_approved
+      // Atomic guard: explicit IN constraint prevents any other status from being processed.
+      // This is more defensive than WHERE { status: existing.status } because it does not
+      // depend on the pre-read value — it expresses the business rule directly.
       const r = await tx.returnRequest.update({
         where: {
           id:     params.id,
-          status: existing.status,  // 'approved' or 'partially_approved'
+          status: { in: ['approved', 'partially_approved'] },
         },
         data: {
           status:            'resolved',
           refundAmount:      canonicalRefundAmount,
+          refundStatus:      refundResult.refundStatus,
           refundMethod:      input.refundMethod,
           refundReference:   input.refundReference ?? null,
           refundProcessedAt: new Date(),
@@ -105,8 +117,8 @@ export async function POST(request: Request, { params }: { params: { id: string 
           changedBy:       session.user.id,
           changedByName:   session.user.name ?? session.user.email,
           note:            refundResult.hasAccountingDoc
-            ? `Refundace ${canonicalRefundAmount.toFixed(2)} CZK — dobropis ${refundResult.creditNoteNumber}`
-            : `Refundace ${canonicalRefundAmount.toFixed(2)} CZK (bez dobropisu)`,
+            ? `Refundace ${canonicalRefundAmount.toFixed(2)} ${existing.currency} — dobropis ${refundResult.creditNoteNumber} (${refundResult.refundStatus})`
+            : `Refundace ${canonicalRefundAmount.toFixed(2)} ${existing.currency} (bez dobropisu, ${refundResult.refundStatus})`,
         },
       })
 
