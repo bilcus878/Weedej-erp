@@ -1,10 +1,21 @@
 'use client'
 
-import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { RefreshCw } from 'lucide-react'
-import { LoadingState } from '@/components/erp'
+import { useEffect }   from 'react'
+import { useRouter }   from 'next/navigation'
+import Link            from 'next/link'
+import { RefreshCw, ExternalLink, Printer, CheckCircle, XCircle, Package, TrendingUp } from 'lucide-react'
 import { ERPDetailPageLayout } from '@/components/erp/detail'
+import {
+  CustomerContactSection,
+  OrderSummarySection,
+  ShippingSection,
+  StornoSection,
+  OrderItemsSection,
+  DocumentActionsCard,
+  StatusTimelineCard,
+  DocumentOverviewCard,
+} from '@/components/erp/detail'
+import type { TimelineEntry } from '@/components/erp/detail'
 import { useNavbarMeta }       from '@/components/erp/navbar/NavbarMetaContext'
 import { useCompanySettings }  from '@/components/erp/hooks/useCompanySettings'
 import {
@@ -12,22 +23,46 @@ import {
   useCustomerOrderActions,
   CustomerOrderStatusBadge,
   mapCustomerOrderToOrderDetail,
-  OrderCustomerSection,
-  OrderSummarySection,
-  OrderShippingSection,
-  OrderItemsSection,
-  OrderStornoSection,
-  OrderActionsCard,
-  OrderTimelineCard,
-  OrderOverviewCard,
 } from '@/features/customer-orders'
+import type { OrderDetailData } from '@/components/erp'
 
 export const dynamic = 'force-dynamic'
+
+// ── Status config ─────────────────────────────────────────────────────────────
+
+const STATUS_CONFIG: Record<string, { label: string; color: 'blue' | 'green' | 'yellow' | 'red' | 'gray' | 'purple' | 'orange' }> = {
+  new:        { label: 'Nová',          color: 'yellow' },
+  paid:       { label: 'Zaplacena',     color: 'blue'   },
+  processing: { label: 'Připravuje se', color: 'orange' },
+  shipped:    { label: 'Odeslána',      color: 'green'  },
+  delivered:  { label: 'Doručena',      color: 'green'  },
+  cancelled:  { label: 'Zrušena',       color: 'red'    },
+  storno:     { label: 'STORNO',        color: 'red'    },
+}
+
+// ── Timeline builder ──────────────────────────────────────────────────────────
+
+function buildTimeline(order: OrderDetailData): TimelineEntry[] {
+  const entries: TimelineEntry[] = []
+  entries.push({ toStatus: 'new', changedAt: order.orderDate, statusLabel: 'Objednávka vytvořena' })
+  if (order.paidAt) {
+    entries.push({ toStatus: 'paid', changedAt: order.paidAt, statusLabel: 'Zaplacena' })
+  }
+  if (order.shippedAt) {
+    entries.push({ toStatus: 'shipped', changedAt: order.shippedAt, statusLabel: 'Odeslána' })
+  }
+  if (order.stornoAt) {
+    entries.push({ toStatus: order.status, changedAt: order.stornoAt, statusLabel: STATUS_CONFIG[order.status]?.label ?? order.status })
+  }
+  return entries.sort((a, b) => new Date(a.changedAt as string).getTime() - new Date(b.changedAt as string).getTime())
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 
 const BASE_CRUMBS = [{ label: 'Objednávky', href: '/customer-orders' }]
 
 export default function CustomerOrderDetailPage({ params }: { params: { id: string } }) {
-  const router = useRouter()
+  const router  = useRouter()
   const { order, loading, error, refresh } = useCustomerOrderDetail(params.id)
   const { isVatPayer }   = useCompanySettings()
   const { handleMarkPaid, handleUpdateStatus, handlePrintPDF } = useCustomerOrderActions(refresh)
@@ -45,8 +80,75 @@ export default function CustomerOrderDetailPage({ params }: { params: { id: stri
 
   const mapped              = mapCustomerOrderToOrderDetail(order)
   const isCancelled         = ['cancelled', 'storno'].includes(order.status)
+  const isPaid              = ['paid', 'shipped', 'delivered'].includes(order.status)
   const hasActiveDeliveryNote = mapped.deliveryNotes?.some(dn => dn.status === 'active') ?? false
   const hasShipping           = !!(order.shippingMethod || order.pickupPointId)
+
+  const actions = [
+    {
+      label:    'Označit jako zaplacené',
+      icon:     <CheckCircle />,
+      variant:  'primary' as const,
+      onClick:  () => handleMarkPaid(order.id),
+      hidden:   isPaid || isCancelled,
+    },
+    {
+      label:    'Tisk / PDF',
+      icon:     <Printer />,
+      variant:  'secondary' as const,
+      onClick:  () => handlePrintPDF(order),
+    },
+    {
+      label:    'Vystavit výdejku',
+      icon:     <Package />,
+      variant:  'secondary' as const,
+      onClick:  () => router.push(`/delivery-notes/new?orderId=${order.id}`),
+      hidden:   isCancelled || hasActiveDeliveryNote,
+    },
+    {
+      label:    'Označit jako doručené',
+      icon:     <TrendingUp />,
+      variant:  'secondary' as const,
+      onClick:  () => handleUpdateStatus(order.id, 'delivered'),
+      hidden:   order.status !== 'shipped',
+    },
+    {
+      label:    'Zrušit objednávku',
+      icon:     <XCircle />,
+      variant:  'danger' as const,
+      onClick:  () => handleUpdateStatus(order.id, 'cancelled'),
+      hidden:   isCancelled,
+    },
+  ]
+
+  const overviewRows = [
+    {
+      label: 'Číslo objednávky',
+      value: (
+        <span className="font-mono text-indigo-600">{mapped.orderNumber}</span>
+      ),
+    },
+    ...(mapped.issuedInvoice ? [{
+      label: 'Faktura',
+      value: (
+        <Link
+          href={`/invoices/issued?highlight=${mapped.issuedInvoice.id}`}
+          className="font-mono text-indigo-600 hover:underline flex items-center gap-0.5"
+        >
+          {mapped.issuedInvoice.invoiceNumber}
+          <ExternalLink className="w-3 h-3" />
+        </Link>
+      ),
+    }] : []),
+    {
+      label: 'Položek',
+      value: mapped.items.filter(i => i.productId !== null).length,
+    },
+    ...(hasActiveDeliveryNote ? [{
+      label: 'Výdejky',
+      value: mapped.deliveryNotes?.filter(dn => dn.status === 'active').length ?? 0,
+    }] : []),
+  ]
 
   return (
     <ERPDetailPageLayout
@@ -65,32 +167,45 @@ export default function CustomerOrderDetailPage({ params }: { params: { id: stri
       }
       sidebar={
         <div className="space-y-4">
-          <OrderActionsCard
-            order={order}
-            hasActiveDeliveryNote={hasActiveDeliveryNote}
-            onMarkPaid={handleMarkPaid}
-            onUpdateStatus={handleUpdateStatus}
-            onPrintPDF={handlePrintPDF}
+          <DocumentActionsCard actions={actions} />
+          <StatusTimelineCard
+            entries={buildTimeline(mapped)}
+            statusConfig={STATUS_CONFIG}
           />
-          <OrderTimelineCard order={mapped} />
-          <OrderOverviewCard order={mapped} />
+          <DocumentOverviewCard rows={overviewRows} />
         </div>
       }
     >
-      {/* Customer info + Order summary — 2 cols on sm+ */}
+      {/* Customer + Summary — 2 cols on sm+ */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <OrderCustomerSection order={mapped} />
-        <OrderSummarySection  order={mapped} isVatPayer={isVatPayer} />
+        <CustomerContactSection
+          name={mapped.customerName}
+          email={mapped.customerEmail}
+          phone={mapped.customerPhone}
+          company={mapped.billingCompany}
+          ico={mapped.billingIco}
+          billingName={mapped.billingName}
+          billingCompany={mapped.billingCompany}
+          billingStreet={mapped.billingStreet}
+          billingCity={mapped.billingCity}
+          billingZip={mapped.billingZip}
+          billingCountry={mapped.billingCountry}
+        />
+        <OrderSummarySection order={mapped} isVatPayer={isVatPayer} />
       </div>
 
-      {/* Shipping — only when the order has delivery data */}
+      {/* Shipping — only when order has delivery data */}
       {hasShipping && (
-        <OrderShippingSection order={mapped} onRefresh={refresh} />
+        <ShippingSection order={mapped} onRefresh={refresh} />
       )}
 
-      {/* Storno info — only for cancelled orders */}
+      {/* Storno — only for cancelled orders */}
       {isCancelled && (
-        <OrderStornoSection order={mapped} />
+        <StornoSection
+          stornoAt={mapped.stornoAt}
+          stornoBy={mapped.stornoBy}
+          stornoReason={mapped.stornoReason}
+        />
       )}
 
       {/* Items table */}
