@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react'
 import { LoadingState, ErrorState } from '@/components/erp'
-import { useNavbarMeta } from '@/components/NavbarMetaContext'
+import { useNavbarMeta } from '@/components/erp/navbar/NavbarMetaContext'
 import {
   useInventory, useProductMovements,
   InventoryTable, MovementTable, ManualAdjustmentModal,

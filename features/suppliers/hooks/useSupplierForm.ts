@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { createSupplier, updateSupplier, deleteSupplier } from '../services/supplierService'
 import { emptySupplierForm } from '../types'
 import type { Supplier, SupplierFormData } from '../types'
-import type { PartyFormData } from '@/components/erp/PartyFormModal'
+import type { PartyFormData } from '@/components/erp/detail/PartyFormModal'
 
 export function useSupplierForm(onRefresh: () => Promise<void>) {
   const [showForm,        setShowForm]        = useState(false)

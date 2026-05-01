@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { createCustomer, updateCustomer, deleteCustomer } from '../services/customerService'
 import { emptyCustomerForm } from '../types'
 import type { Customer, CustomerFormData } from '../types'
-import type { PartyFormData } from '@/components/erp/PartyFormModal'
+import type { PartyFormData } from '@/components/erp/detail/PartyFormModal'
 
 export function useCustomerForm(onRefresh: () => Promise<void>) {
   const [showForm,        setShowForm]        = useState(false)

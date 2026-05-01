@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { EntityOrdersButton, type EntityOrder } from '@/components/warehouse/entity/EntityOrdersButton'
+import { EntityOrdersButton, type EntityOrder } from '@/components/erp/widgets/EntityOrdersButton'
 
 interface Props {
   customerId: string

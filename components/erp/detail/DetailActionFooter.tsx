@@ -3,7 +3,7 @@
 import { type ReactNode } from 'react'
 import Link from 'next/link'
 import { FileDown, Package, CheckCircle, XCircle, ExternalLink } from 'lucide-react'
-import { ActionToolbar } from './ActionToolbar'
+import { ActionToolbar } from '../layout/ActionToolbar'
 import Button from '@/components/ui/Button'
 
 // ─── Types ────────────────────────────────────────────────────────────────────

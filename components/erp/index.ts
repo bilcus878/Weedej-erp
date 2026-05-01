@@ -1,40 +1,41 @@
-// ── Legacy detail primitives ─────────────────────────────────────────────────
-export { DetailSection }        from './DetailSection'
-export { DetailRow }            from './DetailRow'
-export { DetailSubheading }     from './DetailSubheading'
-export { ActionToolbar }        from './ActionToolbar'
-export { DetailActionFooter }   from './DetailActionFooter'
-export type { DocumentFlow }    from './DetailActionFooter'
-export { EmptyState }           from './EmptyState'
-export { LinkedDocumentBanner } from './LinkedDocumentBanner'
-export { PartySection }         from './PartySection'
-export { ItemsTable }           from './ItemsTable'
-export type { ErpItem }         from './ItemsTable'
+// ── Detail primitives ─────────────────────────────────────────────────────────
+export { DetailSection }        from './detail/DetailSection'
+export { DetailRow }            from './detail/DetailRow'
+export { DetailSubheading }     from './detail/DetailSubheading'
+export { ActionToolbar }        from './layout/ActionToolbar'
+export { DetailActionFooter }   from './detail/DetailActionFooter'
+export type { DocumentFlow }    from './detail/DetailActionFooter'
+export { EmptyState }           from './states/EmptyState'
+export { LinkedDocumentBanner } from './detail/LinkedDocumentBanner'
+export { PartySection }         from './detail/PartySection'
+export { ItemsTable }           from './detail/ItemsTable'
+export type { ErpItem }         from './detail/ItemsTable'
 
 // ── CustomerOrderDetail ──────────────────────────────────────────────────────
-export { CustomerOrderDetail }  from './CustomerOrderDetail'
+export { CustomerOrderDetail }  from './detail/CustomerOrderDetail'
 export type {
   OrderDetailData,
   OrderDetailItem,
   OrderDetailInvoice,
   OrderDetailDeliveryNote,
   OrderDetailDeliveryNoteItem,
-} from './CustomerOrderDetail'
+} from './detail/CustomerOrderDetail'
 
 // ── SupplierOrderDetail ──────────────────────────────────────────────────────
-export { SupplierOrderDetail }  from './SupplierOrderDetail'
+export { SupplierOrderDetail }  from './detail/SupplierOrderDetail'
 export type {
   SupplierOrderDetailData,
   SupplierOrderDetailItem,
   SupplierOrderDetailInvoice,
   SupplierOrderDetailReceipt,
   SupplierOrderDetailReceiptItem,
-} from './SupplierOrderDetail'
+} from './detail/SupplierOrderDetail'
 
 // ── Page architecture ────────────────────────────────────────────────────────
 export { EntityPage }           from './layout/EntityPage'
-export { ActionsDropdown }      from './ActionsDropdown'
-export type { PageAction }      from './ActionsDropdown'
+export { ActionsDropdown }      from './layout/ActionsDropdown'
+export type { PageAction }      from './layout/ActionsDropdown'
+
 // ── Hooks ────────────────────────────────────────────────────────────────────
 export { useEntityPage }        from './hooks/useEntityPage'
 export type { EntityPageConfig, EntityPageState } from './hooks/useEntityPage'
@@ -51,11 +52,11 @@ export { LoadingState }         from './states/LoadingState'
 export { ErrorState }           from './states/ErrorState'
 
 // ── Shared party form ────────────────────────────────────────────────────────
-export { PartyFormModal }         from './PartyFormModal'
-export type { PartyFormData, PartyFormConfig } from './PartyFormModal'
+export { PartyFormModal }         from './detail/PartyFormModal'
+export type { PartyFormData, PartyFormConfig } from './detail/PartyFormModal'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 export type { ColumnDef, AccentColor, SelectOption } from './table/ColumnDef'
 
 // ── Security ─────────────────────────────────────────────────────────────────
-export { PermissionGate }       from './PermissionGate'
+export { PermissionGate }       from './security/PermissionGate'

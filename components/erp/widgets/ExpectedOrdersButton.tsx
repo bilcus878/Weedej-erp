@@ -4,7 +4,7 @@ import { useRef, useState, useEffect } from 'react'
 import { Package } from 'lucide-react'
 import { formatDate } from '@/lib/shared/dates/format'
 import { formatPrice } from '@/lib/shared/finance/money'
-import { useClickOutside } from '../shared/useClickOutside'
+import { useClickOutside } from '../../ui/useClickOutside'
 
 export interface PopoverOrder {
   id: string

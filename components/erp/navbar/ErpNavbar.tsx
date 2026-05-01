@@ -8,8 +8,8 @@ import {
 } from 'lucide-react'
 import { useSession, signOut } from 'next-auth/react'
 import { Logo } from '@/components/ui/Logo'
-import { useNavbarMeta } from '@/components/NavbarMetaContext'
-import { PermissionGate } from '@/components/erp/PermissionGate'
+import { useNavbarMeta } from './NavbarMetaContext'
+import { PermissionGate } from '../security/PermissionGate'
 import { navGroups, getPageTitle, type NavChild, type NavGroup } from '@/config/nav'
 import type { ReadonlyURLSearchParams } from 'next/navigation'
 

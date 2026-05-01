@@ -1,8 +1,8 @@
 'use client'
 
 import { Truck } from 'lucide-react'
-import { PartyFormModal } from '@/components/erp/PartyFormModal'
-import type { PartyFormConfig } from '@/components/erp/PartyFormModal'
+import { PartyFormModal } from '@/components/erp/detail/PartyFormModal'
+import type { PartyFormConfig } from '@/components/erp/detail/PartyFormModal'
 import type { useSupplierForm } from '../hooks/useSupplierForm'
 
 const SUPPLIER_CONFIG: PartyFormConfig = {

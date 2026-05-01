@@ -5,7 +5,7 @@ import { ShoppingCart, Plus, Trash2, MapPin, Package, User, CreditCard, Truck, S
 import type { LucideIcon } from 'lucide-react'
 import { VAT_RATE_LABELS, isNonVatPayer, calculateLineVat, calculateVatSummary } from '@/lib/shared/finance/vatCalculation'
 import { useCreateOrderForm } from '../hooks/useCreateOrderForm'
-import { CascadingProductDropdown } from '@/components/CascadingProductDropdown'
+import { CascadingProductDropdown } from '@/components/shared/CascadingProductDropdown'
 import { OrderTotalsPreview } from './OrderTotalsPreview'
 import { useShippingMethods } from '@/features/shipping'
 import type { BillingAddress, Customer, CustomerOrderItem, Product } from '../types'

@@ -5,7 +5,7 @@ import { Package, Plus, Trash2, User, CreditCard, Calendar, Banknote, Landmark, 
 import type { LucideIcon } from 'lucide-react'
 import { VAT_RATE_LABELS, isNonVatPayer, calculateLineVat, calculateVatSummary } from '@/lib/shared/finance/vatCalculation'
 import { useCreatePurchaseOrderForm } from '../hooks/useCreatePurchaseOrderForm'
-import { CascadingProductDropdown } from '@/components/CascadingProductDropdown'
+import { CascadingProductDropdown } from '@/components/shared/CascadingProductDropdown'
 import { PurchaseOrderTotalsPreview } from './PurchaseOrderTotalsPreview'
 import type { Supplier, PurchaseOrderItem, Product } from '../types'
 

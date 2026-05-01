@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, type ReactNode } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { ColumnDef, AccentColor } from '../table/ColumnDef'
-import { useNavbarMeta } from '@/components/NavbarMetaContext'
+import { useNavbarMeta } from '../navbar/NavbarMetaContext'
 
 // ─── Context ─────────────────────────────────────────────────────────────────
 

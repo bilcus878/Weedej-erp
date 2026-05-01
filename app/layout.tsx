@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { ErpNavbar } from "@/components/ErpNavbar";
-import { Providers } from "@/components/Providers";
-import { NavbarMetaProvider } from "@/components/NavbarMetaContext";
+import { ErpNavbar } from "@/components/erp/navbar/ErpNavbar";
+import { Providers } from "@/components/providers/Providers";
+import { NavbarMetaProvider } from "@/components/erp/navbar/NavbarMetaContext";
 
 export const dynamic = 'force-dynamic';
 

@@ -11,7 +11,7 @@ import { format } from 'date-fns'
 import { cs }     from 'date-fns/locale'
 
 import { LoadingState, ErrorState } from '@/components/erp'
-import { useNavbarMeta }            from '@/components/NavbarMetaContext'
+import { useNavbarMeta }            from '@/components/erp/navbar/NavbarMetaContext'
 import {
   useReturnDetail, useReturnActions,
   ReturnStatusBadge, ReturnTypeBadge, ReturnTimeline, ReturnItemsTable,

@@ -4,10 +4,10 @@ import { useRef, useMemo, useEffect } from 'react'
 import { Package } from 'lucide-react'
 import { EntityPage, LoadingState, ErrorState, DetailActionFooter, CustomerOrderDetail } from '@/components/erp'
 import { useCompanySettings } from '@/components/erp/hooks/useCompanySettings'
-import { ExpectedOrdersButton } from '@/components/warehouse/expected/ExpectedOrdersButton'
-import { useNavbarMeta } from '@/components/NavbarMetaContext'
-import { useToast } from '@/components/warehouse/shared/useToast'
-import { Toast } from '@/components/warehouse/shared/Toast'
+import { ExpectedOrdersButton } from '@/components/erp/widgets/ExpectedOrdersButton'
+import { useNavbarMeta } from '@/components/erp/navbar/NavbarMetaContext'
+import { useToast } from '@/components/ui/useToast'
+import { Toast } from '@/components/ui/Toast'
 import {
   useDeliveryNotes, useDeliveryNoteActions, useShipmentProcessing,
   createDeliveryNoteColumns, ProcessShipmentModal, mapDeliveryNoteToOrderDetail,

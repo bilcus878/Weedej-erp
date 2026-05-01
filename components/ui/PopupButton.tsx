@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState, useEffect, type ReactNode } from 'react'
-import { useClickOutside } from '@/components/warehouse/shared/useClickOutside'
+import { useClickOutside } from './useClickOutside'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

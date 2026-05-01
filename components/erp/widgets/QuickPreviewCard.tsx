@@ -2,7 +2,7 @@
 
 import { useRef, useState, type ReactNode } from 'react'
 import { Eye, X } from 'lucide-react'
-import { useClickOutside } from '../shared/useClickOutside'
+import { useClickOutside } from '../../ui/useClickOutside'
 
 interface QuickPreviewCardProps {
   cardContent: ReactNode

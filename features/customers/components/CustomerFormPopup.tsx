@@ -1,8 +1,8 @@
 'use client'
 
 import { Users } from 'lucide-react'
-import { PartyFormModal } from '@/components/erp/PartyFormModal'
-import type { PartyFormConfig } from '@/components/erp/PartyFormModal'
+import { PartyFormModal } from '@/components/erp/detail/PartyFormModal'
+import type { PartyFormConfig } from '@/components/erp/detail/PartyFormModal'
 import type { useCustomerForm } from '../hooks/useCustomerForm'
 
 const CUSTOMER_CONFIG: PartyFormConfig = {
