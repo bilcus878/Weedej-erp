@@ -11,14 +11,22 @@
  *   MUST store this value on ReturnRequest.refundAmount to maintain consistency.
  * ─ A financial consistency check is run inside the transaction after CreditNote
  *   creation. Any discrepancy rolls back the entire transaction before commit.
+ * ─ vatBreakdown JSON snapshot is stored on the CreditNote for audit replayability.
+ * ─ A ReturnFinancialEvent is written inside the transaction — never lost.
  * ─ refundStatus is returned so the caller can set it on ReturnRequest.
  *   CreditNote creation = accounting document. Money movement = separate concern.
  */
 
 import { Prisma }                 from '@prisma/client'
 import { getNextDocumentNumber }  from '@/lib/documentSeries'
-import { calculateLineVat, calculateVatSummary, round2 } from '@/lib/vatCalculation'
+import { calculateLineVat, calculateVatSummary, round2, type VatSummaryResult } from '@/lib/vatCalculation'
 import { assertFinancialConsistency } from './ReturnFinancialConsistency'
+
+// ── Calculation version ───────────────────────────────────────────────────────
+// Bump this when the VAT calculation algorithm changes in a way that would
+// produce different results for the same inputs. Stored on every CreditNote
+// so old records remain deterministically recomputable.
+const CALCULATION_VERSION = '1.0'
 
 // ── Input / output types ──────────────────────────────────────────────────────
 
@@ -37,6 +45,8 @@ export interface ProcessRefundInput {
   currency:        string   // must be validated by caller (assertCurrency)
   refundMethod:    string
   refundReference: string | null
+  actorId:         string | null
+  actorName:       string | null
   items:           RefundLineItem[]
 }
 
@@ -70,7 +80,7 @@ export async function processReturnRefund(
   tx:    Prisma.TransactionClient,
   input: ProcessRefundInput,
 ): Promise<ProcessRefundResult> {
-  const { returnRequestId, customerOrderId, currency, refundMethod, refundReference, items } = input
+  const { returnRequestId, customerOrderId, currency, refundMethod, refundReference, actorId, actorName, items } = input
 
   const refundStatus = deriveInitialRefundStatus(refundMethod)
 
@@ -104,6 +114,12 @@ export async function processReturnRefund(
     calculateLineVat(l.quantity, l.unitPriceWithoutVat, l.vatRate)
   )
   const summary = calculateVatSummary(lineResults)
+
+  // ── Build vatBreakdown snapshot ───────────────────────────────────────────
+  //
+  // Per-rate breakdown stored for audit replayability. Allows exact
+  // reconstruction of the credit note without re-running business logic.
+  const vatBreakdown = buildVatBreakdown(summary)
 
   // Build credit note items — each line is individually rounded
   const creditNoteItemsData = refundLines.map((item, idx) => ({
@@ -139,8 +155,23 @@ export async function processReturnRefund(
     }
   }
 
-  // Without an invoice, record refund metadata on ReturnRequest only
+  // Without an invoice, record refund metadata on ReturnRequest only.
+  // Still write a financial event so the journal is complete.
   if (!issuedInvoiceId) {
+    await tx.returnFinancialEvent.create({
+      data: {
+        returnRequestId,
+        eventType:  'refund_initiated',
+        amount:     summary.totalWithVat,
+        amountNet:  summary.totalWithoutVat,
+        amountVat:  summary.totalVat,
+        currency,
+        metadata:   { refundMethod, hasAccountingDoc: false },
+        actorId,
+        actorName,
+      },
+    })
+
     return {
       creditNoteId:     null,
       creditNoteNumber: null,
@@ -167,6 +198,8 @@ export async function processReturnRefund(
       totalVatAmount:        -summary.totalVat,
       reason:                'Vrácení z reklamace',
       note:                  refundReference ? `Ref: ${refundReference}` : null,
+      vatBreakdown,
+      calculationVersion:    CALCULATION_VERSION,
       items:                 { create: creditNoteItemsData },
     },
   })
@@ -176,12 +209,33 @@ export async function processReturnRefund(
   // Recomputes totals from the just-created CreditNote items and verifies they
   // match the stored header amounts. Any discrepancy > 0.01 CZK throws a 500
   // error that rolls back this entire transaction — no partial state is possible.
-  //
-  // This runs INSIDE the transaction (before commit) so it acts as a final audit
-  // on every refund. In years of production use this should always pass; if it
-  // ever fails, it indicates a bug in the calculation code that must be fixed.
 
   await assertFinancialConsistency(tx, creditNote.id)
+
+  // ── Write financial event journal entry (inside transaction) ──────────────
+  //
+  // Written AFTER assertFinancialConsistency to guarantee the event is only
+  // persisted when the CreditNote is mathematically correct.
+
+  await tx.returnFinancialEvent.create({
+    data: {
+      returnRequestId,
+      eventType:   'credit_note_created',
+      amount:      summary.totalWithVat,
+      amountNet:   summary.totalWithoutVat,
+      amountVat:   summary.totalVat,
+      currency,
+      creditNoteId: creditNote.id,
+      metadata:    {
+        creditNoteNumber,
+        refundMethod,
+        calculationVersion: CALCULATION_VERSION,
+        lineCount:          refundLines.length,
+      },
+      actorId,
+      actorName,
+    },
+  })
 
   return {
     creditNoteId:     creditNote.id,
@@ -190,5 +244,34 @@ export async function processReturnRefund(
     totalRefund:      summary.totalWithVat,
     hasAccountingDoc: true,
     refundStatus,
+  }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+interface VatLineInput { quantity: number; unitPriceWithoutVat: number; vatRate: number }
+
+function buildVatBreakdown(
+  summary: VatSummaryResult,
+): object {
+  // Translate byRate from numeric keys to string keys for JSON stability.
+  // Each entry uses VatBreakdown's canonical field names: base, vat, total.
+  const byRate: Record<string, { base: number; vat: number; total: number }> = {}
+  for (const [rate, breakdown] of Object.entries(summary.byRate)) {
+    byRate[rate] = {
+      base:  round2(breakdown.base),
+      vat:   round2(breakdown.vat),
+      total: round2(breakdown.total),
+    }
+  }
+
+  return {
+    calculationVersion: CALCULATION_VERSION,
+    currency:           'CZK',
+    totalGross:         round2(summary.totalWithVat),
+    totalNet:           round2(summary.totalWithoutVat),
+    totalVat:           round2(summary.totalVat),
+    byRate,
+    computedAt:         new Date().toISOString(),
   }
 }

@@ -98,6 +98,7 @@ export interface ReturnRequestDetail extends ReturnRequestListItem {
   refundReference:         string | null
   refundProcessedAt:       string | null
   refundStatus:            RefundStatus
+  externalTransactionId:   string | null
   adminNote:               string | null
   rejectionReason:         string | null
   handledById:             string | null

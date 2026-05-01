@@ -70,6 +70,10 @@ model ReturnRequest {
   // failed: payment execution failed, requires manual intervention
   refundStatus  String    @default("none")
 
+  // Payment provider integration — set when refund is executed via external gateway
+  externalTransactionId String?   // ID from payment provider (Stripe, GoPay, ComGate, etc.)
+  refundProviderData    Json?     // Raw provider response — immutable after first write
+
   // Internal admin
   adminNote       String?  @db.Text
   rejectionReason String?  @db.Text
@@ -87,10 +91,11 @@ model ReturnRequest {
   exchangeOrder    CustomerOrder? @relation("ExchangeOrder", fields: [exchangeOrderId], references: [id])
   exchangeOrderId  String?        @unique
 
-  items         ReturnRequestItem[]
-  statusHistory ReturnStatusHistory[]
-  attachments   ReturnAttachment[]
-  creditNotes   CreditNote[]
+  items            ReturnRequestItem[]
+  statusHistory    ReturnStatusHistory[]
+  attachments      ReturnAttachment[]
+  creditNotes      CreditNote[]
+  financialEvents  ReturnFinancialEvent[]
 
   @@index([returnNumber])
   @@index([customerOrderId])
@@ -186,6 +191,30 @@ model ReturnAttachment {
   returnRequest ReturnRequest @relation(fields: [returnRequestId], references: [id], onDelete: Cascade)
 
   @@index([returnRequestId])
+}
+
+model ReturnFinancialEvent {
+  id              String   @id @default(uuid())
+  returnRequestId String
+
+  // eventType: refund_initiated | credit_note_created | refund_completed | refund_failed | refund_reversed
+  eventType  String
+  amount     Decimal  @db.Decimal(10, 2)
+  amountNet  Decimal? @db.Decimal(10, 2)
+  amountVat  Decimal? @db.Decimal(10, 2)
+  currency   String   @default("CZK")
+
+  creditNoteId String?   // FK to CreditNote if this event produced an accounting document
+  metadata     Json      @default("{}")
+  actorId      String?
+  actorName    String?
+  createdAt    DateTime  @default(now())
+
+  returnRequest ReturnRequest @relation(fields: [returnRequestId], references: [id], onDelete: Cascade)
+
+  @@index([returnRequestId])
+  @@index([eventType])
+  @@index([createdAt])
 }
 
 // ========== END REKLAMACE ==========
@@ -909,6 +938,9 @@ model CreditNote {
   stornoAt              DateTime?
   stornoBy              String?
   returnRequestId       String?          @unique
+  // Audit trail: immutable snapshots written at creation time, never updated
+  vatBreakdown          Json?     // VAT breakdown per rate (amounts rounded per Czech law)
+  calculationVersion    String?   // e.g. "1.0" — identifies the calculation algorithm version
   createdAt             DateTime         @default(now())
   updatedAt             DateTime         @updatedAt
   issuedInvoice         IssuedInvoice    @relation(fields: [issuedInvoiceId], references: [id], onDelete: Cascade)

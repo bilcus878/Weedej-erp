@@ -10,6 +10,18 @@
 import { Prisma }          from '@prisma/client'
 import { validateTransition, type ReturnStatus } from './returnWorkflow'
 
+// ── System invariant types ────────────────────────────────────────────────────
+
+// Minimal shape needed for assertWorkflowConsistency
+interface ReturnRequestSnapshot {
+  id:             string
+  status:         string
+  resolutionType: string | null
+  refundAmount:   { toString(): string } | null
+  refundStatus:   string
+  currency:       string
+}
+
 // ── Error type ────────────────────────────────────────────────────────────────
 
 export class ReturnValidationError extends Error {
@@ -169,6 +181,92 @@ export function assertNoExistingRefund(existingCreditNotes: { id: string }[]): v
     throw new ReturnValidationError(
       'Refundace pro tuto reklamaci již byla zpracována.',
       422,
+    )
+  }
+}
+
+// ── System self-checks ────────────────────────────────────────────────────────
+
+/**
+ * Asserts that a resolved/refunded return has inventory consistency:
+ * no item claims to be restocked to an inventory record that has since been deleted.
+ *
+ * Called as a post-commit sanity check — failures are logged but do NOT roll back
+ * (the financial state is already committed by this point). The goal is early
+ * detection of data drift, not prevention.
+ */
+export async function assertInventoryConsistency(
+  tx:              Prisma.TransactionClient,
+  returnRequestId: string,
+): Promise<void> {
+  // Find all items that claim to have a restockInventoryItemId
+  const items = await tx.returnRequestItem.findMany({
+    where: {
+      returnRequestId,
+      restockInventoryItemId: { not: null },
+    },
+    select: { id: true, restockInventoryItemId: true },
+  })
+
+  if (items.length === 0) return
+
+  const itemIds = items.map(i => i.restockInventoryItemId!).filter(Boolean)
+  const existingInventoryItems = await tx.inventoryItem.findMany({
+    where: { id: { in: itemIds } },
+    select: { id: true },
+  })
+
+  const existingIds = new Set(existingInventoryItems.map(i => i.id))
+  const orphaned    = itemIds.filter(id => !existingIds.has(id))
+
+  if (orphaned.length > 0) {
+    // Log for operational awareness — this is a data integrity issue
+    console.error('[ReturnValidationService] Inventory consistency violation:', {
+      returnRequestId,
+      orphanedInventoryItemIds: orphaned,
+    })
+    throw new ReturnValidationError(
+      `Nesoulad zásob: ${orphaned.length} vrácená položka odkazuje na ` +
+      `neexistující záznam v skladu. Kontaktujte administrátora.`,
+      500,
+    )
+  }
+}
+
+/**
+ * Asserts that the in-memory ReturnRequest has internally consistent state.
+ * Catches bugs where, e.g., a resolved return has no refundAmount or wrong currency.
+ * Runs synchronously (no DB access) — call it immediately after loading a record.
+ */
+export function assertWorkflowConsistency(r: ReturnRequestSnapshot): void {
+  const resolved = r.status === 'resolved'
+  const hasRefund = r.refundAmount !== null && Number(r.refundAmount.toString()) > 0
+
+  // I-F1: resolved returns must have a refund amount
+  if (resolved && !hasRefund && r.resolutionType !== 'rejected' && r.resolutionType !== 'repair') {
+    throw new ReturnValidationError(
+      `Nesoulad stavu: reklamace ${r.id} je ve stavu "resolved" ale nemá refundAmount. ` +
+      `Kontaktujte administrátora.`,
+      500,
+    )
+  }
+
+  // I-F2: refundStatus 'completed'/'failed' only allowed in resolved/closed
+  const terminalRefundStatuses = new Set(['completed', 'failed'])
+  const terminalWorkflowStatuses = new Set(['resolved', 'closed'])
+  if (terminalRefundStatuses.has(r.refundStatus) && !terminalWorkflowStatuses.has(r.status)) {
+    throw new ReturnValidationError(
+      `Nesoulad stavu: reklamace ${r.id} má refundStatus "${r.refundStatus}" ` +
+      `ale workflow stav je "${r.status}". Kontaktujte administrátora.`,
+      500,
+    )
+  }
+
+  // I-C1: currency must be non-empty
+  if (!r.currency || r.currency.trim() === '') {
+    throw new ReturnValidationError(
+      `Nesoulad stavu: reklamace ${r.id} nemá nastavenou měnu. Kontaktujte administrátora.`,
+      500,
     )
   }
 }

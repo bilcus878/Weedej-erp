@@ -3,7 +3,8 @@ import { getServerSession }  from 'next-auth'
 import { z }                 from 'zod'
 import { authOptions }       from '@/lib/auth'
 import { prisma }            from '@/lib/prisma'
-import { RETURN_FULL_INCLUDE, mapReturnFull } from '../_shared'
+import { RETURN_FULL_INCLUDE } from '@/lib/returns/ReturnCommandService'
+import { mapReturnFull }       from '@/lib/returns/returnMapper'
 
 export const dynamic = 'force-dynamic'
 
@@ -56,7 +57,6 @@ export async function PATCH(request: Request, { params }: Params) {
       )
     }
 
-    // Only write fields that were explicitly provided
     const update: Record<string, unknown> = {}
     for (const [key, value] of Object.entries(parsed.data)) {
       if (value !== undefined) update[key] = value
