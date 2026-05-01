@@ -5,7 +5,7 @@
  */
 
 import type { ReturnStatus } from './returnWorkflow'
-import { round2, calculateLineVat, calculateVatSummary } from '@/lib/vatCalculation'
+import { round2, calculateLineVat, calculateVatSummary } from '@/lib/shared/finance/vatCalculation'
 
 // Allowed transitions — mirrors returnWorkflow.ALLOWED_TRANSITIONS but expressed
 // as an array for the client (which needs "what can I do next?").

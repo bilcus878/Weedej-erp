@@ -4,7 +4,7 @@
 
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getNextDocumentNumber } from '@/lib/documentNumbering'
+import { getNextDocumentNumber } from '@/lib/shared/documents/documentSeries'
 import { findOrCreateBatch, type BatchInput } from '@/lib/batchUtils'
 import { archiveReceipt, archiveAsync } from '@/lib/documents/DocumentArchiveService'
 

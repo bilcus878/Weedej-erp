@@ -18,8 +18,8 @@
  */
 
 import { Prisma }                 from '@prisma/client'
-import { getNextDocumentNumber }  from '@/lib/documentSeries'
-import { calculateLineVat, calculateVatSummary, round2, type VatSummaryResult } from '@/lib/vatCalculation'
+import { getNextDocumentNumber }  from '@/lib/shared/documents/documentSeries'
+import { calculateLineVat, calculateVatSummary, round2, type VatSummaryResult } from '@/lib/shared/finance/vatCalculation'
 import { assertFinancialConsistency } from './ReturnFinancialConsistency'
 
 // ── Calculation version ───────────────────────────────────────────────────────

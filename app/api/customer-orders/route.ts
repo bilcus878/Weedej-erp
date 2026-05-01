@@ -3,7 +3,7 @@
 
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getNextDocumentNumber } from '@/lib/documentNumbering'
+import { getNextDocumentNumber } from '@/lib/shared/documents/documentSeries'
 import { createReservations, canReserveQuantity } from '@/lib/reservationManagement'
 import { applyDiscountAndCalculateVat, calculateVatFromGross, round2, calculateLineVat } from '@/lib/vatCalculation'
 import { archiveCustomerOrder, archiveAsync } from '@/lib/documents/DocumentArchiveService'

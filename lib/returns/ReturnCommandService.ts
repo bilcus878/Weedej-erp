@@ -14,8 +14,8 @@
 
 import { prisma }             from '@/lib/prisma'
 import { createAuditLog }     from '@/lib/auditService'
-import { getNextDocumentNumber } from '@/lib/documentSeries'
-import { calculateLineVat, calculateVatSummary, round2, calculateVatFromNet } from '@/lib/vatCalculation'
+import { getNextDocumentNumber } from '@/lib/shared/documents/documentSeries'
+import { calculateLineVat, calculateVatSummary, round2, calculateVatFromNet } from '@/lib/shared/finance/vatCalculation'
 import { STANDARD_RETURN_DAYS } from './returnWorkflow'
 import type { ReturnStatus }  from './returnWorkflow'
 import {

@@ -2,7 +2,7 @@
 // URL: /api/receipts
 
 import { NextResponse } from 'next/server'
-import { getNextDocumentNumber } from '@/lib/documentNumbering'
+import { getNextDocumentNumber } from '@/lib/shared/documents/documentSeries'
 import { prisma } from '@/lib/prisma'
 import { archiveReceipt, archiveAsync } from '@/lib/documents/DocumentArchiveService'
 

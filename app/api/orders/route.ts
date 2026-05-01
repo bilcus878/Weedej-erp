@@ -17,7 +17,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
-import { getNextDocumentNumber } from '@/lib/documentNumbering'
+import { getNextDocumentNumber } from '@/lib/shared/documents/documentSeries'
 import { createIssuedInvoiceFromCustomerOrder } from '@/lib/createIssuedInvoice'
 import { verifyApiKey, corsHeaders, handleOptions } from '@/lib/apiKeyAuth'
 import { createReservations } from '@/lib/reservationManagement'

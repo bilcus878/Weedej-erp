@@ -15,7 +15,7 @@
  */
 
 import { Prisma }          from '@prisma/client'
-import { calculateLineVat, calculateVatSummary, round2 } from '@/lib/vatCalculation'
+import { calculateLineVat, calculateVatSummary, round2 } from '@/lib/shared/finance/vatCalculation'
 import { ReturnValidationError } from './ReturnValidationService'
 
 const TOLERANCE_CZK = 0.01
