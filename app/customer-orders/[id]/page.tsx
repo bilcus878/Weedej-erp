@@ -2,25 +2,32 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ShoppingCart, RefreshCw } from 'lucide-react'
+import { RefreshCw } from 'lucide-react'
 import { LoadingState } from '@/components/erp'
 import { ERPDetailPageLayout } from '@/components/erp/detail'
-import { CustomerOrderDetail, DetailActionFooter } from '@/components/erp'
-import { useNavbarMeta } from '@/components/erp/navbar/NavbarMetaContext'
-import { useCompanySettings } from '@/components/erp/hooks/useCompanySettings'
+import { useNavbarMeta }       from '@/components/erp/navbar/NavbarMetaContext'
+import { useCompanySettings }  from '@/components/erp/hooks/useCompanySettings'
 import {
   useCustomerOrderDetail,
   useCustomerOrderActions,
   CustomerOrderStatusBadge,
   mapCustomerOrderToOrderDetail,
+  OrderCustomerSection,
+  OrderSummarySection,
+  OrderShippingSection,
+  OrderItemsSection,
+  OrderStornoSection,
+  OrderActionsCard,
+  OrderTimelineCard,
+  OrderOverviewCard,
 } from '@/features/customer-orders'
 
 export const dynamic = 'force-dynamic'
 
-const BREADCRUMBS = [{ label: 'Objednávky', href: '/customer-orders' }]
+const BASE_CRUMBS = [{ label: 'Objednávky', href: '/customer-orders' }]
 
 export default function CustomerOrderDetailPage({ params }: { params: { id: string } }) {
-  const router  = useRouter()
+  const router = useRouter()
   const { order, loading, error, refresh } = useCustomerOrderDetail(params.id)
   const { isVatPayer }   = useCompanySettings()
   const { handleMarkPaid, handleUpdateStatus, handlePrintPDF } = useCustomerOrderActions(refresh)
@@ -30,31 +37,16 @@ export default function CustomerOrderDetailPage({ params }: { params: { id: stri
     if (order) setMeta({ subTitle: order.orderNumber, pageTitleOnClick: () => router.push('/customer-orders') })
   }, [order?.orderNumber]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const breadcrumbs = order
-    ? [...BREADCRUMBS, { label: order.orderNumber }]
-    : [...BREADCRUMBS, { label: '...' }]
+  const breadcrumbs = [...BASE_CRUMBS, { label: order?.orderNumber ?? '…' }]
 
-  if (error === 'not_found') {
-    return (
-      <ERPDetailPageLayout breadcrumbs={breadcrumbs} title="Objednávka nenalezena" notFound />
-    )
-  }
-
-  if (error) {
-    return (
-      <ERPDetailPageLayout breadcrumbs={breadcrumbs} title="Chyba" error={error} />
-    )
-  }
-
-  if (loading || !order) {
-    return (
-      <ERPDetailPageLayout breadcrumbs={breadcrumbs} title="Načítání..." isLoading />
-    )
-  }
+  if (error === 'not_found') return <ERPDetailPageLayout breadcrumbs={breadcrumbs} title="Objednávka nenalezena" notFound />
+  if (error)                 return <ERPDetailPageLayout breadcrumbs={breadcrumbs} title="Chyba" error={error} />
+  if (loading || !order)     return <ERPDetailPageLayout breadcrumbs={breadcrumbs} title="Načítání…" isLoading />
 
   const mapped              = mapCustomerOrderToOrderDetail(order)
   const isCancelled         = ['cancelled', 'storno'].includes(order.status)
   const hasActiveDeliveryNote = mapped.deliveryNotes?.some(dn => dn.status === 'active') ?? false
+  const hasShipping           = !!(order.shippingMethod || order.pickupPointId)
 
   return (
     <ERPDetailPageLayout
@@ -65,39 +57,44 @@ export default function CustomerOrderDetailPage({ params }: { params: { id: stri
       actions={
         <button
           onClick={refresh}
-          className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-gray-400"
           title="Obnovit"
+          className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-gray-400"
         >
           <RefreshCw className="w-4 h-4" />
         </button>
       }
+      sidebar={
+        <div className="space-y-4">
+          <OrderActionsCard
+            order={order}
+            hasActiveDeliveryNote={hasActiveDeliveryNote}
+            onMarkPaid={handleMarkPaid}
+            onUpdateStatus={handleUpdateStatus}
+            onPrintPDF={handlePrintPDF}
+          />
+          <OrderTimelineCard order={mapped} />
+          <OrderOverviewCard order={mapped} />
+        </div>
+      }
     >
-      <CustomerOrderDetail
-        order={mapped}
-        isVatPayer={isVatPayer}
-        onRefresh={refresh}
-      />
+      {/* Customer info + Order summary — 2 cols on sm+ */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <OrderCustomerSection order={mapped} />
+        <OrderSummarySection  order={mapped} isVatPayer={isVatPayer} />
+      </div>
 
-      <DetailActionFooter
-        flow="outgoing"
-        onPrintPdf={() => handlePrintPDF(order)}
-        showInventory={!isCancelled && (order.status === 'paid' || order.status === 'processing') && !hasActiveDeliveryNote}
-        showDelivered={!isCancelled && order.status === 'shipped'}
-        onDelivered={() => handleUpdateStatus(order.id, 'delivered')}
-        extraLeft={
-          order.status === 'new' ? (
-            <button
-              onClick={() => handleMarkPaid(order.id)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold rounded-lg transition-colors"
-            >
-              <ShoppingCart className="w-3.5 h-3.5" />
-              Zaplaceno
-            </button>
-          ) : undefined
-        }
-        showStorno={!isCancelled}
-        onStorno={() => handleUpdateStatus(order.id, 'cancelled')}
-      />
+      {/* Shipping — only when the order has delivery data */}
+      {hasShipping && (
+        <OrderShippingSection order={mapped} onRefresh={refresh} />
+      )}
+
+      {/* Storno info — only for cancelled orders */}
+      {isCancelled && (
+        <OrderStornoSection order={mapped} />
+      )}
+
+      {/* Items table */}
+      <OrderItemsSection order={mapped} isVatPayer={isVatPayer} />
     </ERPDetailPageLayout>
   )
 }
