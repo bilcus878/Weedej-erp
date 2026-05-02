@@ -17,12 +17,26 @@ export async function GET(
       include: {
         customer: true,
         transaction: true,
-        items: {
+        issuedInvoice: {
+          select: {
+            id: true, invoiceNumber: true, paymentType: true,
+            paymentStatus: true, status: true, invoiceDate: true, dueDate: true,
+          },
+        },
+        customerOrder: {
           include: {
-            product: true
-          }
-        }
-      }
+            items: true,
+            issuedInvoice: {
+              select: {
+                id: true, invoiceNumber: true, paymentType: true, paymentStatus: true,
+                status: true, invoiceDate: true, dueDate: true,
+                variableSymbol: true, constantSymbol: true, specificSymbol: true,
+              },
+            },
+          },
+        },
+        items: { include: { product: true } },
+      },
     })
 
     if (!deliveryNote) {

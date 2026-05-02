@@ -11,15 +11,14 @@ export { PartySection }         from './detail/PartySection'
 export { ItemsTable }           from './detail/ItemsTable'
 export type { ErpItem }         from './detail/ItemsTable'
 
-// ── CustomerOrderDetail ──────────────────────────────────────────────────────
-export { CustomerOrderDetail }  from './detail/CustomerOrderDetail'
+// ── Order detail types ───────────────────────────────────────────────────────
 export type {
   OrderDetailData,
   OrderDetailItem,
   OrderDetailInvoice,
   OrderDetailDeliveryNote,
   OrderDetailDeliveryNoteItem,
-} from './detail/CustomerOrderDetail'
+} from './detail/OrderDetailTypes'
 
 // ── SupplierOrderDetail ──────────────────────────────────────────────────────
 export { SupplierOrderDetail }  from './detail/SupplierOrderDetail'

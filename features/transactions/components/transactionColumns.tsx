@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { formatDateTime } from '@/lib/shared/dates/format'
 import { formatPrice } from '@/lib/shared/finance/money'
 import type { ColumnDef, SelectOption, FiltersResult } from '@/components/erp'
@@ -23,7 +24,15 @@ export function createTransactionColumns(filters: FiltersResult<Transaction>): C
     {
       key: 'code', header: 'Číslo',
       filterNode: <FilterInput className="w-full text-center" value={v['code'] ?? ''} onChange={val => s('code', val)} placeholder="SUP..." />,
-      render: r => <p className="text-sm font-bold text-gray-700">{r.transactionCode}</p>,
+      render: r => (
+        <Link
+          href={`/transactions/${r.id}`}
+          className={`text-sm font-bold text-violet-600 hover:underline font-mono ${r.status === 'storno' ? 'line-through' : ''}`}
+          onClick={e => e.stopPropagation()}
+        >
+          {r.transactionCode}
+        </Link>
+      ),
     },
     {
       key: 'date', header: 'Datum',

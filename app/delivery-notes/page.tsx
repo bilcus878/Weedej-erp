@@ -2,15 +2,15 @@
 
 import { useRef, useMemo, useEffect } from 'react'
 import { Package } from 'lucide-react'
-import { EntityPage, LoadingState, ErrorState, DetailActionFooter, CustomerOrderDetail } from '@/components/erp'
+import { EntityPage, LoadingState, ErrorState } from '@/components/erp'
 import { useCompanySettings } from '@/components/erp/hooks/useCompanySettings'
 import { ExpectedOrdersButton } from '@/components/erp/widgets/ExpectedOrdersButton'
 import { useNavbarMeta } from '@/components/erp/navbar/NavbarMetaContext'
 import { useToast } from '@/components/ui/useToast'
 import { Toast } from '@/components/ui/Toast'
 import {
-  useDeliveryNotes, useDeliveryNoteActions, useShipmentProcessing,
-  createDeliveryNoteColumns, ProcessShipmentModal, mapDeliveryNoteToOrderDetail,
+  useDeliveryNotes, useShipmentProcessing,
+  createDeliveryNoteColumns, ProcessShipmentModal,
 } from '@/features/delivery-notes'
 
 export const dynamic = 'force-dynamic'
@@ -19,7 +19,6 @@ export default function DeliveryNotesPage() {
   const { isVatPayer }    = useCompanySettings()
   const { toast, showToast } = useToast()
   const { ep, filters }   = useDeliveryNotes()
-  const actions    = useDeliveryNoteActions(ep.rows, isVatPayer, showToast, ep.refresh)
   const processing = useShipmentProcessing(showToast, ep.refresh)
   const { setMeta } = useNavbarMeta()
 
@@ -74,39 +73,8 @@ export default function DeliveryNotesPage() {
         columns={createDeliveryNoteColumns(filters, isVatPayer, customerSuggestions)}
         rows={ep.paginated}
         getRowId={r => r.id}
-        expanded={ep.expanded}
-        onToggle={ep.toggleExpand}
         onClearFilters={filters.clear}
         rowClassName={r => r.status === 'storno' ? 'bg-red-50 opacity-70' : ''}
-        renderDetail={note => {
-          const orderHref = note.customerOrder
-            ? `/${note.customerOrder.orderNumber?.startsWith('ESH') ? 'eshop-orders' : 'customer-orders'}?highlight=${note.customerOrder.id}`
-            : undefined
-          return (
-            <>
-              <CustomerOrderDetail
-                order={mapDeliveryNoteToOrderDetail(note, isVatPayer)}
-                isVatPayer={isVatPayer}
-                orderHref={orderHref}
-                showDeliveryNotes={false}
-                disableTrackingEdit={true}
-              />
-              {note.note && (
-                <div className="border border-gray-200 rounded-lg overflow-hidden">
-                  <h4 className="font-bold text-base text-gray-900 px-4 py-3 bg-gray-100 border-b border-gray-200">Poznámka</h4>
-                  <div className="px-4 py-3 text-sm text-gray-700 bg-white">{note.note}</div>
-                </div>
-              )}
-              <DetailActionFooter
-                flow="outgoing"
-                onPrintPdf={() => actions.handleDownloadPDF(note.id)}
-                showStorno={note.status !== 'storno'}
-                onStorno={() => actions.handleStorno(note.id)}
-                stornoLabel="Stornovat"
-              />
-            </>
-          )
-        }}
       />
 
       <EntityPage.Pagination page={ep.page} total={ep.totalPages} onChange={ep.setPage} />

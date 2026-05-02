@@ -9,7 +9,8 @@ export { mapInvoiceToOrderDetail } from './domain/invoiceMapper'
 export { fetchIssuedInvoices, fetchCreditNotes, stornoInvoice, createCreditNote } from './services/issuedInvoiceService'
 
 // Hooks (client-only)
-export { useIssuedInvoices } from './hooks/useIssuedInvoices'
+export { useIssuedInvoices }       from './hooks/useIssuedInvoices'
+export { useIssuedInvoiceDetail }  from './hooks/useIssuedInvoiceDetail'
 export { useCreditNotes }    from './hooks/useCreditNotes'
 export { useInvoiceActions } from './hooks/useInvoiceActions'
 

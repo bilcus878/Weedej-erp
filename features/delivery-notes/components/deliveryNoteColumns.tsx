@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { formatDate } from '@/lib/shared/dates/format'
 import { formatPrice } from '@/lib/shared/finance/money'
 import { isNonVatPayer, DEFAULT_VAT_RATE } from '@/lib/shared/finance/vatCalculation'
@@ -28,9 +29,13 @@ export function createDeliveryNoteColumns(
       key: 'number', header: 'Číslo',
       filterNode: <FilterInput className="w-full text-center" value={v['number'] ?? ''} onChange={val => s('number', val)} placeholder="Číslo..." />,
       render: r => (
-        <p className={`text-sm font-semibold text-gray-900 truncate ${r.status === 'storno' ? 'line-through' : ''}`}>
+        <Link
+          href={`/delivery-notes/${r.id}`}
+          className={`text-sm font-semibold text-violet-600 hover:underline font-mono truncate block ${r.status === 'storno' ? 'line-through' : ''}`}
+          onClick={e => e.stopPropagation()}
+        >
           {r.deliveryNumber}
-        </p>
+        </Link>
       ),
     },
     {

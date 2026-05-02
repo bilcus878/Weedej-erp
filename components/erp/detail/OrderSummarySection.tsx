@@ -5,7 +5,7 @@ import Link      from 'next/link'
 import { CreditCard, ExternalLink } from 'lucide-react'
 import { formatPrice } from '@/lib/shared/finance/money'
 import { ERPSectionCard, ERPDetailRow } from './ERPSectionCard'
-import type { OrderDetailData } from './CustomerOrderDetail'
+import type { OrderDetailData } from './OrderDetailTypes'
 
 // ── Payment helpers ───────────────────────────────────────────────────────────
 

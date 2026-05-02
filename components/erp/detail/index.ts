@@ -1,3 +1,10 @@
+export type {
+  OrderDetailData,
+  OrderDetailItem,
+  OrderDetailInvoice,
+  OrderDetailDeliveryNote,
+  OrderDetailDeliveryNoteItem,
+} from './OrderDetailTypes'
 export { ERPDetailPageLayout }        from './ERPDetailPageLayout'
 export type { BreadcrumbItem }        from './ERPDetailPageLayout'
 export { ERPSectionCard, ERPDetailRow, ERPDetailGrid } from './ERPSectionCard'

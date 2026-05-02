@@ -2,19 +2,18 @@
 
 import { Globe } from 'lucide-react'
 import Button from '@/components/ui/Button'
-import { EntityPage, LoadingState, ErrorState, CustomerOrderDetail, DetailActionFooter, EmptyState } from '@/components/erp'
+import { EntityPage, LoadingState, ErrorState, EmptyState } from '@/components/erp'
 import { useCompanySettings } from '@/components/erp/hooks/useCompanySettings'
 import {
-  useEshopOrders, useEshopOrderActions,
-  createEshopOrderColumns, mapEshopOrderToOrderDetail,
+  useEshopOrders,
+  createEshopOrderColumns,
 } from '@/features/eshop-orders'
 
 export const dynamic = 'force-dynamic'
 
 export default function EshopOrdersPage() {
-  const { ep, filters }                                      = useEshopOrders()
-  const { isVatPayer }                                       = useCompanySettings()
-  const { processingId, handleUpdateStatus, handlePrintPDF } = useEshopOrderActions(ep.refresh)
+  const { ep, filters } = useEshopOrders()
+  const { isVatPayer }  = useCompanySettings()
 
   if (ep.loading) return <LoadingState message="Načítání eshop objednávek..." />
   if (ep.error)   return <ErrorState message={ep.error} onRetry={ep.refresh} />
@@ -36,8 +35,6 @@ export default function EshopOrdersPage() {
         columns={columns}
         rows={ep.paginated}
         getRowId={r => r.id}
-        expanded={ep.expanded}
-        onToggle={ep.toggleExpand}
         onClearFilters={filters.clear}
         rowClassName={r => ['cancelled', 'storno'].includes(r.status) ? 'opacity-60' : ''}
         empty={
@@ -51,28 +48,6 @@ export default function EshopOrdersPage() {
               : undefined}
           />
         }
-        renderDetail={rawOrder => {
-          const order = mapEshopOrderToOrderDetail(rawOrder)
-          const hasActiveDeliveryNote = order.deliveryNotes?.some(dn => dn.status === 'active') ?? false
-          const isProcessing = processingId === rawOrder.id
-          return (
-            <>
-              <CustomerOrderDetail
-                order={order}
-                isVatPayer={isVatPayer}
-                onRefresh={ep.refresh}
-              />
-              <DetailActionFooter
-                flow="outgoing"
-                onPrintPdf={() => handlePrintPDF(rawOrder)}
-                showInventory={(order.status === 'paid' || order.status === 'processing') && !hasActiveDeliveryNote}
-                showDelivered={order.status === 'shipped'}
-                onDelivered={() => handleUpdateStatus(rawOrder.id, 'delivered')}
-                processingStatus={isProcessing}
-              />
-            </>
-          )
-        }}
       />
 
       <EntityPage.Pagination page={ep.page} total={ep.totalPages} onChange={ep.setPage} />

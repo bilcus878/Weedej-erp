@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { formatPrice } from '@/lib/shared/finance/money'
 import type { ColumnDef, SelectOption, FiltersResult } from '@/components/erp'
 import { FilterInput, FilterSelect, FilterCombobox } from '@/components/erp'
@@ -23,9 +24,13 @@ export function createCreditNoteColumns(
       key: 'number', header: 'Číslo',
       filterNode: <FilterInput className="w-full text-center" value={v['number'] ?? ''} onChange={val => s('number', val)} placeholder="Číslo..." />,
       render: r => (
-        <p className={`text-sm font-semibold text-gray-900 truncate ${r.status === 'storno' ? 'line-through' : ''}`}>
+        <Link
+          href={`/credit-notes/${r.id}`}
+          className={`text-sm font-semibold text-violet-600 hover:underline font-mono truncate block ${r.status === 'storno' ? 'line-through' : ''}`}
+          onClick={e => e.stopPropagation()}
+        >
           {r.creditNoteNumber}
-        </p>
+        </Link>
       ),
     },
     {

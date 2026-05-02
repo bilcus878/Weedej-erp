@@ -1,4 +1,5 @@
 export { useEshopOrders }          from './hooks/useEshopOrders'
+export { useEshopOrderDetail }     from './hooks/useEshopOrderDetail'
 export { useEshopOrderActions }    from './hooks/useEshopOrderActions'
 export { createEshopOrderColumns } from './components/eshopOrderColumns'
 export { EshopOrderStatusBadge }   from './components/EshopOrderStatusBadge'

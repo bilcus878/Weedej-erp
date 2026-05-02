@@ -1,5 +1,12 @@
 import type { IssuedInvoice, CreditNoteData, CreditNoteFormItem } from '../types'
 
+export async function fetchIssuedInvoice(id: string): Promise<IssuedInvoice> {
+  const res = await fetch(`/api/issued-invoices/${id}`)
+  if (res.status === 404) throw new Error('not_found')
+  if (!res.ok) throw new Error('Nepodařilo se načíst fakturu')
+  return res.json()
+}
+
 export async function fetchIssuedInvoices(): Promise<IssuedInvoice[]> {
   const res = await fetch('/api/issued-invoices')
   if (!res.ok) throw new Error('Nepodařilo se načíst faktury')

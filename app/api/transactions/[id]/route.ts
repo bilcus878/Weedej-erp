@@ -6,6 +6,34 @@ import { prisma } from '@/lib/platform/db/prisma'
 
 export const dynamic = 'force-dynamic'
 
+// GET /api/transactions/[id] - Načíst detail transakce
+export async function GET(
+  _req: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const tx = await prisma.transaction.findUnique({
+      where: { id: params.id },
+      include: {
+        items: { include: { product: true } },
+        customer: true,
+        issuedInvoice: { select: { id: true, invoiceNumber: true } },
+        deliveryNote: {
+          include: {
+            items: true,
+            customerOrder: { include: { customer: true } },
+          },
+        },
+      },
+    })
+    if (!tx) return NextResponse.json({ error: 'Transakce nenalezena' }, { status: 404 })
+    return NextResponse.json(tx)
+  } catch (error) {
+    console.error('Chyba při načítání transakce:', error)
+    return NextResponse.json({ error: 'Nepodařilo se načíst transakci' }, { status: 500 })
+  }
+}
+
 // PATCH /api/transactions/[id] - Aktualizovat transakci (doplnit položky)
 export async function PATCH(
   request: Request,

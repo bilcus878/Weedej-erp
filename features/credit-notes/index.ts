@@ -1,4 +1,5 @@
-export { useCreditNotes }       from './hooks/useCreditNotes'
+export { useCreditNotes }          from './hooks/useCreditNotes'
+export { useCreditNoteDetail }     from './hooks/useCreditNoteDetail'
 export { useCreditNoteActions } from './hooks/useCreditNoteActions'
 export { createCreditNoteColumns } from './components/creditNoteColumns'
 export { mapCreditNoteToOrderDetail } from './domain/creditNoteMapper'

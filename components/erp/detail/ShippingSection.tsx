@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Truck, Package, MapPin, ExternalLink } from 'lucide-react'
 import { ERPSectionCard, ERPDetailRow } from './ERPSectionCard'
-import type { OrderDetailData } from './CustomerOrderDetail'
+import type { OrderDetailData } from './OrderDetailTypes'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

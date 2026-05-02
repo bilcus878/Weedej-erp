@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { formatDate } from '@/lib/shared/dates/format'
 import { formatPrice } from '@/lib/shared/finance/money'
 import type { ColumnDef, SelectOption, FiltersResult } from '@/components/erp'
@@ -29,9 +30,13 @@ export function createEshopOrderColumns(
       key: 'number', header: 'Číslo',
       filterNode: <FilterInput className="w-full text-center" value={v['number'] ?? ''} onChange={val => s('number', val)} placeholder="ESH..." />,
       render: r => (
-        <p className={`text-sm font-bold text-gray-700 ${['cancelled', 'storno'].includes(r.status) ? 'line-through' : ''}`}>
+        <Link
+          href={`/eshop-orders/${r.id}`}
+          className={`text-sm font-bold text-violet-600 hover:underline font-mono ${['cancelled', 'storno'].includes(r.status) ? 'line-through' : ''}`}
+          onClick={e => e.stopPropagation()}
+        >
           {r.orderNumber}
-        </p>
+        </Link>
       ),
     },
     {

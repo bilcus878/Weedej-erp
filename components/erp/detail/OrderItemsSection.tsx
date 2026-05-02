@@ -5,7 +5,7 @@ import { Package } from 'lucide-react'
 import { formatPrice } from '@/lib/shared/finance/money'
 import { formatVariantQty } from '@/lib/shared/inventory/formatVariantQty'
 import { ERPSectionCard } from './ERPSectionCard'
-import type { OrderDetailData } from './CustomerOrderDetail'
+import type { OrderDetailData } from './OrderDetailTypes'
 
 // ── Component ─────────────────────────────────────────────────────────────────
 

@@ -1,3 +1,47 @@
+// GET /api/eshop-orders/[id]
+export async function GET(
+  _req: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const order = await prisma.customerOrder.findFirst({
+      where: { id: params.id, source: 'eshop' },
+      include: {
+        items: {
+          include: { product: { select: { id: true, name: true, price: true, unit: true } } },
+          orderBy: { createdAt: 'asc' },
+        },
+        issuedInvoice: {
+          select: {
+            id: true, invoiceNumber: true, paymentType: true, paymentStatus: true,
+            status: true, invoiceDate: true, dueDate: true,
+            variableSymbol: true, constantSymbol: true, specificSymbol: true,
+          },
+        },
+        EshopUser: { select: { id: true, email: true, name: true, phone: true } },
+        deliveryNotes: {
+          select: {
+            id: true, deliveryNumber: true, deliveryDate: true, status: true, processedAt: true,
+            items: {
+              select: {
+                id: true, quantity: true, unit: true, productId: true, productName: true,
+                inventoryItemId: true, price: true, priceWithVat: true, vatRate: true, vatAmount: true,
+                product: { select: { id: true, name: true, price: true } },
+              },
+            },
+          },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+    })
+    if (!order) return NextResponse.json({ error: 'Objednávka nenalezena' }, { status: 404 })
+    return NextResponse.json(order)
+  } catch (error) {
+    console.error('[EshopOrders] Chyba při načítání objednávky:', error)
+    return NextResponse.json({ error: 'Nepodařilo se načíst objednávku' }, { status: 500 })
+  }
+}
+
 // PATCH /api/eshop-orders/[id]
 // Aktualizace statusu eshop objednávky (shipped, delivered, cancelled)
 //
