@@ -1,18 +1,11 @@
 'use client'
 
 import { useMemo } from 'react'
-import { FileText, FileEdit } from 'lucide-react'
-import { EntityPage, LoadingState, ErrorState, DetailActionFooter } from '@/components/erp'
-import {
-  SupplierContactSection,
-  StornoSection,
-  PurchaseItemsSection,
-  LinkedReceiptsSection,
-} from '@/components/erp/detail'
+import { FileText } from 'lucide-react'
+import { EntityPage, LoadingState, ErrorState } from '@/components/erp'
 import { useCompanySettings } from '@/components/erp/hooks/useCompanySettings'
 import {
-  useReceivedInvoices, useReceivedInvoiceActions, createReceivedInvoiceColumns,
-  InvoiceDiscountWidget, CompleteInvoiceForm, mapInvoiceToSupplierDetail,
+  useReceivedInvoices, createReceivedInvoiceColumns,
 } from '@/features/invoices-received'
 
 export const dynamic = 'force-dynamic'
@@ -20,164 +13,39 @@ export const dynamic = 'force-dynamic'
 export default function ReceivedInvoicesPage() {
   const { ep, filters, suppliers } = useReceivedInvoices()
   const { isVatPayer }              = useCompanySettings()
-  const actions = useReceivedInvoiceActions(ep.rows, ep.refresh)
 
   const supplierSuggestions = useMemo(() => {
     const names = ep.rows.map(r => r.supplierName || r.purchaseOrder?.supplierName || '').filter(Boolean)
     return [...new Set(names)].sort() as string[]
   }, [ep.rows])
 
-  const columns = createReceivedInvoiceColumns(filters, suppliers, supplierSuggestions)
-
   if (ep.loading) return <LoadingState />
   if (ep.error)   return <ErrorState message={ep.error} onRetry={ep.refresh} />
 
   return (
-    <>
-      <EntityPage highlightId={ep.highlightId}>
-        <EntityPage.Header
-          title="Přijaté faktury"
-          icon={FileText}
-          color="amber"
-          total={ep.rows.length}
-          filtered={ep.filtered.length}
-          onRefresh={ep.refresh}
-        />
-
-        <EntityPage.Table
-          columns={columns}
-          rows={ep.paginated}
-          getRowId={r => r.id}
-          expanded={ep.expanded}
-          onToggle={ep.toggleExpand}
-          onClearFilters={filters.clear}
-          rowClassName={r =>
-            r.isTemporary && r.status !== 'storno' ? 'border-orange-400 bg-orange-50'
-            : r.status === 'storno' ? 'bg-red-50 opacity-70'
-            : ''
-          }
-          renderDetail={inv => {
-            const mapped = mapInvoiceToSupplierDetail(inv)
-            const inventoryLookup: Record<string, string> = {}
-            for (const receipt of mapped.receipts ?? []) {
-              for (const item of receipt.items) {
-                if (item.productId && item.inventoryItemId) {
-                  inventoryLookup[item.productId] = item.inventoryItemId
-                }
-              }
-            }
-            return (
-              <>
-                <div className="mt-3 space-y-3">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <SupplierContactSection
-                      name={mapped.supplierName}
-                      email={mapped.supplierEmail}
-                      phone={mapped.supplierPhone}
-                      address={mapped.supplierAddress}
-                      contactPerson={mapped.supplierContactPerson}
-                      entityType={mapped.supplierEntityType}
-                      ico={mapped.supplierICO}
-                      dic={mapped.supplierDIC}
-                      bankAccount={mapped.supplierBankAccount}
-                      website={mapped.supplierWebsite}
-                    />
-                    {inv.purchaseOrder && (
-                      <div className="pt-2">
-                        <a href={`/purchase-orders/${inv.purchaseOrder.id}`} className="text-xs text-indigo-600 hover:underline">
-                          → Objednávka {inv.purchaseOrder.orderNumber}
-                        </a>
-                      </div>
-                    )}
-                  </div>
-
-                  {mapped.stornoAt && (
-                    <StornoSection stornoAt={mapped.stornoAt} stornoReason={mapped.stornoReason} />
-                  )}
-
-                  {mapped.items.length > 0 && (
-                    <PurchaseItemsSection
-                      items={mapped.items}
-                      isVatPayer={isVatPayer}
-                      inventoryLookup={inventoryLookup}
-                      discountAmount={mapped.discountAmount}
-                      totalAmount={mapped.totalAmount}
-                    />
-                  )}
-
-                  {(mapped.receipts?.length ?? 0) > 0 && (
-                    <LinkedReceiptsSection receipts={mapped.receipts!} />
-                  )}
-                </div>
-
-                {inv.status !== 'storno' && !inv.discountAmount && (inv.purchaseOrder?.items?.length ?? 0) > 0 && (
-                  <InvoiceDiscountWidget invoice={inv} onApplyDiscount={actions.handleApplyDiscount} />
-                )}
-
-                {inv.status !== 'storno' && (
-                  <DetailActionFooter
-                    flow="incoming"
-                    showInventory={inv.status !== 'received' && !!inv.purchaseOrder}
-                    showStorno={true}
-                    onStorno={() => actions.handleStorno(inv.id)}
-                    stornoLabel="Stornovat"
-                    extraLeft={
-                      <>
-                        <button
-                          onClick={() => actions.handleOpenDetailsModal(inv)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium rounded-lg transition-colors"
-                        >
-                          <FileEdit className="w-3.5 h-3.5" />
-                          Doplnit fakturu
-                        </button>
-                        <button
-                          onClick={() => actions.handleDownloadPDF(inv.id)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-medium rounded-lg transition-colors"
-                        >
-                          <FileText className="w-3.5 h-3.5" />
-                          Stáhnout PDF
-                        </button>
-                        {inv.attachmentUrl ? (
-                          <a
-                            href={`/api/received-invoices/${inv.id}/attachment`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-lg transition-colors"
-                          >
-                            <FileText className="w-3.5 h-3.5" />
-                            Zobrazit přílohu
-                          </a>
-                        ) : (
-                          <label className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white text-xs font-medium rounded-lg transition-colors cursor-pointer">
-                            <FileText className="w-3.5 h-3.5" />
-                            Nahrát přílohu
-                            <input
-                              type="file"
-                              accept="image/*,application/pdf"
-                              className="hidden"
-                              onChange={e => actions.handleFileUpload(e, inv.id)}
-                            />
-                          </label>
-                        )}
-                      </>
-                    }
-                  />
-                )}
-              </>
-            )
-          }}
-        />
-
-        <EntityPage.Pagination page={ep.page} total={ep.totalPages} onChange={ep.setPage} />
-      </EntityPage>
-
-      <CompleteInvoiceForm
-        invoice={actions.selectedInvoice}
-        open={actions.showDetailsModal}
-        onClose={actions.handleCloseDetailsModal}
-        onSuccess={ep.refresh}
-        isVatPayer={isVatPayer}
+    <EntityPage highlightId={ep.highlightId}>
+      <EntityPage.Header
+        title="Přijaté faktury"
+        icon={FileText}
+        color="amber"
+        total={ep.rows.length}
+        filtered={ep.filtered.length}
+        onRefresh={ep.refresh}
       />
-    </>
+
+      <EntityPage.Table
+        columns={createReceivedInvoiceColumns(filters, suppliers, supplierSuggestions)}
+        rows={ep.paginated}
+        getRowId={r => r.id}
+        onClearFilters={filters.clear}
+        rowClassName={r =>
+          r.isTemporary && r.status !== 'storno' ? 'border-orange-400 bg-orange-50'
+          : r.status === 'storno' ? 'bg-red-50 opacity-70'
+          : ''
+        }
+      />
+
+      <EntityPage.Pagination page={ep.page} total={ep.totalPages} onChange={ep.setPage} />
+    </EntityPage>
   )
 }

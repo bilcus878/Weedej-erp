@@ -12,16 +12,21 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const invoice = await prisma.transaction.findUnique({
+    const invoice = await prisma.receivedInvoice.findUnique({
       where: { id: params.id },
       include: {
-        items: {
+        receipts: {
           include: {
-            product: true,
+            supplier: true,
+            items: { include: { product: true } },
           },
         },
-        supplier: true,
-        inventoryItems: true,
+        purchaseOrder: {
+          include: {
+            supplier: true,
+            items: { include: { product: true } },
+          },
+        },
       },
     })
 
@@ -32,7 +37,12 @@ export async function GET(
       )
     }
 
-    return NextResponse.json(invoice)
+    const result = {
+      ...invoice,
+      status: invoice.purchaseOrder?.status || invoice.status,
+    }
+
+    return NextResponse.json(result)
   } catch (error) {
     console.error('Chyba při načítání faktury:', error)
     return NextResponse.json(

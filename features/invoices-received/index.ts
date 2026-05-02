@@ -1,4 +1,5 @@
 export { useReceivedInvoices } from './hooks/useReceivedInvoices'
+export { useReceivedInvoiceDetail } from './hooks/useReceivedInvoiceDetail'
 export { useReceivedInvoiceActions } from './hooks/useReceivedInvoiceActions'
 export { createReceivedInvoiceColumns } from './components/receivedInvoiceColumns'
 export { ReceivedInvoiceStatusBadge } from './components/ReceivedInvoiceStatusBadge'

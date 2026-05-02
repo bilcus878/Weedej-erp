@@ -1,5 +1,11 @@
 import type { ReceivedInvoice, Supplier, CompleteInvoicePayload } from '../types'
 
+export async function fetchReceivedInvoice(id: string): Promise<ReceivedInvoice> {
+  const res = await fetch(`/api/invoices/received/${id}`, { cache: 'no-store' })
+  if (!res.ok) throw new Error('Nepodařilo se načíst fakturu')
+  return res.json()
+}
+
 export async function fetchReceivedInvoices(): Promise<ReceivedInvoice[]> {
   const res = await fetch('/api/invoices/received')
   if (!res.ok) throw new Error('Nepodařilo se načíst přijaté faktury')

@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import type { ColumnDef, SelectOption, FiltersResult } from '@/components/erp'
 import { FilterInput, FilterSelect, FilterCombobox } from '@/components/erp'
 import { PAYMENT_OPTIONS } from '@/features/shared/paymentOptions'
@@ -30,9 +31,13 @@ export function createReceivedInvoiceColumns(
       filterNode: <FilterInput className="w-full text-center" value={v['number'] ?? ''} onChange={val => s('number', val)} placeholder="Číslo..." />,
       render: r => (
         <div>
-          <p className={`text-sm font-semibold text-gray-900 truncate ${r.status === 'storno' ? 'line-through' : ''}`}>
+          <Link
+            href={`/invoices/received/${r.id}`}
+            onClick={e => e.stopPropagation()}
+            className={`text-sm font-semibold font-mono text-indigo-600 hover:underline truncate ${r.status === 'storno' ? 'line-through' : ''}`}
+          >
             {r.invoiceNumber}
-          </p>
+          </Link>
           {r.isTemporary && r.status !== 'storno' && (
             <p className="text-xs text-orange-600 mt-0.5">Doplň údaje o faktuře</p>
           )}
