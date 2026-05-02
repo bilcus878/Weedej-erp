@@ -57,7 +57,7 @@ export default function DeliveryNotesPage() {
           buttonLabel="Očekávaný výdej"
           align="right"
           searchPlaceholder="Hledat číslo obj. nebo odběratel..."
-          autoOpen={processing.pendingOrders.length > 0}
+          autoOpen={processing.pendingOrders.length > 0 && !autoOrderId}
           onAction={id => handlePrepareShipmentRef.current(id)}
         />
       ),
