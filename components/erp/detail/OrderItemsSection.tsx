@@ -64,7 +64,8 @@ export function OrderItemsSection({ order, isVatPayer, title = 'Položky' }: Ord
   return (
     <ERPSectionCard title={headerTitle} icon={<Package />} className="overflow-hidden">
       {/* Override inner padding — table needs full width */}
-      <div className="-mx-5 -my-4">
+      <div className="-mx-5 -my-4 overflow-x-auto">
+        <div className="min-w-[640px]">
         {/* Header row */}
         {isVatPayer ? (
           <div className="grid grid-cols-[3fr_0.7fr_repeat(6,1fr)] gap-2 px-5 py-2.5 bg-gray-50 font-semibold text-gray-600 border-b border-gray-100 text-xs">
@@ -171,6 +172,7 @@ export function OrderItemsSection({ order, isVatPayer, title = 'Položky' }: Ord
           </div>
           <div className={isVatPayer ? 'text-center' : 'text-right'}>{formatPrice(Number(order.totalAmount))}</div>
         </div>
+        </div>{/* end min-w wrapper */}
       </div>
     </ERPSectionCard>
   )

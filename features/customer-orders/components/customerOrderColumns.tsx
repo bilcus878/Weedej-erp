@@ -6,6 +6,7 @@ import { formatDate } from '@/lib/shared/dates/format'
 import { formatPrice } from '@/lib/shared/finance/money'
 import type { ColumnDef, SelectOption, FiltersResult } from '@/components/erp'
 import { FilterInput, FilterSelect, FilterCombobox } from '@/components/erp'
+import { ERPMobileCard } from '@/components/erp/list/ERPResponsiveList'
 import { PAYMENT_OPTIONS } from '@/features/shared/paymentOptions'
 import type { CustomerOrder } from '../types'
 import { CustomerOrderStatusBadge } from './CustomerOrderStatusBadge'
@@ -98,4 +99,32 @@ export function createCustomerOrderColumns(
       render: r => <CustomerOrderStatusBadge status={r.status} />,
     },
   ]
+}
+
+// ── Mobile card ───────────────────────────────────────────────────────────────
+
+export function CustomerOrderMobileCard({
+  order,
+  onClick,
+}: {
+  order:    CustomerOrder
+  onClick?: () => void
+}) {
+  return (
+    <ERPMobileCard
+      title={
+        <span className={`font-mono font-bold text-violet-700 ${order.status === 'storno' ? 'line-through' : ''}`}>
+          {order.orderNumber}
+        </span>
+      }
+      badge={<CustomerOrderStatusBadge status={order.status} />}
+      subtitle={order.customer?.name || order.customerName || undefined}
+      fields={[
+        { label: 'Datum',   value: formatDate(order.orderDate) },
+        { label: 'Položek', value: String(order.items.length)  },
+      ]}
+      amount={formatPrice(order.totalAmount)}
+      onClick={onClick}
+    />
+  )
 }

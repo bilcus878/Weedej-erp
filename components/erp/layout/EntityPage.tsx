@@ -83,22 +83,27 @@ function Filters({ children, onClear, columns }: FiltersProps) {
 // ─── Table ───────────────────────────────────────────────────────────────────
 
 interface TableProps<T> {
-  columns:         ColumnDef<T>[]
-  rows:            T[]
-  getRowId:        (row: T) => string
-  expanded?:       Set<string>
-  onToggle?:       (id: string) => void
-  renderDetail?:   (row: T) => ReactNode
-  rowClassName?:   (row: T) => string
-  empty?:          ReactNode
-  emptyMessage?:   string
-  firstHeader?:    ReactNode
-  onClearFilters?: () => void
+  columns:          ColumnDef<T>[]
+  rows:             T[]
+  getRowId:         (row: T) => string
+  expanded?:        Set<string>
+  onToggle?:        (id: string) => void
+  renderDetail?:    (row: T) => ReactNode
+  rowClassName?:    (row: T) => string
+  empty?:           ReactNode
+  emptyMessage?:    string
+  firstHeader?:     ReactNode
+  onClearFilters?:  () => void
+  /** Navigate on row click (whole row is clickable) */
+  onRowClick?:      (row: T) => void
+  /** Mobile card renderer — shown on screens < md instead of the grid table */
+  renderMobileCard?: (row: T) => ReactNode
 }
 
 function Table<T>({
   columns, rows, getRowId, expanded, onToggle,
   renderDetail, rowClassName, empty, emptyMessage, firstHeader, onClearFilters,
+  onRowClick, renderMobileCard,
 }: TableProps<T>) {
   const { highlightId } = useContext(PageCtx)
   const gridTemplate = `auto ${columns.map(c => c.width ?? '1fr').join(' ')}`
@@ -133,16 +138,101 @@ function Table<T>({
     </div>
   )
 
+  const emptyEl = empty ?? (
+    <div className="border rounded-lg p-12 text-center">
+      <p className="text-gray-500">{emptyMessage ?? 'Žádné záznamy.'}</p>
+    </div>
+  )
+
   if (rows.length === 0) {
+    if (renderMobileCard) {
+      return (
+        <>
+          <div className="md:hidden space-y-1">
+            <div className="overflow-x-auto">{header}</div>
+            {emptyEl}
+          </div>
+          <div className="hidden md:block space-y-1">{header}{emptyEl}</div>
+        </>
+      )
+    }
     return (
       <div className="space-y-1">
         {header}
-        {empty ?? (
-          <div className="border rounded-lg p-12 text-center">
-            <p className="text-gray-500">{emptyMessage ?? 'Žádné záznamy.'}</p>
+        {emptyEl}
+      </div>
+    )
+  }
+
+  const dataRows = rows.map(row => {
+    const id          = getRowId(row)
+    const isExpanded  = expanded?.has(id) ?? false
+    const isHighlit   = highlightId === id
+    const extraClass  = rowClassName?.(row) ?? ''
+    const isClickable = !!(onToggle || onRowClick)
+
+    return (
+      <div
+        key={id}
+        id={`row-${id}`}
+        className={`border rounded-lg transition-all ${
+          isHighlit  ? 'ring-2 ring-blue-500 bg-blue-50' :
+          isExpanded ? 'ring-2 ring-blue-400' : ''
+        } ${extraClass}`}
+      >
+        {/* Summary row */}
+        <div
+          className={`grid items-center gap-4 px-4 py-3 transition-colors ${isClickable ? 'cursor-pointer hover:bg-gray-50' : ''}`}
+          style={{ gridTemplateColumns: gridTemplate }}
+          onClick={onRowClick ? () => onRowClick(row) : (onToggle ? () => onToggle(id) : undefined)}
+          role={onRowClick ? 'button' : undefined}
+          tabIndex={onRowClick ? 0 : undefined}
+          onKeyDown={onRowClick ? e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onRowClick(row) } } : undefined}
+        >
+          <div className="w-8 shrink-0">
+            {onToggle && (isExpanded
+              ? <ChevronDown  className="h-5 w-5 text-gray-400" />
+              : <ChevronRight className="h-5 w-5 text-gray-400" />
+            )}
+          </div>
+          {columns.map(col => (
+            <div
+              key={col.key}
+              className={`text-${col.align ?? 'center'} ${col.className ?? ''} min-w-0`}
+            >
+              {col.render(row)}
+            </div>
+          ))}
+        </div>
+
+        {/* Expanded detail */}
+        {isExpanded && renderDetail && (
+          <div className="border-t p-4 bg-gray-50 space-y-4">
+            {renderDetail(row)}
           </div>
         )}
       </div>
+    )
+  })
+
+  if (renderMobileCard) {
+    return (
+      <>
+        {/* ── Mobile card list (< md) ───────────────────────────────────── */}
+        <div className="md:hidden space-y-1">
+          <div className="overflow-x-auto">{header}</div>
+          <ul className="border rounded-lg divide-y divide-gray-100 bg-white mt-1">
+            {rows.map(row => (
+              <li key={getRowId(row)}>{renderMobileCard(row)}</li>
+            ))}
+          </ul>
+        </div>
+        {/* ── Desktop grid table (≥ md) ─────────────────────────────────── */}
+        <div className="hidden md:block space-y-1">
+          {header}
+          {dataRows}
+        </div>
+      </>
     )
   }
 
@@ -150,54 +240,8 @@ function Table<T>({
     <div className="space-y-1">
       {/* Header row */}
       {header}
-
       {/* Data rows */}
-      {rows.map(row => {
-        const id         = getRowId(row)
-        const isExpanded = expanded?.has(id) ?? false
-        const isHighlit  = highlightId === id
-        const extraClass = rowClassName?.(row) ?? ''
-
-        return (
-          <div
-            key={id}
-            id={`row-${id}`}
-            className={`border rounded-lg transition-all ${
-              isHighlit  ? 'ring-2 ring-blue-500 bg-blue-50' :
-              isExpanded ? 'ring-2 ring-blue-400' : ''
-            } ${extraClass}`}
-          >
-            {/* Summary row */}
-            <div
-              className={`grid items-center gap-4 px-4 py-3 transition-colors ${onToggle ? 'cursor-pointer hover:bg-gray-50' : ''}`}
-              style={{ gridTemplateColumns: gridTemplate }}
-              onClick={onToggle ? () => onToggle(id) : undefined}
-            >
-              <div className="w-8 shrink-0">
-                {onToggle && (isExpanded
-                  ? <ChevronDown  className="h-5 w-5 text-gray-400" />
-                  : <ChevronRight className="h-5 w-5 text-gray-400" />
-                )}
-              </div>
-              {columns.map(col => (
-                <div
-                  key={col.key}
-                  className={`text-${col.align ?? 'center'} ${col.className ?? ''} min-w-0`}
-                >
-                  {col.render(row)}
-                </div>
-              ))}
-            </div>
-
-            {/* Expanded detail */}
-            {isExpanded && renderDetail && (
-              <div className="border-t p-4 bg-gray-50 space-y-4">
-                {renderDetail(row)}
-              </div>
-            )}
-          </div>
-        )
-      })}
+      {dataRows}
     </div>
   )
 }

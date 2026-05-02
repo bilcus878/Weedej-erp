@@ -168,6 +168,19 @@ export default function CustomerOrderDetailPage({ params }: { params: { id: stri
       sidebar={
         <div className="space-y-4">
           <DocumentActionsCard actions={actions} />
+          <CustomerContactSection
+            name={mapped.customerName}
+            email={mapped.customerEmail}
+            phone={mapped.customerPhone}
+            company={mapped.billingCompany}
+            ico={mapped.billingIco}
+            billingName={mapped.billingName}
+            billingCompany={mapped.billingCompany}
+            billingStreet={mapped.billingStreet}
+            billingCity={mapped.billingCity}
+            billingZip={mapped.billingZip}
+            billingCountry={mapped.billingCountry}
+          />
           <StatusTimelineCard
             entries={buildTimeline(mapped)}
             statusConfig={STATUS_CONFIG}
@@ -176,23 +189,8 @@ export default function CustomerOrderDetailPage({ params }: { params: { id: stri
         </div>
       }
     >
-      {/* Customer + Summary — 2 cols on sm+ */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <CustomerContactSection
-          name={mapped.customerName}
-          email={mapped.customerEmail}
-          phone={mapped.customerPhone}
-          company={mapped.billingCompany}
-          ico={mapped.billingIco}
-          billingName={mapped.billingName}
-          billingCompany={mapped.billingCompany}
-          billingStreet={mapped.billingStreet}
-          billingCity={mapped.billingCity}
-          billingZip={mapped.billingZip}
-          billingCountry={mapped.billingCountry}
-        />
-        <OrderSummarySection order={mapped} isVatPayer={isVatPayer} />
-      </div>
+      {/* Order summary */}
+      <OrderSummarySection order={mapped} isVatPayer={isVatPayer} />
 
       {/* Shipping — only when order has delivery data */}
       {hasShipping && (
