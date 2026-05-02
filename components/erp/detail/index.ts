@@ -13,6 +13,8 @@ export { ERPActionBar }               from './ERPActionBar'
 export type { ERPAction }             from './ERPActionBar'
 export { ERPStatusTimeline, ERPStatusBadge } from './ERPStatusTimeline'
 export type { TimelineEntry }         from './ERPStatusTimeline'
+export { ERPDetailHeader }            from './ERPDetailHeader'
+export { ERPSplitButton }             from './ERPSplitButton'
 
 // ── Shared detail sections ────────────────────────────────────────────────────
 export { CustomerContactSection }     from './CustomerContactSection'

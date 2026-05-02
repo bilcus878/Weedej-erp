@@ -4,12 +4,12 @@ import { useEffect }     from 'react'
 import { useRouter }     from 'next/navigation'
 import Link              from 'next/link'
 import {
-  ArrowLeft, ShoppingCart,
+  ShoppingCart,
   User, CreditCard, Clock,
-  ExternalLink, CheckCircle, XCircle, Package, TrendingUp, Printer,
+  ExternalLink, CheckCircle, XCircle, Package, Send, Printer,
 } from 'lucide-react'
 import { LoadingState, ErrorState }                                     from '@/components/erp'
-import { ERPStatusTimeline, ERPInfoCard, ERPInfoRow }                      from '@/components/erp/detail'
+import { ERPStatusTimeline, ERPInfoCard, ERPInfoRow, ERPDetailHeader, ERPSplitButton } from '@/components/erp/detail'
 import { OrderItemsSection, ShippingSection, StornoSection }            from '@/components/erp/detail'
 import type { TimelineEntry }                                           from '@/components/erp/detail'
 import { useNavbarMeta }                                   from '@/components/erp/navbar/NavbarMetaContext'
@@ -84,91 +84,102 @@ export default function CustomerOrderDetailPage({ params }: { params: { id: stri
   const hasActiveNote  = activeNotes.length > 0
   const hasBilling     = !!(mapped.billingStreet || mapped.billingCity)
   const inv            = mapped.issuedInvoice
+  const isCompleted    = ['shipped', 'delivered'].includes(order.status)
+  const showMainActions = !isCancelled && !isCompleted
+
+  // ── Action buttons ──────────────────────────────────────────────────────────
+
+  const headerActions = (
+    <>
+      {/* Mark as paid — only when unpaid and not cancelled */}
+      {!isPaid && !isCancelled && (
+        <ERPSplitButton
+          primary={{
+            label:   'Zaplaceno',
+            icon:    CheckCircle,
+            color:   'indigo',
+            onClick: () => handleMarkPaid(order.id),
+          }}
+        />
+      )}
+
+      {/* Main split button state machine */}
+      {showMainActions && !hasActiveNote && (
+        <ERPSplitButton
+          primary={{
+            label:   'Vyskladnit',
+            icon:    Package,
+            color:   'blue',
+            onClick: () => router.push(`/delivery-notes/new?orderId=${order.id}`),
+          }}
+          secondary={{
+            label:   'PDF',
+            icon:    Printer,
+            onClick: () => handlePrintPDF(order),
+          }}
+        />
+      )}
+
+      {showMainActions && hasActiveNote && (
+        <ERPSplitButton
+          primary={{
+            label:   'Odeslat',
+            icon:    Send,
+            color:   'emerald',
+            onClick: () => handleUpdateStatus(order.id, 'shipped'),
+          }}
+          secondary={{
+            label:   'PDF',
+            icon:    Printer,
+            onClick: () => handlePrintPDF(order),
+          }}
+        />
+      )}
+
+      {/* After shipping/delivery or cancelled — PDF only */}
+      {(isCompleted || isCancelled) && (
+        <ERPSplitButton
+          primary={{
+            label:   'PDF',
+            icon:    Printer,
+            color:   'blue',
+            onClick: () => handlePrintPDF(order),
+          }}
+        />
+      )}
+
+      {/* Cancel — only while still actionable */}
+      {!isCancelled && (
+        <button
+          onClick={() => handleUpdateStatus(order.id, 'cancelled')}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 text-red-600 hover:bg-red-50 text-xs font-medium rounded-lg transition-colors border border-red-200"
+        >
+          <XCircle className="w-3.5 h-3.5" /> Zrušit
+        </button>
+      )}
+    </>
+  )
 
   return (
     <div className="space-y-4 max-w-5xl mx-auto">
 
       {/* ── Header card ──────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-        <div className="flex items-center gap-3 px-5 py-3.5">
-          <button
-            onClick={() => router.push('/customer-orders')}
-            className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors shrink-0"
-          >
-            <ArrowLeft className="w-4 h-4 text-gray-500" />
-          </button>
-
-          <div className="w-8 h-8 rounded-lg bg-violet-100 flex items-center justify-center shrink-0">
-            <ShoppingCart className="w-4 h-4 text-violet-600" />
-          </div>
-
-          {/* Title + status badge */}
-          <div className="min-w-0">
-            <h1 className="text-base font-bold text-gray-900 font-mono leading-tight tracking-tight">
-              {order.orderNumber}
-            </h1>
-            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-              <span className="text-xs text-gray-400">
-                {new Date(order.orderDate).toLocaleDateString('cs-CZ')}
-                {mapped.customerName && ` · ${mapped.customerName}`}
-              </span>
-              <CustomerOrderStatusBadge status={order.status} />
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div className="ml-auto flex items-center gap-2 shrink-0 flex-wrap justify-end">
-
-            {/* Primary CTA — only when unpaid */}
-            {!isPaid && !isCancelled && (
-              <button
-                onClick={() => handleMarkPaid(order.id)}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm"
-              >
-                <CheckCircle className="w-3.5 h-3.5" /> Zaplaceno
-              </button>
-            )}
-
-            {/* Blue Vyskladnit — only when no active delivery note yet */}
-            {!isCancelled && !hasActiveNote && (
-              <button
-                onClick={() => router.push(`/delivery-notes/new?orderId=${order.id}`)}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm"
-              >
-                <Package className="w-3.5 h-3.5" /> Vyskladnit
-              </button>
-            )}
-
-            {/* Secondary toolbar */}
-            <div className="flex items-center divide-x divide-gray-200 rounded-lg border border-gray-200 overflow-hidden text-xs font-medium text-gray-600">
-              <button
-                onClick={() => handlePrintPDF(order)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 hover:bg-gray-50 transition-colors"
-              >
-                <Printer className="w-3.5 h-3.5" /> PDF
-              </button>
-              {order.status === 'shipped' && (
-                <button
-                  onClick={() => handleUpdateStatus(order.id, 'delivered')}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 hover:bg-gray-50 transition-colors"
-                >
-                  <TrendingUp className="w-3.5 h-3.5" /> Doručeno
-                </button>
-              )}
-            </div>
-
-            {/* Danger */}
-            {!isCancelled && (
-              <button
-                onClick={() => handleUpdateStatus(order.id, 'cancelled')}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 text-red-600 hover:bg-red-50 text-xs font-medium rounded-lg transition-colors border border-red-200"
-              >
-                <XCircle className="w-3.5 h-3.5" /> Zrušit
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
+      <ERPDetailHeader
+        title={order.orderNumber}
+        titleMono
+        subtitle={
+          <>
+            {new Date(order.orderDate).toLocaleDateString('cs-CZ')}
+            {mapped.customerName && ` · ${mapped.customerName}`}
+          </>
+        }
+        icon={ShoppingCart}
+        iconBg="bg-violet-100"
+        iconColor="text-violet-600"
+        onBack={() => router.push('/customer-orders')}
+        badge={<CustomerOrderStatusBadge status={order.status} />}
+        actions={headerActions}
+      />
 
       {/* ── Historie — full width horizontal stepper ─────────────────────── */}
       <ERPInfoCard title="Historie" icon={Clock}>
