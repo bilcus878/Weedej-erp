@@ -156,10 +156,8 @@ function HorizontalTimeline({
         const timestamp = typeof entry.changedAt === 'string'
           ? new Date(entry.changedAt) : entry.changedAt
 
-        const dateStr = timestamp.toLocaleDateString('cs-CZ', {
+        const dateTimeStr = timestamp.toLocaleString('cs-CZ', {
           day: '2-digit', month: '2-digit', year: 'numeric',
-        })
-        const timeStr = timestamp.toLocaleTimeString('cs-CZ', {
           hour: '2-digit', minute: '2-digit',
         })
 
@@ -186,12 +184,11 @@ function HorizontalTimeline({
               )}
               <time
                 dateTime={timestamp.toISOString()}
-                className="text-[11px] text-gray-400 block mt-0.5"
+                className="text-[11px] text-gray-400 block mt-0.5 tabular-nums"
                 title={timestamp.toLocaleString('cs-CZ')}
               >
-                {dateStr}
+                {dateTimeStr}
               </time>
-              <span className="text-[11px] text-gray-300">{timeStr}</span>
             </div>
           </li>
         )

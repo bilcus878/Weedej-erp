@@ -40,16 +40,15 @@ export function ShippingSection({ order, onRefresh, onSaveTracking, title = 'Dor
   const [form, setForm]       = useState({ trackingNumber: '', carrier: '' })
   const [saving, setSaving]   = useState(false)
 
-  const hasTracking  = !!(order.trackingNumber || order.carrier)
-  const carrierKey   = (order.pickupPointCarrier || order.carrier || '').toLowerCase()
-  const trackingUrl  = order.trackingNumber ? buildTrackingUrl(order.trackingNumber, carrierKey) : null
-  const isInStore    = order.shippingMethod === 'PICKUP_IN_STORE'
+  const hasTracking = !!(order.trackingNumber || order.carrier)
+  const carrierKey  = (order.pickupPointCarrier || order.carrier || '').toLowerCase()
+  const trackingUrl = order.trackingNumber ? buildTrackingUrl(order.trackingNumber, carrierKey) : null
+  const isInStore   = order.shippingMethod === 'PICKUP_IN_STORE'
 
   const locationLine = order.pickupPointId
     ? [order.pickupPointName, order.pickupPointAddress].filter(Boolean).join(' · ')
     : order.customerAddress || null
 
-  // Use pickup point address for map, or customer address for home delivery
   const mapAddress = order.pickupPointAddress || (!isInStore ? order.customerAddress ?? null : null)
   const mapUrl     = mapAddress ? buildMapUrl(mapAddress) : null
 
@@ -79,43 +78,21 @@ export function ShippingSection({ order, onRefresh, onSaveTracking, title = 'Dor
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-
-      {/* ── Map area ── */}
-      {mapUrl ? (
-        <div className="h-36 w-full relative">
-          <iframe
-            src={mapUrl}
-            className="absolute inset-0 w-full h-full border-none"
-            loading="lazy"
-            title="Mapa doručení"
-            referrerPolicy="no-referrer-when-downgrade"
-          />
-        </div>
-      ) : (
-        <div className="h-24 bg-gradient-to-br from-violet-50 via-indigo-50 to-blue-50 flex flex-col items-center justify-center gap-1.5">
-          <div className="w-10 h-10 rounded-full bg-white/70 shadow-sm flex items-center justify-center">
-            <MapPin className="w-5 h-5 text-violet-500" />
-          </div>
-          <span className="text-xs font-medium text-violet-600">
-            {isInStore ? 'Osobní odběr' : 'Doprava'}
-          </span>
-        </div>
-      )}
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden h-full flex flex-col">
 
       {/* ── Header ── */}
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100">
+      <div className="flex items-center gap-2 px-4 py-3.5 border-b border-gray-100 shrink-0">
         <Truck className="w-3.5 h-3.5 text-gray-400 shrink-0" aria-hidden />
         <span className="text-sm font-semibold text-gray-700">{title}</span>
         {order.pickupPointCarrier && (
-          <span className="ml-auto text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded-full">
+          <span className="ml-auto text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded-full shrink-0">
             {order.pickupPointCarrier}
           </span>
         )}
       </div>
 
       {/* ── Info ── */}
-      <div className="px-4 py-3 space-y-2">
+      <div className="px-4 py-3 space-y-2 flex-1">
 
         {/* Method */}
         <p className="text-xs font-semibold text-gray-800">
@@ -158,7 +135,7 @@ export function ShippingSection({ order, onRefresh, onSaveTracking, title = 'Dor
             <code className="text-xs font-mono text-gray-700 bg-gray-50 px-1.5 py-0.5 rounded">
               {order.trackingNumber}
             </code>
-            {trackingUrl ? (
+            {trackingUrl && (
               <a
                 href={trackingUrl}
                 target="_blank"
@@ -167,7 +144,7 @@ export function ShippingSection({ order, onRefresh, onSaveTracking, title = 'Dor
               >
                 <ExternalLink className="w-3 h-3" /> Sledovat
               </a>
-            ) : null}
+            )}
             <button
               onClick={() => { setForm({ trackingNumber: order.trackingNumber || '', carrier: order.carrier || '' }); setEditing(true) }}
               className="text-xs text-gray-400 hover:text-gray-600 transition-colors ml-auto"
@@ -185,6 +162,29 @@ export function ShippingSection({ order, onRefresh, onSaveTracking, title = 'Dor
         )}
 
       </div>
+
+      {/* ── Map at bottom ── */}
+      {mapUrl ? (
+        <div className="h-40 relative shrink-0 border-t border-gray-100">
+          <iframe
+            src={mapUrl}
+            className="absolute inset-0 w-full h-full border-none"
+            loading="lazy"
+            title="Mapa doručení"
+            referrerPolicy="no-referrer-when-downgrade"
+          />
+        </div>
+      ) : (
+        <div className="h-24 bg-gradient-to-br from-violet-50 via-indigo-50 to-blue-50 flex flex-col items-center justify-center gap-1.5 shrink-0 border-t border-gray-100">
+          <div className="w-9 h-9 rounded-full bg-white/70 shadow-sm flex items-center justify-center">
+            <MapPin className="w-4 h-4 text-violet-500" />
+          </div>
+          <span className="text-xs font-medium text-violet-500">
+            {isInStore ? 'Osobní odběr' : 'Doprava'}
+          </span>
+        </div>
+      )}
+
     </div>
   )
 }

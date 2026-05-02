@@ -177,122 +177,116 @@ export default function CustomerOrderDetailPage({ params }: { params: { id: stri
         />
       </ERPInfoCard>
 
-      {/* ── Content grid ─────────────────────────────────────────────────── */}
+      {/* ── Content grid — flat 3-col, cards share equal row height ──────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
-        {/* ── Main column ── */}
-        <div className="lg:col-span-2 space-y-4">
+        {/* Row 1 — Zákazník */}
+        <ERPInfoCard title="Zákazník" icon={User} className="h-full">
+          <ERPInfoRow label="Jméno"  value={mapped.customerName} />
+          <ERPInfoRow label="E-mail" value={
+            mapped.customerEmail
+              ? <a href={`mailto:${mapped.customerEmail}`} className="text-indigo-600 hover:underline">{mapped.customerEmail}</a>
+              : null
+          } />
+          {mapped.customerPhone && <ERPInfoRow label="Telefon" value={mapped.customerPhone} />}
+          {mapped.billingIco && (
+            <ERPInfoRow label="IČO" value={<code className="font-mono text-xs">{mapped.billingIco}</code>} />
+          )}
+          {hasBilling && (
+            <ERPInfoRow label="Fakturace" value={
+              <span className="text-right leading-relaxed">
+                {[
+                  mapped.billingCompany || mapped.billingName,
+                  mapped.billingStreet,
+                  [mapped.billingZip, mapped.billingCity].filter(Boolean).join(' '),
+                  mapped.billingCountry !== 'CZ' ? mapped.billingCountry : null,
+                ].filter(Boolean).join(', ')}
+              </span>
+            } />
+          )}
+        </ERPInfoCard>
 
-          {/* Zákazník + Platba — side by side */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-
-            <ERPInfoCard title="Zákazník" icon={User}>
-              <ERPInfoRow label="Jméno"  value={mapped.customerName} />
-              <ERPInfoRow label="E-mail" value={
-                mapped.customerEmail
-                  ? <a href={`mailto:${mapped.customerEmail}`} className="text-indigo-600 hover:underline">{mapped.customerEmail}</a>
-                  : null
-              } />
-              {mapped.customerPhone && <ERPInfoRow label="Telefon" value={mapped.customerPhone} />}
-              {mapped.billingIco && (
-                <ERPInfoRow label="IČO" value={<code className="font-mono text-xs">{mapped.billingIco}</code>} />
-              )}
-              {hasBilling && (
-                <ERPInfoRow label="Fakturace" value={
-                  <span className="text-right leading-relaxed">
-                    {[
-                      mapped.billingCompany || mapped.billingName,
-                      mapped.billingStreet,
-                      [mapped.billingZip, mapped.billingCity].filter(Boolean).join(' '),
-                      mapped.billingCountry !== 'CZ' ? mapped.billingCountry : null,
-                    ].filter(Boolean).join(', ')}
-                  </span>
-                } />
-              )}
-            </ERPInfoCard>
-
-            <ERPInfoCard title="Platba" icon={CreditCard}>
-              <ERPInfoRow label="Faktura" value={
-                inv ? (
-                  <span className="flex items-center gap-1.5 justify-end">
-                    <span className={`text-[10px] px-1 py-0.5 rounded font-semibold ${
-                      inv.paymentStatus === 'paid' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-                    }`}>
-                      {inv.paymentStatus === 'paid' ? 'Zap.' : 'Nezap.'}
-                    </span>
-                    <Link
-                      href={`/invoices/issued?highlight=${inv.id}`}
-                      className="font-mono text-indigo-600 hover:underline flex items-center gap-0.5"
-                    >
-                      {inv.invoiceNumber}<ExternalLink className="w-3 h-3" />
-                    </Link>
-                  </span>
-                ) : <span className="text-gray-400 italic text-xs">nevystavena</span>
-              } />
-              {inv?.paymentType && (
-                <ERPInfoRow label="Způsob" value={PAYMENT_LABELS[inv.paymentType] ?? inv.paymentType} />
-              )}
-              <ERPInfoRow label="Datum" value={new Date(mapped.orderDate).toLocaleDateString('cs-CZ')} />
-              {mapped.paidAt    && <ERPInfoRow label="Zaplaceno" value={new Date(mapped.paidAt).toLocaleDateString('cs-CZ')} />}
-              {mapped.shippedAt && <ERPInfoRow label="Odesláno"  value={new Date(mapped.shippedAt).toLocaleDateString('cs-CZ')} />}
-              {inv?.dueDate     && <ERPInfoRow label="Splatnost" value={new Date(inv.dueDate).toLocaleDateString('cs-CZ')} />}
-              {inv?.variableSymbol && <ERPInfoRow label="VS" value={<code className="font-mono text-xs">{inv.variableSymbol}</code>} />}
-              {inv?.constantSymbol && <ERPInfoRow label="KS" value={<code className="font-mono text-xs">{inv.constantSymbol}</code>} />}
-              {inv?.specificSymbol && <ERPInfoRow label="SS" value={<code className="font-mono text-xs">{inv.specificSymbol}</code>} />}
-              {mapped.discountAmount != null && mapped.discountAmount !== 0 && (
-                <ERPInfoRow label="Sleva" value={formatPrice(Number(mapped.discountAmount))} />
-              )}
-              {mapped.note && !mapped.note.startsWith('Platba:') && (
-                <ERPInfoRow label="Poznámka" value={mapped.note} />
-              )}
-              {activeNotes.length > 0 && (
-                <ERPInfoRow label="Výdejky" value={
-                  <div className="flex flex-wrap gap-1 justify-end">
-                    {activeNotes.map(dn => (
-                      <Link
-                        key={dn.id}
-                        href={`/delivery-notes?highlight=${dn.id}`}
-                        className="text-[10px] font-medium px-1.5 py-0.5 bg-green-50 text-green-700 rounded border border-green-200 hover:bg-green-100 transition-colors"
-                      >
-                        {dn.deliveryNumber}
-                      </Link>
-                    ))}
-                  </div>
-                } />
-              )}
-              <div className="flex items-center justify-between pt-2 mt-1 border-t border-gray-100">
-                <span className="text-xs text-gray-500">{isVatPayer ? 'Celkem s DPH' : 'Celkem'}</span>
-                <span className="text-base font-bold text-gray-900 tabular-nums">
-                  {formatPrice(Number(mapped.totalAmount))}
+        {/* Row 1 — Platba */}
+        <ERPInfoCard title="Platba" icon={CreditCard} className="h-full">
+          <ERPInfoRow label="Faktura" value={
+            inv ? (
+              <span className="flex items-center gap-1.5 justify-end">
+                <span className={`text-[10px] px-1 py-0.5 rounded font-semibold ${
+                  inv.paymentStatus === 'paid' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                }`}>
+                  {inv.paymentStatus === 'paid' ? 'Zap.' : 'Nezap.'}
                 </span>
+                <Link
+                  href={`/invoices/issued?highlight=${inv.id}`}
+                  className="font-mono text-indigo-600 hover:underline flex items-center gap-0.5"
+                >
+                  {inv.invoiceNumber}<ExternalLink className="w-3 h-3" />
+                </Link>
+              </span>
+            ) : <span className="text-gray-400 italic text-xs">nevystavena</span>
+          } />
+          {inv?.paymentType && (
+            <ERPInfoRow label="Způsob" value={PAYMENT_LABELS[inv.paymentType] ?? inv.paymentType} />
+          )}
+          <ERPInfoRow label="Datum" value={new Date(mapped.orderDate).toLocaleDateString('cs-CZ')} />
+          {mapped.paidAt    && <ERPInfoRow label="Zaplaceno" value={new Date(mapped.paidAt).toLocaleDateString('cs-CZ')} />}
+          {mapped.shippedAt && <ERPInfoRow label="Odesláno"  value={new Date(mapped.shippedAt).toLocaleDateString('cs-CZ')} />}
+          {inv?.dueDate     && <ERPInfoRow label="Splatnost" value={new Date(inv.dueDate).toLocaleDateString('cs-CZ')} />}
+          {inv?.variableSymbol && <ERPInfoRow label="VS" value={<code className="font-mono text-xs">{inv.variableSymbol}</code>} />}
+          {inv?.constantSymbol && <ERPInfoRow label="KS" value={<code className="font-mono text-xs">{inv.constantSymbol}</code>} />}
+          {inv?.specificSymbol && <ERPInfoRow label="SS" value={<code className="font-mono text-xs">{inv.specificSymbol}</code>} />}
+          {mapped.discountAmount != null && mapped.discountAmount !== 0 && (
+            <ERPInfoRow label="Sleva" value={formatPrice(Number(mapped.discountAmount))} />
+          )}
+          {mapped.note && !mapped.note.startsWith('Platba:') && (
+            <ERPInfoRow label="Poznámka" value={mapped.note} />
+          )}
+          {activeNotes.length > 0 && (
+            <ERPInfoRow label="Výdejky" value={
+              <div className="flex flex-wrap gap-1 justify-end">
+                {activeNotes.map(dn => (
+                  <Link
+                    key={dn.id}
+                    href={`/delivery-notes?highlight=${dn.id}`}
+                    className="text-[10px] font-medium px-1.5 py-0.5 bg-green-50 text-green-700 rounded border border-green-200 hover:bg-green-100 transition-colors"
+                  >
+                    {dn.deliveryNumber}
+                  </Link>
+                ))}
               </div>
-            </ERPInfoCard>
+            } />
+          )}
+          <div className="flex items-center justify-between pt-2 mt-1 border-t border-gray-100">
+            <span className="text-xs text-gray-500">{isVatPayer ? 'Celkem s DPH' : 'Celkem'}</span>
+            <span className="text-base font-bold text-gray-900 tabular-nums">
+              {formatPrice(Number(mapped.totalAmount))}
+            </span>
           </div>
+        </ERPInfoCard>
 
-          {/* Storno */}
-          {isCancelled && (
+        {/* Row 1 — Doprava (stretches to match sibling row height) */}
+        {hasShipping
+          ? <ShippingSection order={mapped} onRefresh={refresh} />
+          : <div />
+        }
+
+        {/* Storno — full width when cancelled */}
+        {isCancelled && (
+          <div className="lg:col-span-3">
             <StornoSection
               stornoAt={mapped.stornoAt}
               stornoBy={mapped.stornoBy}
               stornoReason={mapped.stornoReason}
             />
-          )}
-        </div>
+          </div>
+        )}
 
-        {/* ── Sidebar ── */}
-        <div className="space-y-4">
-
-          {/* Doprava */}
-          {hasShipping && <ShippingSection order={mapped} onRefresh={refresh} />}
-
-        </div>
-
-        {/* ── Položky — full width ─────────────────────────────────────────── */}
+        {/* Položky — full width */}
         <div className="lg:col-span-3">
           <OrderItemsSection order={mapped} isVatPayer={isVatPayer} />
         </div>
 
-        {/* ── Audit / Historie změn — full width ──────────────────────────── */}
+        {/* Audit / Historie změn — full width */}
         <div className="lg:col-span-3">
           <CustomerOrderAuditSection orderId={order.id} />
         </div>
