@@ -1,5 +1,11 @@
 import type { Receipt, PurchaseOrder, Supplier, InvoiceData, BatchInput } from '../types'
 
+export async function fetchReceipt(id: string): Promise<Receipt> {
+  const res = await fetch(`/api/receipts/${id}`, { cache: 'no-store' })
+  if (!res.ok) throw new Error('Nepodařilo se načíst příjemku')
+  return res.json()
+}
+
 export async function fetchReceipts(): Promise<Receipt[]> {
   const res  = await fetch('/api/receipts', { cache: 'no-store' })
   const data = await res.json()

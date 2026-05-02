@@ -27,6 +27,12 @@ export async function fetchNextOrderNumber(date: string): Promise<string> {
   return data.nextNumber
 }
 
+export async function fetchPurchaseOrder(id: string): Promise<PurchaseOrder> {
+  const res = await fetch(`/api/purchase-orders/${id}`, { cache: 'no-store' })
+  if (!res.ok) throw new Error('Nepodařilo se načíst objednávku')
+  return res.json()
+}
+
 export async function createPurchaseOrder(payload: CreatePurchaseOrderPayload): Promise<void> {
   const res = await fetch('/api/purchase-orders', {
     method:  'POST',

@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { formatDate } from '@/lib/shared/dates/format'
 import { formatPrice } from '@/lib/shared/finance/money'
 import { isNonVatPayer } from '@/lib/shared/finance/vatCalculation'
@@ -27,9 +28,13 @@ export function createReceiptColumns(
       key: 'number', header: 'Číslo',
       filterNode: <FilterInput className="w-full text-center" value={v['number'] ?? ''} onChange={val => s('number', val)} placeholder="Číslo..." />,
       render: r => (
-        <p className={`text-sm font-semibold text-gray-900 truncate ${r.status === 'storno' || r.status === 'cancelled' ? 'line-through' : ''}`}>
+        <Link
+          href={`/receipts/${r.id}`}
+          onClick={e => e.stopPropagation()}
+          className={`text-sm font-semibold font-mono text-indigo-600 hover:underline truncate ${r.status === 'storno' || r.status === 'cancelled' ? 'line-through' : ''}`}
+        >
           {r.receiptNumber}
-        </p>
+        </Link>
       ),
     },
     {

@@ -1,4 +1,5 @@
 export { useReceipts }           from './hooks/useReceipts'
+export { useReceiptDetail }      from './hooks/useReceiptDetail'
 export { useReceiptActions }     from './hooks/useReceiptActions'
 export { useReceiptProcessing }  from './hooks/useReceiptProcessing'
 export { createReceiptColumns }  from './components/receiptColumns'

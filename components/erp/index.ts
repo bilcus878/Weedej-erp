@@ -20,15 +20,14 @@ export type {
   OrderDetailDeliveryNoteItem,
 } from './detail/OrderDetailTypes'
 
-// ── SupplierOrderDetail ──────────────────────────────────────────────────────
-export { SupplierOrderDetail }  from './detail/SupplierOrderDetail'
+// ── Supplier order detail types ───────────────────────────────────────────────
 export type {
   SupplierOrderDetailData,
   SupplierOrderDetailItem,
   SupplierOrderDetailInvoice,
   SupplierOrderDetailReceipt,
   SupplierOrderDetailReceiptItem,
-} from './detail/SupplierOrderDetail'
+} from './detail/SupplierOrderDetailTypes'
 
 // ── Page architecture ────────────────────────────────────────────────────────
 export { EntityPage }           from './layout/EntityPage'

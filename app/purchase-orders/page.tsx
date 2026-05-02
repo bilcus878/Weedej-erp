@@ -2,19 +2,18 @@
 
 import { useRef, useMemo } from 'react'
 import { Package, Plus } from 'lucide-react'
-import { EntityPage, LoadingState, ErrorState, SupplierOrderDetail, DetailActionFooter } from '@/components/erp'
+import { EntityPage, LoadingState, ErrorState } from '@/components/erp'
 import { useCompanySettings } from '@/components/erp/hooks/useCompanySettings'
 import {
-  usePurchaseOrders, usePurchaseOrderActions, createPurchaseOrderColumns,
-  CreatePurchaseOrderForm, mapPurchaseOrderToSupplierDetail,
+  usePurchaseOrders, createPurchaseOrderColumns,
+  CreatePurchaseOrderForm,
 } from '@/features/purchase-orders'
 
 export const dynamic = 'force-dynamic'
 
 export default function PurchaseOrdersPage() {
   const { ep, filters, suppliers, products } = usePurchaseOrders()
-  const { isVatPayer }                        = useCompanySettings()
-  const { handleDownloadPDF }                 = usePurchaseOrderActions()
+  const { isVatPayer }                       = useCompanySettings()
   const openCreateRef = useRef<() => void>(() => {})
 
   const supplierSuggestions = useMemo(() => {
@@ -48,29 +47,8 @@ export default function PurchaseOrdersPage() {
         columns={createPurchaseOrderColumns(filters, suppliers, isVatPayer, supplierSuggestions)}
         rows={ep.paginated}
         getRowId={r => r.id}
-        expanded={ep.expanded}
-        onToggle={ep.toggleExpand}
         onClearFilters={filters.clear}
         rowClassName={r => r.status === 'storno' ? 'bg-red-50 opacity-70' : ''}
-        renderDetail={order => {
-          const hasActiveReceipt = order.receipts?.some(r => r.status !== 'storno') ?? false
-          const showNaskladnit = order.status === 'partially_received'
-            || (['pending', 'confirmed'].includes(order.status) && !hasActiveReceipt)
-          return (
-            <div className="mt-3">
-              <SupplierOrderDetail
-                order={mapPurchaseOrderToSupplierDetail(order)}
-                isVatPayer={isVatPayer}
-                showPaymentSection={false}
-              />
-              <DetailActionFooter
-                flow="incoming"
-                onPrintPdf={() => handleDownloadPDF(order.id)}
-                showInventory={showNaskladnit}
-              />
-            </div>
-          )
-        }}
       />
 
       <EntityPage.Pagination page={ep.page} total={ep.totalPages} onChange={ep.setPage} />

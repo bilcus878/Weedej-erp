@@ -18,6 +18,7 @@ export async function GET(
         supplier: true,
         purchaseOrder: {
           include: {
+            supplier: true,
             items: {
               include: {
                 product: true

@@ -25,7 +25,8 @@ export async function GET(
           include: {
             items: true
           }
-        }
+        },
+        invoice: true
       }
     })
 

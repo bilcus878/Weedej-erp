@@ -25,6 +25,25 @@ export type { ShippingSectionProps }  from './ShippingSection'
 export { OrderItemsSection }          from './OrderItemsSection'
 export type { OrderItemsSectionProps } from './OrderItemsSection'
 
+// ── Supplier detail sections ──────────────────────────────────────────────────
+export { SupplierContactSection }     from './SupplierContactSection'
+export type { SupplierContactProps }  from './SupplierContactSection'
+export { PaymentTermsSection }        from './PaymentTermsSection'
+export type { PaymentTermsSectionProps } from './PaymentTermsSection'
+export { LinkedReceiptsSection }      from './LinkedReceiptsSection'
+export type { LinkedReceiptsSectionProps } from './LinkedReceiptsSection'
+export { PurchaseItemsSection }       from './PurchaseItemsSection'
+export type { PurchaseItemsSectionProps } from './PurchaseItemsSection'
+
+// ── Supplier detail types ─────────────────────────────────────────────────────
+export type {
+  SupplierOrderDetailData,
+  SupplierOrderDetailItem,
+  SupplierOrderDetailInvoice,
+  SupplierOrderDetailReceipt,
+  SupplierOrderDetailReceiptItem,
+} from './SupplierOrderDetailTypes'
+
 // ── Shared sidebar cards ──────────────────────────────────────────────────────
 export { DocumentActionsCard }        from './DocumentActionsCard'
 export type { DocumentActionsCardProps, DocumentAction } from './DocumentActionsCard'

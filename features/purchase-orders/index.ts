@@ -1,4 +1,5 @@
 export { usePurchaseOrders } from './hooks/usePurchaseOrders'
+export { usePurchaseOrderDetail } from './hooks/usePurchaseOrderDetail'
 export { usePurchaseOrderActions } from './hooks/usePurchaseOrderActions'
 export { useCreatePurchaseOrderForm } from './hooks/useCreatePurchaseOrderForm'
 export { createPurchaseOrderColumns } from './components/purchaseOrderColumns'

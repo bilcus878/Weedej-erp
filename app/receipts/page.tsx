@@ -2,7 +2,7 @@
 
 import { useRef, useMemo, useEffect } from 'react'
 import { Package } from 'lucide-react'
-import { EntityPage, LoadingState, ErrorState, DetailActionFooter, SupplierOrderDetail } from '@/components/erp'
+import { EntityPage, LoadingState, ErrorState } from '@/components/erp'
 import { useCompanySettings } from '@/components/erp/hooks/useCompanySettings'
 import { ExpectedOrdersButton } from '@/components/erp/widgets/ExpectedOrdersButton'
 import { useNavbarMeta } from '@/components/erp/navbar/NavbarMetaContext'
@@ -10,7 +10,7 @@ import { useToast } from '@/components/ui/useToast'
 import { Toast } from '@/components/ui/Toast'
 import {
   useReceipts, useReceiptActions, useReceiptProcessing,
-  createReceiptColumns, ProcessReceiptModal, mapReceiptToSupplierDetail,
+  createReceiptColumns, ProcessReceiptModal,
 } from '@/features/receipts'
 
 export const dynamic = 'force-dynamic'
@@ -77,27 +77,8 @@ export default function ReceiptsPage() {
         columns={createReceiptColumns(filters, isVatPayer, supplierSuggestions)}
         rows={ep.paginated}
         getRowId={r => r.id}
-        expanded={ep.expanded}
-        onToggle={ep.toggleExpand}
         onClearFilters={filters.clear}
         rowClassName={r => r.status === 'storno' || r.status === 'cancelled' ? 'bg-red-50 opacity-70' : ''}
-        renderDetail={receipt => (
-          <>
-            <SupplierOrderDetail
-              order={mapReceiptToSupplierDetail(receipt, isVatPayer)}
-              isVatPayer={isVatPayer}
-              orderHref={receipt.purchaseOrder ? `/purchase-orders?highlight=${receipt.purchaseOrder.id}` : undefined}
-              showReceiptsSection={false}
-            />
-            <DetailActionFooter
-              flow="incoming"
-              onPrintPdf={() => actions.handleDownloadPDF(receipt)}
-              showStorno={receipt.status === 'active'}
-              onStorno={() => actions.handleStorno(receipt)}
-              stornoLabel="Stornovat"
-            />
-          </>
-        )}
       />
 
       <EntityPage.Pagination page={ep.page} total={ep.totalPages} onChange={ep.setPage} />
