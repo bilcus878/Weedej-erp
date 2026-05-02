@@ -90,59 +90,76 @@ export default function CustomerOrderDetailPage({ params }: { params: { id: stri
 
       {/* ── Header card ──────────────────────────────────────────────────── */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-        <div className="flex items-center gap-3 px-6 py-4">
+        <div className="flex items-center gap-3 px-5 py-3.5">
           <button
             onClick={() => router.push('/customer-orders')}
             className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors shrink-0"
           >
             <ArrowLeft className="w-4 h-4 text-gray-500" />
           </button>
-          <div className="w-9 h-9 rounded-lg bg-violet-100 flex items-center justify-center shrink-0">
-            <ShoppingCart className="w-5 h-5 text-violet-600" />
+
+          <div className="w-8 h-8 rounded-lg bg-violet-100 flex items-center justify-center shrink-0">
+            <ShoppingCart className="w-4 h-4 text-violet-600" />
           </div>
+
+          {/* Title + status badge */}
           <div className="min-w-0">
-            <h1 className="text-lg font-bold text-gray-900 font-mono leading-tight">{order.orderNumber}</h1>
-            <p className="text-xs text-gray-400">
-              {new Date(order.orderDate).toLocaleDateString('cs-CZ')}
-              {mapped.customerName && ` · ${mapped.customerName}`}
-            </p>
+            <h1 className="text-base font-bold text-gray-900 font-mono leading-tight tracking-tight">
+              {order.orderNumber}
+            </h1>
+            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+              <span className="text-xs text-gray-400">
+                {new Date(order.orderDate).toLocaleDateString('cs-CZ')}
+                {mapped.customerName && ` · ${mapped.customerName}`}
+              </span>
+              <CustomerOrderStatusBadge status={order.status} />
+            </div>
           </div>
-          <div className="ml-auto flex items-center gap-2 flex-wrap justify-end shrink-0">
-            <CustomerOrderStatusBadge status={order.status} />
+
+          {/* Actions */}
+          <div className="ml-auto flex items-center gap-2 shrink-0 flex-wrap justify-end">
+
+            {/* Primary CTA — only when unpaid */}
             {!isPaid && !isCancelled && (
               <button
                 onClick={() => handleMarkPaid(order.id)}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm"
               >
                 <CheckCircle className="w-3.5 h-3.5" /> Zaplaceno
               </button>
             )}
-            <button
-              onClick={() => handlePrintPDF(order)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-semibold rounded-lg transition-colors"
-            >
-              <Printer className="w-3.5 h-3.5" /> PDF
-            </button>
-            {!isCancelled && !hasActiveNote && (
+
+            {/* Secondary toolbar */}
+            <div className="flex items-center divide-x divide-gray-200 rounded-lg border border-gray-200 overflow-hidden text-xs font-medium text-gray-600">
               <button
-                onClick={() => router.push(`/delivery-notes/new?orderId=${order.id}`)}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-semibold rounded-lg transition-colors"
+                onClick={() => handlePrintPDF(order)}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 hover:bg-gray-50 transition-colors"
               >
-                <Package className="w-3.5 h-3.5" /> Výdejka
+                <Printer className="w-3.5 h-3.5" /> PDF
               </button>
-            )}
-            {order.status === 'shipped' && (
-              <button
-                onClick={() => handleUpdateStatus(order.id, 'delivered')}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-semibold rounded-lg transition-colors"
-              >
-                <TrendingUp className="w-3.5 h-3.5" /> Doručeno
-              </button>
-            )}
+              {!isCancelled && !hasActiveNote && (
+                <button
+                  onClick={() => router.push(`/delivery-notes/new?orderId=${order.id}`)}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 hover:bg-gray-50 transition-colors"
+                >
+                  <Package className="w-3.5 h-3.5" /> Výdejka
+                </button>
+              )}
+              {order.status === 'shipped' && (
+                <button
+                  onClick={() => handleUpdateStatus(order.id, 'delivered')}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 hover:bg-gray-50 transition-colors"
+                >
+                  <TrendingUp className="w-3.5 h-3.5" /> Doručeno
+                </button>
+              )}
+            </div>
+
+            {/* Danger */}
             {!isCancelled && (
               <button
                 onClick={() => handleUpdateStatus(order.id, 'cancelled')}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-red-600 hover:bg-red-50 text-xs font-medium rounded-lg transition-colors border border-red-200"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-red-600 hover:bg-red-50 text-xs font-medium rounded-lg transition-colors border border-red-200"
               >
                 <XCircle className="w-3.5 h-3.5" /> Zrušit
               </button>
@@ -151,12 +168,12 @@ export default function CustomerOrderDetailPage({ params }: { params: { id: stri
         </div>
       </div>
 
-      {/* ── Historie — full width, above grid ────────────────────────────── */}
+      {/* ── Historie — full width horizontal stepper ─────────────────────── */}
       <ERPInfoCard title="Historie" icon={Clock}>
         <ERPStatusTimeline
           entries={buildTimeline(mapped)}
           statusConfig={STATUS_CONFIG}
-          compact
+          horizontal
         />
       </ERPInfoCard>
 
