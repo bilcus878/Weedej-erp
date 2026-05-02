@@ -8,6 +8,7 @@ export type {
 export { ERPDetailPageLayout }        from './ERPDetailPageLayout'
 export type { BreadcrumbItem }        from './ERPDetailPageLayout'
 export { ERPSectionCard, ERPDetailRow, ERPDetailGrid } from './ERPSectionCard'
+export { ERPInfoCard, ERPInfoRow }                    from './ERPInfoCard'
 export { ERPActionBar }               from './ERPActionBar'
 export type { ERPAction }             from './ERPActionBar'
 export { ERPStatusTimeline, ERPStatusBadge } from './ERPStatusTimeline'

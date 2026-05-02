@@ -10,8 +10,9 @@ import {
 import { format } from 'date-fns'
 import { cs }     from 'date-fns/locale'
 
-import { LoadingState, ErrorState } from '@/components/erp'
-import { useNavbarMeta }            from '@/components/erp/navbar/NavbarMetaContext'
+import { LoadingState, ErrorState }   from '@/components/erp'
+import { ERPInfoCard, ERPInfoRow }    from '@/components/erp/detail'
+import { useNavbarMeta }             from '@/components/erp/navbar/NavbarMetaContext'
 import {
   useReturnDetail, useReturnActions,
   ReturnStatusBadge, ReturnTypeBadge, ReturnTimeline, ReturnItemsTable,
@@ -27,30 +28,6 @@ import { formatPrice } from '@/lib/shared/finance/money'
 
 export const dynamic = 'force-dynamic'
 
-function Section({ title, icon: Icon, children }: {
-  title: string
-  icon:  React.ElementType
-  children: React.ReactNode
-}) {
-  return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-      <div className="flex items-center gap-2 px-5 py-3.5 border-b border-gray-100">
-        <Icon className="w-4 h-4 text-gray-400" />
-        <h2 className="text-sm font-semibold text-gray-700">{title}</h2>
-      </div>
-      <div className="px-5 py-4">{children}</div>
-    </div>
-  )
-}
-
-function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="flex items-start justify-between gap-4 py-1.5 border-b border-gray-50 last:border-0">
-      <span className="text-xs text-gray-500 shrink-0">{label}</span>
-      <span className="text-xs font-medium text-gray-900 text-right">{value ?? '—'}</span>
-    </div>
-  )
-}
 
 export default function ReturnDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter()
@@ -130,67 +107,67 @@ export default function ReturnDetailPage({ params }: { params: { id: string } })
           {/* Left column */}
           <div className="lg:col-span-2 space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Section title="Zákazník" icon={User}>
-                <InfoRow label="Jméno"  value={detail.customerName} />
-                <InfoRow label="E-mail" value={detail.customerEmail
+              <ERPInfoCard title="Zákazník" icon={User}>
+                <ERPInfoRow label="Jméno"  value={detail.customerName} />
+                <ERPInfoRow label="E-mail" value={detail.customerEmail
                   ? <a href={`mailto:${detail.customerEmail}`} className="text-indigo-600 hover:underline">{detail.customerEmail}</a>
                   : null
                 } />
-                <InfoRow label="Telefon" value={detail.customerPhone} />
-                <InfoRow label="Adresa"  value={detail.customerAddress} />
-              </Section>
+                <ERPInfoRow label="Telefon" value={detail.customerPhone} />
+                <ERPInfoRow label="Adresa"  value={detail.customerAddress} />
+              </ERPInfoCard>
 
-              <Section title="Objednávka" icon={Package}>
+              <ERPInfoCard title="Objednávka" icon={Package}>
                 {detail.customerOrderId && (
-                  <InfoRow label="Číslo" value={
+                  <ERPInfoRow label="Číslo" value={
                     <Link href={`/customer-orders?highlight=${detail.customerOrderId}`} className="text-indigo-600 hover:underline font-mono text-xs">
                       {detail.customerOrderNumber}
                     </Link>
                   } />
                 )}
-                <InfoRow label="Typ reklamace" value={(RETURN_TYPE_LABELS as Record<string, string>)[detail.type] ?? detail.type} />
-                <InfoRow label="Důvod"         value={(RETURN_REASON_LABELS as Record<string, string>)[detail.reason] ?? detail.reason} />
+                <ERPInfoRow label="Typ reklamace" value={(RETURN_TYPE_LABELS as Record<string, string>)[detail.type] ?? detail.type} />
+                <ERPInfoRow label="Důvod"         value={(RETURN_REASON_LABELS as Record<string, string>)[detail.reason] ?? detail.reason} />
                 {detail.reasonDetail && (
                   <div className="mt-2 p-2.5 bg-gray-50 rounded-lg text-xs text-gray-600 leading-relaxed">
                     {detail.reasonDetail}
                   </div>
                 )}
-              </Section>
+              </ERPInfoCard>
             </div>
 
             {(detail.returnShippingPaidBy || detail.returnTrackingNumber || detail.returnCarrier) && (
-              <Section title="Přeprava zpět" icon={Truck}>
+              <ERPInfoCard title="Přeprava zpět" icon={Truck}>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                  <InfoRow label="Platí"    value={detail.returnShippingPaidBy === 'seller' ? 'Prodejce' : 'Zákazník'} />
-                  <InfoRow label="Dopravce" value={detail.returnCarrier} />
-                  <InfoRow label="Tracking" value={detail.returnTrackingNumber} />
+                  <ERPInfoRow label="Platí"    value={detail.returnShippingPaidBy === 'seller' ? 'Prodejce' : 'Zákazník'} />
+                  <ERPInfoRow label="Dopravce" value={detail.returnCarrier} />
+                  <ERPInfoRow label="Tracking" value={detail.returnTrackingNumber} />
                   {detail.returnShippingCost != null && (
-                    <InfoRow label="Cena" value={formatPrice(detail.returnShippingCost)} />
+                    <ERPInfoRow label="Cena" value={formatPrice(detail.returnShippingCost)} />
                   )}
                 </div>
-              </Section>
+              </ERPInfoCard>
             )}
 
-            <Section title="Vrácené položky" icon={Package}>
+            <ERPInfoCard title="Vrácené položky" icon={Package}>
               <ReturnItemsTable items={detail.items} />
-            </Section>
+            </ERPInfoCard>
 
             {detail.resolutionType && (
-              <Section title="Výsledek reklamace" icon={CheckCircle}>
+              <ERPInfoCard title="Výsledek reklamace" icon={CheckCircle}>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                  <InfoRow label="Typ"    value={(RETURN_RESOLUTION_LABELS as Record<string, string>)[detail.resolutionType ?? ''] ?? detail.resolutionType} />
+                  <ERPInfoRow label="Typ"    value={(RETURN_RESOLUTION_LABELS as Record<string, string>)[detail.resolutionType ?? ''] ?? detail.resolutionType} />
                   {detail.refundAmount != null && (
-                    <InfoRow label="Částka" value={<span className="text-green-700 font-bold">{formatPrice(detail.refundAmount)}</span>} />
+                    <ERPInfoRow label="Částka" value={<span className="text-green-700 font-bold">{formatPrice(detail.refundAmount)}</span>} />
                   )}
                   {detail.refundMethod && (
-                    <InfoRow label="Způsob" value={(RETURN_REFUND_METHOD_LABELS as Record<string, string>)[detail.refundMethod ?? ''] ?? detail.refundMethod} />
+                    <ERPInfoRow label="Způsob" value={(RETURN_REFUND_METHOD_LABELS as Record<string, string>)[detail.refundMethod ?? ''] ?? detail.refundMethod} />
                   )}
-                  {detail.refundReference && <InfoRow label="Reference" value={detail.refundReference} />}
+                  {detail.refundReference && <ERPInfoRow label="Reference" value={detail.refundReference} />}
                   {detail.refundProcessedAt && (
-                    <InfoRow label="Zpracováno" value={format(new Date(detail.refundProcessedAt), 'd. M. yyyy HH:mm', { locale: cs })} />
+                    <ERPInfoRow label="Zpracováno" value={format(new Date(detail.refundProcessedAt), 'd. M. yyyy HH:mm', { locale: cs })} />
                   )}
                   {detail.refundStatus && detail.refundStatus !== 'none' && (
-                    <InfoRow label="Stav platby" value={
+                    <ERPInfoRow label="Stav platby" value={
                       <span className={`text-xs font-semibold ${
                         detail.refundStatus === 'completed' ? 'text-green-700' :
                         detail.refundStatus === 'failed'    ? 'text-red-700'   :
@@ -203,21 +180,21 @@ export default function ReturnDetailPage({ params }: { params: { id: string } })
                     } />
                   )}
                   {detail.creditNoteId && (
-                    <InfoRow label="Dobropis" value={
+                    <ERPInfoRow label="Dobropis" value={
                       <Link href={`/credit-notes?highlight=${detail.creditNoteId}`} className="text-purple-600 hover:underline font-mono text-xs">
                         {detail.creditNoteNumber}
                       </Link>
                     } />
                   )}
                   {detail.exchangeOrderId && (
-                    <InfoRow label="Nová objednávka" value={
+                    <ERPInfoRow label="Nová objednávka" value={
                       <Link href={`/customer-orders?highlight=${detail.exchangeOrderId}`} className="text-indigo-600 hover:underline font-mono text-xs">
                         {detail.exchangeOrderNumber}
                       </Link>
                     } />
                   )}
                 </div>
-              </Section>
+              </ERPInfoCard>
             )}
 
             {detail.rejectionReason && (
@@ -227,17 +204,17 @@ export default function ReturnDetailPage({ params }: { params: { id: string } })
               </div>
             )}
 
-            <Section title="Interní poznámka" icon={FileText}>
+            <ERPInfoCard title="Interní poznámka" icon={FileText}>
               {detail.adminNote
                 ? <p className="text-sm text-gray-700 whitespace-pre-wrap">{detail.adminNote}</p>
                 : <p className="text-xs text-gray-400 italic">Žádná interní poznámka</p>
               }
-            </Section>
+            </ERPInfoCard>
           </div>
 
           {/* Right column */}
           <div className="space-y-4">
-            <Section title="Historie stavu" icon={Clock}>
+            <ERPInfoCard title="Historie stavu" icon={Clock}>
               <button
                 onClick={() => setShowTimeline(v => !v)}
                 className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 mb-3 transition-colors"
@@ -246,10 +223,10 @@ export default function ReturnDetailPage({ params }: { params: { id: string } })
                 {showTimeline ? 'Skrýt' : 'Zobrazit'}
               </button>
               {showTimeline && <ReturnTimeline history={detail.statusHistory} />}
-            </Section>
+            </ERPInfoCard>
 
             {detail.attachments.length > 0 && (
-              <Section title="Přílohy" icon={FileText}>
+              <ERPInfoCard title="Přílohy" icon={FileText}>
                 <div className="space-y-1.5">
                   {detail.attachments.map(att => (
                     <a key={att.id} href={att.url} target="_blank" rel="noopener noreferrer"
@@ -260,7 +237,7 @@ export default function ReturnDetailPage({ params }: { params: { id: string } })
                     </a>
                   ))}
                 </div>
-              </Section>
+              </ERPInfoCard>
             )}
 
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
@@ -268,10 +245,10 @@ export default function ReturnDetailPage({ params }: { params: { id: string } })
                 <p className="text-sm font-semibold text-gray-700">Přehled</p>
               </div>
               <div className="px-5 py-4 space-y-2">
-                <InfoRow label="Položek celkem"     value={detail.itemCount} />
-                <InfoRow label="Schváleno"           value={detail.approvedItemCount} />
-                <InfoRow label="Zpracovává"          value={detail.handledByName ?? '—'} />
-                <InfoRow label="Vypočtená refundace" value={
+                <ERPInfoRow label="Položek celkem"     value={detail.itemCount} />
+                <ERPInfoRow label="Schváleno"           value={detail.approvedItemCount} />
+                <ERPInfoRow label="Zpracovává"          value={detail.handledByName ?? '—'} />
+                <ERPInfoRow label="Vypočtená refundace" value={
                   <span className="text-green-700 font-bold">{formatPrice(detail.totalApprovedRefund)}</span>
                 } />
               </div>
