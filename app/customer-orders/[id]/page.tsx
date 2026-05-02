@@ -115,7 +115,7 @@ export default function CustomerOrderDetailPage({ params }: { params: { id: stri
     )
     return (
       <ERPSplitButton
-        primary={{ label: 'Vyskladnit', icon: Package, color: 'blue', onClick: () => router.push(`/delivery-notes/new?orderId=${order.id}`) }}
+        primary={{ label: 'Vyskladnit', icon: Package, color: 'blue', onClick: () => router.push(`/delivery-notes?orderId=${order.id}`) }}
         secondary={pdf}
       />
     )

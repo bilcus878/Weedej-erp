@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useMemo, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Package } from 'lucide-react'
 import { EntityPage, LoadingState, ErrorState } from '@/components/erp'
 import { useCompanySettings } from '@/components/erp/hooks/useCompanySettings'
@@ -16,6 +17,10 @@ import {
 export const dynamic = 'force-dynamic'
 
 export default function DeliveryNotesPage() {
+  const searchParams   = useSearchParams()
+  const autoOrderId    = searchParams.get('orderId')
+  const autoOpened     = useRef(false)
+
   const { isVatPayer }    = useCompanySettings()
   const { toast, showToast } = useToast()
   const { ep, filters }   = useDeliveryNotes()
@@ -24,6 +29,15 @@ export default function DeliveryNotesPage() {
 
   const handlePrepareShipmentRef = useRef(processing.handlePrepareShipment)
   handlePrepareShipmentRef.current = processing.handlePrepareShipment
+
+  // Auto-open the fulfillment modal when navigated from Vyskladnit on order detail
+  useEffect(() => {
+    if (!autoOrderId || autoOpened.current || processing.pendingOrders.length === 0) return
+    const found = processing.pendingOrders.find(o => o.id === autoOrderId)
+    if (!found) return
+    autoOpened.current = true
+    handlePrepareShipmentRef.current(autoOrderId)
+  }, [autoOrderId, processing.pendingOrders])
 
   useEffect(() => {
     const orders = processing.pendingOrders.map(o => ({
