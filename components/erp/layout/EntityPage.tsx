@@ -144,34 +144,16 @@ function Table<T>({
     </div>
   )
 
-  if (rows.length === 0) {
-    if (renderMobileCard) {
-      return (
-        <>
-          <div className="md:hidden space-y-1">
-            <div className="overflow-x-auto">{header}</div>
-            {emptyEl}
-          </div>
-          <div className="hidden md:block space-y-1">{header}{emptyEl}</div>
-        </>
-      )
-    }
-    return (
-      <div className="space-y-1">
-        {header}
-        {emptyEl}
-      </div>
-    )
-  }
-
-  const dataRows = rows.map(row => {
+  // Single render pass — both desktop and mobile views built from the same row.
+  // Mobile section and desktop section each pull from this one array; no duplicate mapping.
+  const rowItems = rows.map(row => {
     const id          = getRowId(row)
     const isExpanded  = expanded?.has(id) ?? false
     const isHighlit   = highlightId === id
     const extraClass  = rowClassName?.(row) ?? ''
     const isClickable = !!(onToggle || onRowClick)
 
-    return (
+    const desktopRow = (
       <div
         key={id}
         id={`row-${id}`}
@@ -180,7 +162,6 @@ function Table<T>({
           isExpanded ? 'ring-2 ring-blue-400' : ''
         } ${extraClass}`}
       >
-        {/* Summary row */}
         <div
           className={`grid items-center gap-4 px-4 py-3 transition-colors ${isClickable ? 'cursor-pointer hover:bg-gray-50' : ''}`}
           style={{ gridTemplateColumns: gridTemplate }}
@@ -196,16 +177,11 @@ function Table<T>({
             )}
           </div>
           {columns.map(col => (
-            <div
-              key={col.key}
-              className={`text-${col.align ?? 'center'} ${col.className ?? ''} min-w-0`}
-            >
+            <div key={col.key} className={`text-${col.align ?? 'center'} ${col.className ?? ''} min-w-0`}>
               {col.render(row)}
             </div>
           ))}
         </div>
-
-        {/* Expanded detail */}
         {isExpanded && renderDetail && (
           <div className="border-t p-4 bg-gray-50 space-y-4">
             {renderDetail(row)}
@@ -213,36 +189,36 @@ function Table<T>({
         )}
       </div>
     )
+
+    return { id, desktopRow, mobileRow: renderMobileCard ? renderMobileCard(row) : null }
   })
 
-  if (renderMobileCard) {
+  if (!renderMobileCard) {
     return (
-      <>
-        {/* ── Mobile card list (< md) ───────────────────────────────────── */}
-        <div className="md:hidden space-y-1">
-          <div className="overflow-x-auto">{header}</div>
-          <ul className="border rounded-lg divide-y divide-gray-100 bg-white mt-1">
-            {rows.map(row => (
-              <li key={getRowId(row)}>{renderMobileCard(row)}</li>
-            ))}
-          </ul>
-        </div>
-        {/* ── Desktop grid table (≥ md) ─────────────────────────────────── */}
-        <div className="hidden md:block space-y-1">
-          {header}
-          {dataRows}
-        </div>
-      </>
+      <div className="space-y-1">
+        {header}
+        {rowItems.length === 0 ? emptyEl : rowItems.map(({ desktopRow }) => desktopRow)}
+      </div>
     )
   }
 
   return (
-    <div className="space-y-1">
-      {/* Header row */}
-      {header}
-      {/* Data rows */}
-      {dataRows}
-    </div>
+    <>
+      {/* ── Mobile card list (< md) ───────────────────────────────────── */}
+      <div className="md:hidden space-y-1">
+        <div className="overflow-x-auto">{header}</div>
+        {rowItems.length === 0 ? emptyEl : (
+          <ul className="border rounded-lg divide-y divide-gray-100 bg-white mt-1">
+            {rowItems.map(({ id, mobileRow }) => <li key={id}>{mobileRow}</li>)}
+          </ul>
+        )}
+      </div>
+      {/* ── Desktop grid table (≥ md) ─────────────────────────────────── */}
+      <div className="hidden md:block space-y-1">
+        {header}
+        {rowItems.length === 0 ? emptyEl : rowItems.map(({ desktopRow }) => desktopRow)}
+      </div>
+    </>
   )
 }
 

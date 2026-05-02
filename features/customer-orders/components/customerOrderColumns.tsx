@@ -6,7 +6,6 @@ import { formatDate } from '@/lib/shared/dates/format'
 import { formatPrice } from '@/lib/shared/finance/money'
 import type { ColumnDef, SelectOption, FiltersResult } from '@/components/erp'
 import { FilterInput, FilterSelect, FilterCombobox } from '@/components/erp'
-import { ERPMobileCard } from '@/components/erp/list/ERPResponsiveList'
 import { PAYMENT_OPTIONS } from '@/features/shared/paymentOptions'
 import type { CustomerOrder } from '../types'
 import { CustomerOrderStatusBadge } from './CustomerOrderStatusBadge'
@@ -102,6 +101,8 @@ export function createCustomerOrderColumns(
 }
 
 // ── Mobile card ───────────────────────────────────────────────────────────────
+// Purpose-fit ERP card — hierarchy: number → amount → customer → date.
+// Designed for <1s recognition; does not use generic ERPMobileCard.
 
 export function CustomerOrderMobileCard({
   order,
@@ -110,21 +111,41 @@ export function CustomerOrderMobileCard({
   order:    CustomerOrder
   onClick?: () => void
 }) {
+  const isStorno = order.status === 'storno'
   return (
-    <ERPMobileCard
-      title={
-        <span className={`font-mono font-bold text-violet-700 ${order.status === 'storno' ? 'line-through' : ''}`}>
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={onClick ? e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } } : undefined}
+      className={[
+        'px-4 py-3.5 select-none',
+        isStorno ? 'opacity-60' : '',
+        onClick ? 'cursor-pointer hover:bg-gray-50 active:bg-blue-50/60 transition-colors' : '',
+      ].filter(Boolean).join(' ')}
+    >
+      {/* Primary: order number + status — scanned first */}
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <span className={`font-mono text-sm font-bold text-violet-700 leading-none${isStorno ? ' line-through' : ''}`}>
           {order.orderNumber}
         </span>
-      }
-      badge={<CustomerOrderStatusBadge status={order.status} />}
-      subtitle={order.customer?.name || order.customerName || undefined}
-      fields={[
-        { label: 'Datum',   value: formatDate(order.orderDate) },
-        { label: 'Položek', value: String(order.items.length)  },
-      ]}
-      amount={formatPrice(order.totalAmount)}
-      onClick={onClick}
-    />
+        <CustomerOrderStatusBadge status={order.status} />
+      </div>
+
+      {/* Secondary: amount (financial KPI) + customer name */}
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="text-base font-bold text-gray-900 tabular-nums leading-tight shrink-0">
+          {formatPrice(order.totalAmount)}
+        </span>
+        <span className="text-sm text-gray-500 truncate text-right min-w-0">
+          {order.customer?.name || order.customerName || '—'}
+        </span>
+      </div>
+
+      {/* Tertiary: date — contextual, low weight */}
+      <div className="mt-1.5 text-xs text-gray-400">
+        {formatDate(order.orderDate)}
+      </div>
+    </div>
   )
 }

@@ -62,6 +62,17 @@ export default function CustomerOrdersPage() {
             onClick={() => router.push(`/customer-orders/${r.id}`)}
           />
         )}
+        empty={
+          <div className="flex flex-col items-center gap-4 py-16 px-4 text-center">
+            <p className="text-sm text-gray-500">Žádné objednávky</p>
+            <button
+              onClick={() => openCreateRef.current()}
+              className="flex items-center gap-1.5 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium rounded-lg transition-colors"
+            >
+              <Plus className="w-4 h-4" /> Vytvořit objednávku
+            </button>
+          </div>
+        }
       />
 
       <EntityPage.Pagination page={ep.page} total={ep.totalPages} onChange={ep.setPage} />
