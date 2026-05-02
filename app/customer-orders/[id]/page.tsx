@@ -9,7 +9,7 @@ import {
   ExternalLink, CheckCircle, XCircle, Package, TrendingUp, Printer,
 } from 'lucide-react'
 import { LoadingState, ErrorState }                                     from '@/components/erp'
-import { ERPStatusTimeline, ERPInfoCard, ERPERPInfoRow }                   from '@/components/erp/detail'
+import { ERPStatusTimeline, ERPInfoCard, ERPInfoRow }                      from '@/components/erp/detail'
 import { OrderItemsSection, ShippingSection, StornoSection }            from '@/components/erp/detail'
 import type { TimelineEntry }                                           from '@/components/erp/detail'
 import { useNavbarMeta }                                   from '@/components/erp/navbar/NavbarMetaContext'
