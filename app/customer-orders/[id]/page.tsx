@@ -6,7 +6,7 @@ import Link              from 'next/link'
 import {
   ShoppingCart,
   User, CreditCard, Clock,
-  ExternalLink, CheckCircle, XCircle, Package, Send, Printer,
+  ExternalLink, CheckCircle, XCircle, Package, Send, Printer, TrendingUp,
 } from 'lucide-react'
 import { LoadingState, ErrorState }                                     from '@/components/erp'
 import { ERPStatusTimeline, ERPInfoCard, ERPInfoRow, ERPDetailHeader, ERPSplitButton } from '@/components/erp/detail'
@@ -77,79 +77,56 @@ export default function CustomerOrderDetailPage({ params }: { params: { id: stri
 
   const mapped      = mapCustomerOrderToOrderDetail(order)
   const isCancelled = ['cancelled', 'storno'].includes(order.status)
-  const isPaid      = ['paid', 'shipped', 'delivered'].includes(order.status)
+  const isPaid      = ['paid', 'processing', 'shipped', 'delivered'].includes(order.status)
+  const isShipped   = order.status === 'shipped'
+  const isDelivered = order.status === 'delivered'
   const hasShipping = !!(order.shippingMethod || order.pickupPointId)
 
-  const activeNotes    = (mapped.deliveryNotes ?? []).filter(dn => dn.status === 'active')
-  const hasActiveNote  = activeNotes.length > 0
-  const hasBilling     = !!(mapped.billingStreet || mapped.billingCity)
-  const inv            = mapped.issuedInvoice
-  const isCompleted    = ['shipped', 'delivered'].includes(order.status)
-  const showMainActions = !isCancelled && !isCompleted
+  const activeNotes   = (mapped.deliveryNotes ?? []).filter(dn => dn.status === 'active')
+  const hasActiveNote = activeNotes.length > 0
+  const hasBilling    = !!(mapped.billingStreet || mapped.billingCity)
+  const inv           = mapped.issuedInvoice
 
-  // ── Action buttons ──────────────────────────────────────────────────────────
+  // ── Single split button — advances through the order lifecycle ──────────────
+
+  const pdf = { label: 'PDF', icon: Printer, onClick: () => handlePrintPDF(order) }
+
+  const mainSplitButton = (() => {
+    if (isCancelled || isDelivered) return (
+      <ERPSplitButton primary={{ ...pdf, color: 'blue' }} />
+    )
+    if (!isPaid) return (
+      <ERPSplitButton
+        primary={{ label: 'Zaplaceno', icon: CheckCircle, color: 'indigo', onClick: () => handleMarkPaid(order.id) }}
+        secondary={pdf}
+      />
+    )
+    if (isShipped) return (
+      <ERPSplitButton
+        primary={{ label: 'Doručeno', icon: TrendingUp, color: 'green', onClick: () => handleUpdateStatus(order.id, 'delivered') }}
+        secondary={pdf}
+      />
+    )
+    if (hasActiveNote) return (
+      <ERPSplitButton
+        primary={{ label: 'Odeslat', icon: Send, color: 'emerald', onClick: () => handleUpdateStatus(order.id, 'shipped') }}
+        secondary={pdf}
+      />
+    )
+    return (
+      <ERPSplitButton
+        primary={{ label: 'Vyskladnit', icon: Package, color: 'blue', onClick: () => router.push(`/delivery-notes/new?orderId=${order.id}`) }}
+        secondary={pdf}
+      />
+    )
+  })()
 
   const headerActions = (
     <>
-      {/* Mark as paid — only when unpaid and not cancelled */}
-      {!isPaid && !isCancelled && (
-        <ERPSplitButton
-          primary={{
-            label:   'Zaplaceno',
-            icon:    CheckCircle,
-            color:   'indigo',
-            onClick: () => handleMarkPaid(order.id),
-          }}
-        />
-      )}
-
-      {/* Main split button state machine */}
-      {showMainActions && !hasActiveNote && (
-        <ERPSplitButton
-          primary={{
-            label:   'Vyskladnit',
-            icon:    Package,
-            color:   'blue',
-            onClick: () => router.push(`/delivery-notes/new?orderId=${order.id}`),
-          }}
-          secondary={{
-            label:   'PDF',
-            icon:    Printer,
-            onClick: () => handlePrintPDF(order),
-          }}
-        />
-      )}
-
-      {showMainActions && hasActiveNote && (
-        <ERPSplitButton
-          primary={{
-            label:   'Odeslat',
-            icon:    Send,
-            color:   'emerald',
-            onClick: () => handleUpdateStatus(order.id, 'shipped'),
-          }}
-          secondary={{
-            label:   'PDF',
-            icon:    Printer,
-            onClick: () => handlePrintPDF(order),
-          }}
-        />
-      )}
-
-      {/* After shipping/delivery or cancelled — PDF only */}
-      {(isCompleted || isCancelled) && (
-        <ERPSplitButton
-          primary={{
-            label:   'PDF',
-            icon:    Printer,
-            color:   'blue',
-            onClick: () => handlePrintPDF(order),
-          }}
-        />
-      )}
+      {mainSplitButton}
 
       {/* Cancel — only while still actionable */}
-      {!isCancelled && (
+      {!isCancelled && !isDelivered && (
         <button
           onClick={() => handleUpdateStatus(order.id, 'cancelled')}
           className="flex items-center gap-1.5 px-2.5 py-1.5 text-red-600 hover:bg-red-50 text-xs font-medium rounded-lg transition-colors border border-red-200"
