@@ -167,7 +167,7 @@ export default function CustomerOrderDetailPage({ params }: { params: { id: stri
       }
       sidebar={
         <div className="space-y-4">
-          <DocumentActionsCard actions={actions} />
+          <DocumentOverviewCard rows={overviewRows} />
           <CustomerContactSection
             name={mapped.customerName}
             email={mapped.customerEmail}
@@ -185,7 +185,7 @@ export default function CustomerOrderDetailPage({ params }: { params: { id: stri
             entries={buildTimeline(mapped)}
             statusConfig={STATUS_CONFIG}
           />
-          <DocumentOverviewCard rows={overviewRows} />
+          <DocumentActionsCard actions={actions} />
         </div>
       }
     >
