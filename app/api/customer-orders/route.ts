@@ -2,11 +2,14 @@
 // URL: /api/customer-orders
 
 import { NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/platform/auth/auth'
 import { prisma } from '@/lib/platform/db/prisma'
 import { getNextDocumentNumber } from '@/lib/shared/documents/documentSeries'
 import { createReservations, canReserveQuantity } from '@/lib/features/eshop/reservationManagement'
 import { applyDiscountAndCalculateVat, calculateVatFromGross, round2, calculateLineVat } from '@/lib/shared/finance/vatCalculation'
 import { archiveCustomerOrder, archiveAsync } from '@/lib/platform/documents/DocumentArchiveService'
+import { createAuditLog } from '@/lib/platform/audit/auditService'
 
 export const dynamic = 'force-dynamic'
 
@@ -61,6 +64,12 @@ export async function GET(request: Request) {
 // POST /api/customer-orders - Vytvořit novou objednávku
 export async function POST(request: Request) {
   try {
+    const session = await getServerSession(authOptions)
+    const userId   = (session?.user as any)?.id   ?? null
+    const username = session?.user?.email ?? session?.user?.name ?? null
+    const ipAddress = request.headers.get('x-forwarded-for')?.split(',')[0].trim()
+      ?? request.headers.get('x-real-ip') ?? null
+
     const body = await request.json()
     const {
       customerId,
@@ -320,6 +329,15 @@ export async function POST(request: Request) {
 
     console.log(`✓ Vytvořena objednávka ${order.orderNumber}, vytvořeny rezervace`)
     archiveAsync(() => archiveCustomerOrder(order.id), `CustomerOrder ${order.orderNumber} v1`)
+
+    await createAuditLog({
+      userId, username, ipAddress,
+      actionType: 'CREATE',
+      entityName: 'CustomerOrder',
+      entityId:   order.id,
+      newValue:   order.orderNumber,
+      module:     'customer-orders',
+    })
 
     // Automaticky vytvoř vystavenou fakturu (nezaplacenou) pro tuto objednávku
     try {

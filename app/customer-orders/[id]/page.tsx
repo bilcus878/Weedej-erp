@@ -4,7 +4,7 @@ import { useEffect }     from 'react'
 import { useRouter }     from 'next/navigation'
 import Link              from 'next/link'
 import {
-  ArrowLeft, RefreshCw, ShoppingCart,
+  ArrowLeft, ShoppingCart,
   User, CreditCard, Clock,
   ExternalLink, CheckCircle, XCircle, Package, TrendingUp, Printer,
 } from 'lucide-react'
@@ -18,6 +18,7 @@ import {
   useCustomerOrderDetail,
   useCustomerOrderActions,
   CustomerOrderStatusBadge,
+  CustomerOrderAuditSection,
   mapCustomerOrderToOrderDetail,
 } from '@/features/customer-orders'
 import type { OrderDetailData } from '@/components/erp'
@@ -81,7 +82,6 @@ export default function CustomerOrderDetailPage({ params }: { params: { id: stri
 
   const activeNotes    = (mapped.deliveryNotes ?? []).filter(dn => dn.status === 'active')
   const hasActiveNote  = activeNotes.length > 0
-  const catalogCount   = mapped.items.filter(i => i.productId !== null).length
   const hasBilling     = !!(mapped.billingStreet || mapped.billingCity)
   const inv            = mapped.issuedInvoice
 
@@ -90,7 +90,7 @@ export default function CustomerOrderDetailPage({ params }: { params: { id: stri
 
       {/* ── Header card ──────────────────────────────────────────────────── */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-        <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100">
+        <div className="flex items-center gap-3 px-6 py-4">
           <button
             onClick={() => router.push('/customer-orders')}
             className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors shrink-0"
@@ -109,54 +109,56 @@ export default function CustomerOrderDetailPage({ params }: { params: { id: stri
           </div>
           <div className="ml-auto flex items-center gap-2 flex-wrap justify-end shrink-0">
             <CustomerOrderStatusBadge status={order.status} />
-            <button onClick={refresh} title="Obnovit" className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-gray-400">
-              <RefreshCw className="w-4 h-4" />
+            {!isPaid && !isCancelled && (
+              <button
+                onClick={() => handleMarkPaid(order.id)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg transition-colors"
+              >
+                <CheckCircle className="w-3.5 h-3.5" /> Zaplaceno
+              </button>
+            )}
+            <button
+              onClick={() => handlePrintPDF(order)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-semibold rounded-lg transition-colors"
+            >
+              <Printer className="w-3.5 h-3.5" /> PDF
             </button>
+            {!isCancelled && !hasActiveNote && (
+              <button
+                onClick={() => router.push(`/delivery-notes/new?orderId=${order.id}`)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-semibold rounded-lg transition-colors"
+              >
+                <Package className="w-3.5 h-3.5" /> Výdejka
+              </button>
+            )}
+            {order.status === 'shipped' && (
+              <button
+                onClick={() => handleUpdateStatus(order.id, 'delivered')}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-semibold rounded-lg transition-colors"
+              >
+                <TrendingUp className="w-3.5 h-3.5" /> Doručeno
+              </button>
+            )}
+            {!isCancelled && (
+              <button
+                onClick={() => handleUpdateStatus(order.id, 'cancelled')}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-red-600 hover:bg-red-50 text-xs font-medium rounded-lg transition-colors border border-red-200"
+              >
+                <XCircle className="w-3.5 h-3.5" /> Zrušit
+              </button>
+            )}
           </div>
         </div>
-
-        {/* Actions strip */}
-        <div className="px-6 py-3 bg-gray-50/60 flex items-center gap-2 flex-wrap">
-          {!isPaid && !isCancelled && (
-            <button
-              onClick={() => handleMarkPaid(order.id)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg transition-colors"
-            >
-              <CheckCircle className="w-3.5 h-3.5" /> Označit jako zaplacené
-            </button>
-          )}
-          <button
-            onClick={() => handlePrintPDF(order)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-semibold rounded-lg transition-colors"
-          >
-            <Printer className="w-3.5 h-3.5" /> Tisk / PDF
-          </button>
-          {!isCancelled && !hasActiveNote && (
-            <button
-              onClick={() => router.push(`/delivery-notes/new?orderId=${order.id}`)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-semibold rounded-lg transition-colors"
-            >
-              <Package className="w-3.5 h-3.5" /> Výdejka
-            </button>
-          )}
-          {order.status === 'shipped' && (
-            <button
-              onClick={() => handleUpdateStatus(order.id, 'delivered')}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-semibold rounded-lg transition-colors"
-            >
-              <TrendingUp className="w-3.5 h-3.5" /> Označit jako doručené
-            </button>
-          )}
-          {!isCancelled && (
-            <button
-              onClick={() => handleUpdateStatus(order.id, 'cancelled')}
-              className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-red-600 hover:bg-red-50 text-xs font-medium rounded-lg transition-colors border border-red-200"
-            >
-              <XCircle className="w-3.5 h-3.5" /> Zrušit
-            </button>
-          )}
-        </div>
       </div>
+
+      {/* ── Historie — full width, above grid ────────────────────────────── */}
+      <ERPInfoCard title="Historie" icon={Clock}>
+        <ERPStatusTimeline
+          entries={buildTimeline(mapped)}
+          statusConfig={STATUS_CONFIG}
+          compact
+        />
+      </ERPInfoCard>
 
       {/* ── Content grid ─────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -241,14 +243,14 @@ export default function CustomerOrderDetailPage({ params }: { params: { id: stri
                   </div>
                 } />
               )}
+              <div className="flex items-center justify-between pt-2 mt-1 border-t border-gray-100">
+                <span className="text-xs text-gray-500">{isVatPayer ? 'Celkem s DPH' : 'Celkem'}</span>
+                <span className="text-base font-bold text-gray-900 tabular-nums">
+                  {formatPrice(Number(mapped.totalAmount))}
+                </span>
+              </div>
             </ERPInfoCard>
           </div>
-
-          {/* Items */}
-          <OrderItemsSection order={mapped} isVatPayer={isVatPayer} />
-
-          {/* Shipping */}
-          {hasShipping && <ShippingSection order={mapped} onRefresh={refresh} />}
 
           {/* Storno */}
           {isCancelled && (
@@ -263,36 +265,21 @@ export default function CustomerOrderDetailPage({ params }: { params: { id: stri
         {/* ── Sidebar ── */}
         <div className="space-y-4">
 
-          {/* Přehled + KPI total */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-            <div className="px-5 py-3.5 border-b border-gray-100">
-              <p className="text-sm font-semibold text-gray-700">Přehled</p>
-            </div>
-            <div className="px-5 py-4">
-              <ERPInfoRow label="Číslo" value={
-                <span className="font-mono text-violet-700">{mapped.orderNumber}</span>
-              } />
-              <ERPInfoRow label="Položek" value={catalogCount} />
-              {hasActiveNote && <ERPInfoRow label="Výdejky" value={activeNotes.length} />}
-            </div>
-            <div className="px-5 py-3.5 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
-              <span className="text-xs text-gray-500">{isVatPayer ? 'Celkem s DPH' : 'Celkem'}</span>
-              <span className="text-xl font-bold text-gray-900 tabular-nums">
-                {formatPrice(Number(mapped.totalAmount))}
-              </span>
-            </div>
-          </div>
-
-          {/* Historie */}
-          <ERPInfoCard title="Historie" icon={Clock}>
-            <ERPStatusTimeline
-              entries={buildTimeline(mapped)}
-              statusConfig={STATUS_CONFIG}
-              compact
-            />
-          </ERPInfoCard>
+          {/* Doprava */}
+          {hasShipping && <ShippingSection order={mapped} onRefresh={refresh} />}
 
         </div>
+
+        {/* ── Položky — full width ─────────────────────────────────────────── */}
+        <div className="lg:col-span-3">
+          <OrderItemsSection order={mapped} isVatPayer={isVatPayer} />
+        </div>
+
+        {/* ── Audit / Historie změn — full width ──────────────────────────── */}
+        <div className="lg:col-span-3">
+          <CustomerOrderAuditSection orderId={order.id} />
+        </div>
+
       </div>
     </div>
   )

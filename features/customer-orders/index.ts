@@ -1,9 +1,12 @@
 export { useCustomerOrders }             from './hooks/useCustomerOrders'
 export { useCustomerOrderDetail }        from './hooks/useCustomerOrderDetail'
 export { useCustomerOrderActions }       from './hooks/useCustomerOrderActions'
+export { useCustomerOrderAudit }         from './hooks/useCustomerOrderAudit'
 export { createCustomerOrderColumns, CustomerOrderMobileCard } from './components/customerOrderColumns'
 export { CustomerOrderStatusBadge }      from './components/CustomerOrderStatusBadge'
 export { CreateCustomerOrderForm }       from './components/CreateCustomerOrderForm'
+export { CustomerOrderAuditSection }     from './components/CustomerOrderAuditSection'
 export { mapCustomerOrderToOrderDetail } from './domain/customerOrderMapper'
 
 export type { CustomerOrder, Customer, Product, ManualCustomerData, BillingAddress } from './types'
+export type { AuditEntry }               from './hooks/useCustomerOrderAudit'

@@ -2,8 +2,11 @@
 // URL: /api/customer-orders/[id]
 
 import { NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/platform/auth/auth'
 import { prisma } from '@/lib/platform/db/prisma'
 import { CustomerOrderStatus, CUSTOMER_ORDER_TRANSITIONS } from '@/lib/shared/constants/customerOrder'
+import { createAuditLog, diffAndLog } from '@/lib/platform/audit/auditService'
 
 export const dynamic = 'force-dynamic'
 
@@ -62,6 +65,12 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
+    const session = await getServerSession(authOptions)
+    const userId   = (session?.user as any)?.id   ?? null
+    const username = session?.user?.email ?? session?.user?.name ?? null
+    const ipAddress = request.headers.get('x-forwarded-for')?.split(',')[0].trim()
+      ?? request.headers.get('x-real-ip') ?? null
+
     const body = await request.json()
     const { status, customerName, customerEmail, customerPhone, customerAddress, note } = body
 
@@ -69,6 +78,7 @@ export async function PATCH(
     // Any attempt to set a status that requires financial or stock side-effects must use
     // the dedicated action routes (mark-paid, ship, cancel).
     let validatedStatus: string | undefined
+    let beforeStatus: string | undefined
     if (status !== undefined) {
       const existing = await prisma.customerOrder.findUnique({
         where: { id: params.id },
@@ -85,7 +95,13 @@ export async function PATCH(
         )
       }
       validatedStatus = status
+      beforeStatus = currentStatus
     }
+
+    const before = status === undefined ? await prisma.customerOrder.findUnique({
+      where: { id: params.id },
+      select: { customerName: true, customerEmail: true, customerPhone: true, customerAddress: true, note: true },
+    }) : null
 
     const order = await prisma.customerOrder.update({
       where: { id: params.id },
@@ -103,6 +119,19 @@ export async function PATCH(
         reservations: true,
       }
     })
+
+    const auditBase = { userId, username, ipAddress, entityName: 'CustomerOrder', entityId: params.id, module: 'customer-orders' }
+    if (validatedStatus !== undefined) {
+      await createAuditLog({ ...auditBase, actionType: 'UPDATE', fieldName: 'status', oldValue: beforeStatus ?? null, newValue: validatedStatus })
+    } else if (before) {
+      await Promise.all(diffAndLog(auditBase, before as any, {
+        customerName:    order.customerName,
+        customerEmail:   order.customerEmail,
+        customerPhone:   order.customerPhone,
+        customerAddress: order.customerAddress,
+        note:            order.note,
+      } as any))
+    }
 
     return NextResponse.json(order)
   } catch (error: any) {

@@ -2,8 +2,11 @@
 // URL: /api/customer-orders/[id]/mark-paid
 
 import { NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/platform/auth/auth'
 import { prisma } from '@/lib/platform/db/prisma'
 import { archiveCustomerOrder, archiveAsync } from '@/lib/platform/documents/DocumentArchiveService'
+import { createAuditLog } from '@/lib/platform/audit/auditService'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,6 +16,12 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
+    const session = await getServerSession(authOptions)
+    const userId   = (session?.user as any)?.id   ?? null
+    const username = session?.user?.email ?? session?.user?.name ?? null
+    const ipAddress = request.headers.get('x-forwarded-for')?.split(',')[0].trim()
+      ?? request.headers.get('x-real-ip') ?? null
+
     const body = await request.json()
     const { sumupTransactionId } = body
 
@@ -61,6 +70,17 @@ export async function POST(
 
     console.log(`✓ Objednávka ${order.orderNumber} označena jako zaplacená`)
     archiveAsync(() => archiveCustomerOrder(params.id), `CustomerOrder ${order.orderNumber} paid`)
+
+    await createAuditLog({
+      userId, username, ipAddress,
+      actionType: 'UPDATE',
+      entityName: 'CustomerOrder',
+      entityId:   params.id,
+      fieldName:  'status',
+      oldValue:   order.status,
+      newValue:   'paid',
+      module:     'customer-orders',
+    })
 
     return NextResponse.json(updated)
   } catch (error) {
