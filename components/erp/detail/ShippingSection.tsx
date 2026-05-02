@@ -41,6 +41,7 @@ export function ShippingSection({ order, onRefresh, onSaveTracking, title = 'Dor
   const [editing, setEditing]     = useState(false)
   const [form, setForm]           = useState({ trackingNumber: '', carrier: '' })
   const [saving, setSaving]       = useState(false)
+  const [showMap, setShowMap]     = useState(false)
 
   const hasTracking  = !!(order.trackingNumber || order.carrier)
   const carrierKey   = (order.pickupPointCarrier || order.carrier || '').toLowerCase()
@@ -204,16 +205,27 @@ export function ShippingSection({ order, onRefresh, onSaveTracking, title = 'Dor
           )}
         </div>
 
-        {/* Pickup point map */}
+        {/* Map — secondary context layer, hidden by default to avoid visual dominance */}
         {order.pickupPointId && (order.pickupPointAddress || order.pickupPointName) && (
-          <div className="rounded-lg overflow-hidden border border-gray-200">
-            <iframe
-              src={`https://maps.google.com/maps?q=${encodeURIComponent((order.pickupPointAddress || order.pickupPointName)!)}&output=embed&z=16`}
-              className="w-full h-40"
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-              title="Mapa výdejního místa"
-            />
+          <div>
+            <button
+              onClick={() => setShowMap(v => !v)}
+              className="flex items-center gap-1.5 text-xs font-medium text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <MapPin className="w-3 h-3" />
+              {showMap ? 'Skrýt mapu' : 'Zobrazit na mapě'}
+            </button>
+            {showMap && (
+              <div className="mt-2 rounded-lg overflow-hidden border border-gray-200">
+                <iframe
+                  src={`https://maps.google.com/maps?q=${encodeURIComponent((order.pickupPointAddress || order.pickupPointName)!)}&output=embed&z=16`}
+                  className="w-full h-40"
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  title="Mapa výdejního místa"
+                />
+              </div>
+            )}
           </div>
         )}
 

@@ -144,16 +144,17 @@ export function OrderSummarySection({ order, isVatPayer, title = 'Shrnutí objed
           <ERPDetailRow label="Sleva" value={formatPrice(Number(order.discountAmount))} />
         )}
 
-        {/* Total */}
-        <div className="flex items-center justify-between pt-3 mt-1 border-t border-gray-100">
-          <dt className="text-sm font-semibold text-gray-700">
-            {isVatPayer ? 'Celkem s DPH' : 'Celkem'}
-          </dt>
-          <dd className="text-base font-bold text-gray-900">
-            {formatPrice(Number(order.totalAmount))}
-          </dd>
-        </div>
       </dl>
+
+      {/* Financial KPI — dominant total, visually separated from metadata */}
+      <div className="-mx-5 -mb-4 mt-4 px-5 py-4 bg-gray-50 border-t-2 border-gray-200 rounded-b-xl flex items-center justify-between">
+        <dt className="text-sm font-medium text-gray-500">
+          {isVatPayer ? 'Celkem s DPH' : 'Celkem'}
+        </dt>
+        <dd className="text-2xl font-bold text-gray-900 tabular-nums">
+          {formatPrice(Number(order.totalAmount))}
+        </dd>
+      </div>
 
       {/* Delivery notes */}
       {activeDeliveryNotes.length > 0 && (

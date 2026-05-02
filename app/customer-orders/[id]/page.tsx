@@ -189,15 +189,18 @@ export default function CustomerOrderDetailPage({ params }: { params: { id: stri
         </div>
       }
     >
-      {/* Order summary */}
-      <OrderSummarySection order={mapped} isVatPayer={isVatPayer} />
+      {/* 1. Primary work area — what was ordered */}
+      <OrderItemsSection order={mapped} isVatPayer={isVatPayer} />
 
-      {/* Shipping — only when order has delivery data */}
+      {/* 2. Logistics — how it moves */}
       {hasShipping && (
         <ShippingSection order={mapped} onRefresh={refresh} />
       )}
 
-      {/* Storno — only for cancelled orders */}
+      {/* 3. Financial summary — what it costs */}
+      <OrderSummarySection order={mapped} isVatPayer={isVatPayer} />
+
+      {/* 4. Storno — only for terminal cancelled state */}
       {isCancelled && (
         <StornoSection
           stornoAt={mapped.stornoAt}
@@ -205,9 +208,6 @@ export default function CustomerOrderDetailPage({ params }: { params: { id: stri
           stornoReason={mapped.stornoReason}
         />
       )}
-
-      {/* Items table */}
-      <OrderItemsSection order={mapped} isVatPayer={isVatPayer} />
     </ERPDetailPageLayout>
   )
 }
