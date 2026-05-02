@@ -129,6 +129,16 @@ export default function CustomerOrderDetailPage({ params }: { params: { id: stri
               </button>
             )}
 
+            {/* Blue Vyskladnit — only when no active delivery note yet */}
+            {!isCancelled && !hasActiveNote && (
+              <button
+                onClick={() => router.push(`/delivery-notes/new?orderId=${order.id}`)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm"
+              >
+                <Package className="w-3.5 h-3.5" /> Vyskladnit
+              </button>
+            )}
+
             {/* Secondary toolbar */}
             <div className="flex items-center divide-x divide-gray-200 rounded-lg border border-gray-200 overflow-hidden text-xs font-medium text-gray-600">
               <button
@@ -137,14 +147,6 @@ export default function CustomerOrderDetailPage({ params }: { params: { id: stri
               >
                 <Printer className="w-3.5 h-3.5" /> PDF
               </button>
-              {!isCancelled && !hasActiveNote && (
-                <button
-                  onClick={() => router.push(`/delivery-notes/new?orderId=${order.id}`)}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 hover:bg-gray-50 transition-colors"
-                >
-                  <Package className="w-3.5 h-3.5" /> Výdejka
-                </button>
-              )}
               {order.status === 'shipped' && (
                 <button
                   onClick={() => handleUpdateStatus(order.id, 'delivered')}

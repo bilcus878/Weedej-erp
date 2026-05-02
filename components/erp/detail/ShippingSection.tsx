@@ -84,11 +84,6 @@ export function ShippingSection({ order, onRefresh, onSaveTracking, title = 'Dor
       <div className="flex items-center gap-2 px-4 py-3.5 border-b border-gray-100 shrink-0">
         <Truck className="w-3.5 h-3.5 text-gray-400 shrink-0" aria-hidden />
         <span className="text-sm font-semibold text-gray-700">{title}</span>
-        {order.pickupPointCarrier && (
-          <span className="ml-auto text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded-full shrink-0">
-            {order.pickupPointCarrier}
-          </span>
-        )}
       </div>
 
       {/* ── Info ── */}
@@ -102,6 +97,13 @@ export function ShippingSection({ order, onRefresh, onSaveTracking, title = 'Dor
         {/* Location */}
         {locationLine && (
           <p className="text-xs text-gray-500 leading-relaxed">{locationLine}</p>
+        )}
+
+        {/* Pickup point ID — the most important identifier */}
+        {order.pickupPointId && (
+          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-orange-600 bg-orange-50 border border-orange-200 px-2 py-0.5 rounded-full">
+            ID {order.pickupPointId}
+          </span>
         )}
 
         {/* Tracking */}
